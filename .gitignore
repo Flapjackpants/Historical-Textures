@@ -1,0 +1,9 @@
+.gradle/
+build/
+out/
+run/
+.idea/
+*.iml
+.DS_Store
+config/historical_textures/
+src/main/resources/assets/historical_textures/catalog

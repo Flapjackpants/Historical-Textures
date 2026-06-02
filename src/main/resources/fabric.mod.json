@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "historical_textures",
+  "version": "${version}",
+  "name": "Historical Textures",
+  "description": "Select historical Minecraft textures and sounds sourced from minecraft.wiki.",
+  "authors": ["Historical Textures contributors"],
+  "contact": {
+    "sources": "https://github.com/historicaltextures/historical_textures"
+  },
+  "license": "MIT",
+  "icon": "assets/historical_textures/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.historicaltextures.HistoricalTexturesClient"],
+    "modmenu": ["dev.historicaltextures.ModMenuIntegration"]
+  },
+  "mixins": [
+    "historical_textures.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "minecraft": ">=26.1",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "modmenu": "*"
+  }
+}

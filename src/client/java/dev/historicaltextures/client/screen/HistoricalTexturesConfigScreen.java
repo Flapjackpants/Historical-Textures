@@ -1,0 +1,317 @@
+package dev.historicaltextures.client.screen;
+
+import dev.historicaltextures.catalog.HistoricalCatalog;
+import dev.historicaltextures.catalog.SoundVariant;
+import dev.historicaltextures.catalog.TextureTarget;
+import dev.historicaltextures.catalog.TextureTargetRegistry;
+import dev.historicaltextures.catalog.TextureVariant;
+import dev.historicaltextures.config.ModConfig;
+import dev.historicaltextures.pack.OverlayPackManager;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractSelectionList;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
+
+import java.util.List;
+import java.util.Locale;
+
+public final class HistoricalTexturesConfigScreen extends Screen {
+	private final Screen parent;
+	private Tab activeTab = Tab.BLOCKS;
+	private EditBox searchBox;
+	private TargetList targetList;
+	private VariantList variantList;
+	private TextureTarget selectedTarget;
+	private String selectedSoundEvent;
+	private String filter = "";
+
+	public HistoricalTexturesConfigScreen(Screen parent) {
+		super(Component.translatable("screen.historical_textures.config"));
+		this.parent = parent;
+	}
+
+	@Override
+	protected void init() {
+		int tabY = 8;
+		int tabX = 8;
+		addRenderableWidget(Button.builder(Component.literal("Blocks"), b -> switchTab(Tab.BLOCKS)).bounds(tabX, tabY, 72, 20).build());
+		addRenderableWidget(Button.builder(Component.literal("Items"), b -> switchTab(Tab.ITEMS)).bounds(tabX + 76, tabY, 72, 20).build());
+		addRenderableWidget(Button.builder(Component.literal("Entities"), b -> switchTab(Tab.ENTITIES)).bounds(tabX + 152, tabY, 72, 20).build());
+		addRenderableWidget(Button.builder(Component.literal("Sounds"), b -> switchTab(Tab.SOUNDS)).bounds(tabX + 228, tabY, 72, 20).build());
+
+		searchBox = new EditBox(font, tabX, tabY + 26, width / 2 - 16, 20, Component.literal("Search"));
+		searchBox.setResponder(value -> {
+			filter = value.toLowerCase(Locale.ROOT);
+			rebuildLists();
+		});
+		addRenderableWidget(searchBox);
+
+		int listTop = tabY + 52;
+		int listHeight = height - listTop - 64;
+		int leftWidth = width / 2 - 12;
+		int rightX = width / 2 + 4;
+
+		targetList = new TargetList(minecraft, leftWidth, listTop, listTop + listHeight);
+		variantList = new VariantList(minecraft, leftWidth, listTop, listTop + listHeight);
+		targetList.setX(8);
+		targetList.setWidth(leftWidth);
+		variantList.setX(rightX);
+		variantList.setWidth(leftWidth);
+		addRenderableWidget(targetList);
+		addRenderableWidget(variantList);
+
+		addRenderableWidget(Button.builder(Component.translatable("historical_textures.apply"), b -> applyChanges())
+				.bounds(width / 2 - 100, height - 52, 98, 20).build());
+		addRenderableWidget(Button.builder(Component.literal("Clear all"), b -> clearAll())
+				.bounds(width / 2 + 4, height - 52, 98, 20).build());
+		addRenderableWidget(Button.builder(Component.translatable("historical_textures.credits"), b ->
+						minecraft.setScreen(new CreditsScreen(this)))
+				.bounds(8, height - 28, 120, 20).build());
+		addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> onClose())
+				.bounds(width - 108, height - 28, 100, 20).build());
+
+		rebuildLists();
+	}
+
+	private void switchTab(Tab tab) {
+		activeTab = tab;
+		selectedTarget = null;
+		selectedSoundEvent = null;
+		rebuildLists();
+	}
+
+	private void rebuildLists() {
+		targetList.replaceEntries(List.of());
+		variantList.replaceEntries(List.of());
+
+		if (activeTab == Tab.SOUNDS) {
+			for (String event : TextureTargetRegistry.soundEvents()) {
+				if (!matchesFilter(event)) {
+					continue;
+				}
+				targetList.addPublicEntry(new SoundTargetEntry(event));
+			}
+			if (selectedSoundEvent != null) {
+				populateSoundVariants(selectedSoundEvent);
+			}
+			return;
+		}
+
+		List<TextureTarget> targets = switch (activeTab) {
+			case BLOCKS -> TextureTargetRegistry.blockTargets();
+			case ITEMS -> TextureTargetRegistry.itemTargets();
+			case ENTITIES -> TextureTargetRegistry.entityTargets();
+			default -> List.of();
+		};
+
+		for (TextureTarget target : targets) {
+			if (!matchesFilter(target.displayName()) && !matchesFilter(target.configKey())) {
+				continue;
+			}
+			targetList.addPublicEntry(new TextureTargetEntry(target));
+		}
+
+		if (selectedTarget != null) {
+			populateTextureVariants(selectedTarget);
+		}
+	}
+
+	private void populateTextureVariants(TextureTarget target) {
+		variantList.addPublicEntry(new VariantEntry(Component.literal("Vanilla (default)"), null, target.configKey()));
+		for (TextureVariant variant : HistoricalCatalog.get().textureVariantsForTarget(target.configKey())) {
+			String label = variant.label() + " [" + String.join("/", variant.editions().stream().map(Enum::name).toList()) + "]";
+			variantList.addPublicEntry(new VariantEntry(Component.literal(label), variant.id(), target.configKey()));
+		}
+	}
+
+	private void populateSoundVariants(String event) {
+		variantList.addPublicEntry(new SoundVariantEntry(Component.literal("Vanilla (default)"), null, event));
+		for (SoundVariant variant : HistoricalCatalog.get().soundVariantsForEvent(event)) {
+			variantList.addPublicEntry(new SoundVariantEntry(Component.literal(variant.label()), variant.id(), event));
+		}
+	}
+
+	private boolean matchesFilter(String value) {
+		return filter.isEmpty() || value.toLowerCase(Locale.ROOT).contains(filter);
+	}
+
+	private void applyChanges() {
+		ModConfig.get().save();
+		OverlayPackManager.applyChoices(true);
+	}
+
+	private void clearAll() {
+		ModConfig.get().clearAll();
+		ModConfig.get().save();
+		selectedTarget = null;
+		selectedSoundEvent = null;
+		OverlayPackManager.applyChoices(true);
+		rebuildLists();
+	}
+
+	@Override
+	public void onClose() {
+		minecraft.setScreen(parent);
+	}
+
+	@Override
+	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+		graphics.text(font, Component.literal("Targets"), 8, 40, 0xFFFFFF);
+		graphics.text(font, Component.literal("Variants"), width / 2 + 4, 40, 0xFFFFFF);
+	}
+
+	private enum Tab {
+		BLOCKS,
+		ITEMS,
+		ENTITIES,
+		SOUNDS
+	}
+
+	private final class TextureTargetEntry extends TargetList.Entry {
+		private final TextureTarget target;
+
+		private TextureTargetEntry(TextureTarget target) {
+			this.target = target;
+		}
+
+		@Override
+		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
+			graphics.text(font, target.displayName(), getContentX() + 4, getContentY() + 4, 0xFFFFFF);
+			String choice = ModConfig.get().getTextureChoice(target.configKey());
+			if (choice != null) {
+				graphics.text(font, Component.literal(choice), getContentX() + 4, getContentY() + 14, 0xA0A0A0);
+			}
+		}
+
+		@Override
+		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+			selectedTarget = target;
+			selectedSoundEvent = null;
+			rebuildLists();
+			return true;
+		}
+	}
+
+	private final class SoundTargetEntry extends TargetList.Entry {
+		private final String soundEvent;
+
+		private SoundTargetEntry(String soundEvent) {
+			this.soundEvent = soundEvent;
+		}
+
+		@Override
+		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
+			graphics.text(font, soundEvent, getContentX() + 4, getContentY() + 6, 0xFFFFFF);
+		}
+
+		@Override
+		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+			selectedSoundEvent = soundEvent;
+			selectedTarget = null;
+			rebuildLists();
+			return true;
+		}
+	}
+
+	private final class VariantEntry extends VariantList.Entry {
+		private final Component label;
+		private final String variantId;
+		private final String targetKey;
+
+		private VariantEntry(Component label, String variantId, String targetKey) {
+			this.label = label;
+			this.variantId = variantId;
+			this.targetKey = targetKey;
+		}
+
+		@Override
+		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
+			int color = variantId == null ? 0x55FF55 : 0xFFFFFF;
+			graphics.text(font, label, getContentX() + 4, getContentY() + 6, color);
+		}
+
+		@Override
+		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+			ModConfig.get().setTextureChoice(targetKey, variantId);
+			ModConfig.get().save();
+			rebuildLists();
+			return true;
+		}
+	}
+
+	private final class SoundVariantEntry extends VariantList.Entry {
+		private final Component label;
+		private final String variantId;
+		private final String soundEvent;
+
+		private SoundVariantEntry(Component label, String variantId, String soundEvent) {
+			this.label = label;
+			this.variantId = variantId;
+			this.soundEvent = soundEvent;
+		}
+
+		@Override
+		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
+			graphics.text(font, label, getContentX() + 4, getContentY() + 6, 0xFFFFFF);
+		}
+
+		@Override
+		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+			ModConfig.get().setSoundChoice(soundEvent, variantId);
+			ModConfig.get().save();
+			rebuildLists();
+			return true;
+		}
+	}
+
+	private static class TargetList extends AbstractSelectionList<TargetList.Entry> {
+		TargetList(Minecraft minecraft, int width, int top, int bottom) {
+			super(minecraft, width, bottom - top, top, bottom);
+		}
+
+		void addPublicEntry(Entry entry) {
+			addEntry(entry);
+		}
+
+		@Override
+		public int getRowWidth() {
+			return width - 8;
+		}
+
+		@Override
+		protected void updateWidgetNarration(net.minecraft.client.gui.narration.NarrationElementOutput output) {
+			this.defaultButtonNarrationText(output);
+		}
+
+		abstract static class Entry extends AbstractSelectionList.Entry<Entry> {
+		}
+	}
+
+	private static class VariantList extends AbstractSelectionList<VariantList.Entry> {
+		VariantList(Minecraft minecraft, int width, int top, int bottom) {
+			super(minecraft, width, bottom - top, top, bottom);
+		}
+
+		void addPublicEntry(Entry entry) {
+			addEntry(entry);
+		}
+
+		@Override
+		public int getRowWidth() {
+			return width - 8;
+		}
+
+		@Override
+		protected void updateWidgetNarration(net.minecraft.client.gui.narration.NarrationElementOutput output) {
+			this.defaultButtonNarrationText(output);
+		}
+
+		abstract static class Entry extends AbstractSelectionList.Entry<Entry> {
+		}
+	}
+}

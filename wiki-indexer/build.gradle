@@ -1,0 +1,53 @@
+plugins {
+	id 'java'
+	id 'application'
+}
+
+group = 'dev.historicaltextures.indexer'
+version = '1.0.0'
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'com.google.code.gson:gson:2.11.0'
+	testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.test {
+	useJUnitPlatform()
+}
+
+application {
+	mainClass = 'dev.historicaltextures.indexer.WikiIndexerMain'
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+def exportDir = rootProject.layout.projectDirectory.dir('src/main/resources/assets/historical_textures/catalog')
+
+tasks.register('exportCatalog', Copy) {
+	group = 'historical textures'
+	description = 'Copy indexer output into mod resources'
+	from layout.buildDirectory.dir('catalog')
+	into exportDir
+}
+
+tasks.register('indexQuick', JavaExec) {
+	group = 'historical textures'
+	description = 'Download only override-listed wiki assets'
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'dev.historicaltextures.indexer.WikiIndexerMain'
+	args = ['--quick']
+	workingDir = project.projectDir
+	finalizedBy exportCatalog
+}
+
+tasks.named('run') {
+	finalizedBy exportCatalog
+}

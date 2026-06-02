@@ -1,0 +1,75 @@
+{
+  "fileTargets": {
+    "Stone_(texture)_JE1.png": ["minecraft:textures/block/stone.png"],
+    "Stone_(texture)_JE2_BE1.png": ["minecraft:textures/block/stone.png"],
+    "Dirt_(texture)_JE1_BE1.png": ["minecraft:textures/block/dirt.png"],
+    "Grass_Block_(top_texture)_JE1.png": ["minecraft:textures/block/grass_block_top.png"],
+    "Grass_Block_(top_texture)_JE2.png": ["minecraft:textures/block/grass_block_top.png"],
+    "Grass_Block_(side_texture)_JE1_BE1.png": ["minecraft:textures/block/grass_block_side.png"],
+    "Oak_Planks_(texture)_JE1.png": ["minecraft:textures/block/oak_planks.png"],
+    "Oak_Planks_(texture)_JE2.png": ["minecraft:textures/block/oak_planks.png"],
+    "Oak_Planks_(texture)_JE3_BE1.png": ["minecraft:textures/block/oak_planks.png"],
+    "Cobblestone_(texture)_JE1.png": ["minecraft:textures/block/cobblestone.png"],
+    "Cobblestone_(texture)_JE2_BE1.png": ["minecraft:textures/block/cobblestone.png"],
+    "Coal_Ore_(texture)_JE1_BE1.png": ["minecraft:textures/block/coal_ore.png"],
+    "Iron_Ore_(texture)_JE1_BE1.png": ["minecraft:textures/block/iron_ore.png"],
+    "Gold_Ore_(texture)_JE1.png": ["minecraft:textures/block/gold_ore.png"],
+    "Sand_(texture)_JE1.png": ["minecraft:textures/block/sand.png"],
+    "Sand_(texture)_JE2_BE1.png": ["minecraft:textures/block/sand.png"],
+    "Gravel_(texture)_JE1.png": ["minecraft:textures/block/gravel.png"],
+    "Gravel_(texture)_JE2_BE1.png": ["minecraft:textures/block/gravel.png"],
+    "Oak_Log_(texture)_JE1.png": ["minecraft:textures/block/oak_log.png"],
+    "Oak_Log_(texture)_JE2_BE1.png": ["minecraft:textures/block/oak_log.png"],
+    "Oak_Log_(top_texture)_JE1.png": ["minecraft:textures/block/oak_log_top.png"],
+    "Oak_Log_(top_texture)_JE2_BE1.png": ["minecraft:textures/block/oak_log_top.png"],
+    "Oak_Leaves_(texture)_JE1.png": ["minecraft:textures/block/oak_leaves.png"],
+    "Oak_Leaves_(texture)_JE2.png": ["minecraft:textures/block/oak_leaves.png"],
+    "Diamond_Sword_(texture)_JE1.png": ["minecraft:textures/item/diamond_sword.png"],
+    "Diamond_Sword_(texture)_JE2.png": ["minecraft:textures/item/diamond_sword.png"],
+    "Iron_Sword_(texture)_JE1.png": ["minecraft:textures/item/iron_sword.png"],
+    "Cow_(texture)_JE1.png": ["minecraft:textures/entity/cow/cow.png"],
+    "Cow_(texture)_JE2.png": ["minecraft:textures/entity/cow/cow.png"],
+    "Zombie_(texture)_JE1.png": ["minecraft:textures/entity/zombie/zombie.png"],
+    "Pig_(texture)_JE1.png": ["minecraft:textures/entity/pig/pig.png"],
+    "Creeper_(texture)_JE1.png": ["minecraft:textures/entity/creeper/creeper.png"],
+    "Skeleton_(texture)_JE1.png": ["minecraft:textures/entity/skeleton/skeleton.png"]
+  },
+  "soundTargets": {
+    "Cow_Hurt_Old.ogg": {
+      "soundEvent": "entity.cow.hurt",
+      "vanillaSoundPath": "sounds/mob/cow/hurt1.ogg"
+    },
+    "Cow_Old.ogg": {
+      "soundEvent": "entity.cow.ambient",
+      "vanillaSoundPath": "sounds/mob/cow/say1.ogg"
+    },
+    "Creeper_Oldhurt1.ogg": {
+      "soundEvent": "entity.creeper.hurt",
+      "vanillaSoundPath": "sounds/mob/creeper/say1.ogg"
+    },
+    "Door_opening_old.ogg": {
+      "soundEvent": "block.wooden_door.open",
+      "vanillaSoundPath": "sounds/random/door_open.ogg"
+    },
+    "Door_closing_old.ogg": {
+      "soundEvent": "block.wooden_door.close",
+      "vanillaSoundPath": "sounds/random/door_close.ogg"
+    },
+    "Explosion_Old.ogg": {
+      "soundEvent": "entity.generic.explode",
+      "vanillaSoundPath": "sounds/random/explode1.ogg"
+    },
+    "Bow_Shooting_Old.ogg": {
+      "soundEvent": "entity.arrow.shoot",
+      "vanillaSoundPath": "sounds/random/bow.ogg"
+    },
+    "Skeleton_death_old.ogg": {
+      "soundEvent": "entity.skeleton.death",
+      "vanillaSoundPath": "sounds/mob/skeleton/death.ogg"
+    },
+    "XP_Old.ogg": {
+      "soundEvent": "entity.experience_orb.pickup",
+      "vanillaSoundPath": "sounds/random/orb.ogg"
+    }
+  }
+}
