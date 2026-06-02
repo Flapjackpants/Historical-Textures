@@ -53,8 +53,21 @@ tasks.register('ensureCatalog') {
 	dependsOn ':wiki-indexer:indexQuick'
 }
 
+tasks.register('ensureSoundCatalog') {
+	group = 'historical textures'
+	description = 'Index historical sounds when catalog.json has no soundVariants'
+	onlyIf {
+		if (!catalogJson.asFile.exists()) {
+			return false
+		}
+		def text = catalogJson.asFile.text
+		return !text.contains('"soundVariants"') || text.contains('"soundVariants": []')
+	}
+	dependsOn ':wiki-indexer:indexSounds'
+}
+
 tasks.named('processResources').configure {
-	dependsOn 'ensureCatalog', ':wiki-indexer:exportCatalog'
+	dependsOn 'ensureCatalog', 'ensureSoundCatalog', ':wiki-indexer:exportCatalog'
 }
 
 processResources {

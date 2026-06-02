@@ -49,5 +49,10 @@ public final class ClientCatalogLoader {
 					"Catalog is empty. Run './gradlew :wiki-indexer:indexQuick build' to bundle wiki assets."
 			);
 		}
+		if (catalog.soundVariants().isEmpty()) {
+			HistoricalTextures.LOGGER.error(
+					"Sound catalog is empty (no soundVariants). Run './gradlew :wiki-indexer:indexSounds build' then restart the game."
+			);
+		}
 	}
 }

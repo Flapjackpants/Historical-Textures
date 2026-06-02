@@ -63,6 +63,15 @@ tasks.register('exportCatalog', Copy) {
 	}
 }
 
+tasks.register('indexSounds', JavaExec) {
+	group = 'historical textures'
+	description = 'Re-index historical sounds into bundled catalog (keeps existing textures)'
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'dev.historicaltextures.indexer.WikiIndexerMain'
+	args = ['--sounds-only', '../src/main/resources/assets/historical_textures/catalog']
+	workingDir = project.projectDir
+}
+
 tasks.register('enrichCatalogVersions', JavaExec) {
 	group = 'historical textures'
 	description = 'Fetch wiki version labels and update bundled catalog.json'

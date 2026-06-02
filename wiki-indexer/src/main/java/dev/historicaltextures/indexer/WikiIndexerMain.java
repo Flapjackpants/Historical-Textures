@@ -6,11 +6,14 @@ public final class WikiIndexerMain {
 	public static void main(String[] args) throws Exception {
 		Path output = Path.of("build/catalog");
 		boolean quick = false;
+		boolean soundsOnly = false;
 		Path enrichCatalog = null;
 		for (int index = 0; index < args.length; index++) {
 			String arg = args[index];
 			if ("--quick".equals(arg)) {
 				quick = true;
+			} else if ("--sounds-only".equals(arg)) {
+				soundsOnly = true;
 			} else if ("--enrich-versions".equals(arg)) {
 				if (index + 1 < args.length && !args[index + 1].startsWith("--")) {
 					enrichCatalog = Path.of(args[++index]);
@@ -25,6 +28,6 @@ public final class WikiIndexerMain {
 			new CatalogVersionEnricher().enrich(enrichCatalog);
 			return;
 		}
-		new WikiIndexer(output, quick).run();
+		new WikiIndexer(output, quick, soundsOnly).run();
 	}
 }

@@ -32,6 +32,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private static final int VARIANT_ENTRY_HEIGHT = 32;
 	private static final int PREVIEW_SIZE = 16;
 	private static final int PREVIEW_PLACEHOLDER = 0xFF404040;
+	private static final int SELECTED_ROW = 0x55335588;
 
 	private final Screen parent;
 	private Tab activeTab = Tab.BLOCKS;
@@ -110,20 +111,32 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		List<VariantList.Entry> variantEntries = new ArrayList<>();
 
 		if (activeTab == Tab.SOUNDS) {
+			SoundTargetEntry selectedTargetEntry = null;
 			for (String event : TextureTargetRegistry.soundEvents()) {
 				if (!matchesFilter(event)) {
 					continue;
 				}
-				targetEntries.add(new SoundTargetEntry(event));
+				SoundTargetEntry entry = new SoundTargetEntry(event);
+				targetEntries.add(entry);
+				if (event.equals(selectedSoundEvent)) {
+					selectedTargetEntry = entry;
+				}
 			}
 			if (selectedSoundEvent != null) {
 				variantEntries.addAll(buildSoundVariantEntries(selectedSoundEvent));
+				emptyVariantHint = null;
+			} else if (targetEntries.isEmpty()) {
+				emptyVariantHint = null;
+			} else {
+				emptyVariantHint = Component.literal("Select a sound event on the left to choose a variant.");
 			}
 			targetList.replaceEntries(targetEntries);
-			variantList.replaceEntries(variantEntries);
-			variantList.setScrollAmount(0);
+			if (selectedTargetEntry != null) {
+				targetList.setSelected(selectedTargetEntry);
+			}
+			finishVariantList(variantEntries, selectedSoundEvent, true);
 			emptyListHint = targetEntries.isEmpty()
-					? Component.literal("No sound events in catalog. Run the wiki indexer or check latest.log.")
+					? Component.literal("No sound events in catalog. Run ./gradlew :wiki-indexer:indexSounds build and restart.")
 					: null;
 			return;
 		}
@@ -148,12 +161,37 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			emptyVariantHint = null;
 		}
 
+		TextureTargetEntry selectedTargetEntry = null;
+		for (TargetList.Entry entry : targetEntries) {
+			if (entry instanceof TextureTargetEntry textureEntry && textureEntry.target == selectedTarget) {
+				selectedTargetEntry = textureEntry;
+				break;
+			}
+		}
 		targetList.replaceEntries(targetEntries);
-		variantList.replaceEntries(variantEntries);
-		variantList.setScrollAmount(0);
+		if (selectedTargetEntry != null) {
+			targetList.setSelected(selectedTargetEntry);
+		}
+		String configKey = selectedTarget != null ? selectedTarget.configKey() : null;
+		finishVariantList(variantEntries, configKey, false);
 		emptyListHint = targetEntries.isEmpty()
 				? Component.literal("No targets loaded. Check latest.log for catalog errors (look for \"Loaded catalog\").")
 				: null;
+	}
+
+	private void finishVariantList(List<VariantList.Entry> entries, String configKey, boolean soundTab) {
+		variantList.replaceEntries(entries);
+		variantList.setScrollAmount(0);
+		if (configKey == null) {
+			return;
+		}
+		String chosen = soundTab ? ModConfig.get().getSoundChoice(configKey) : ModConfig.get().getTextureChoice(configKey);
+		for (VariantList.Entry entry : entries) {
+			if (entry instanceof VariantEntry variantEntry && variantEntry.matchesChoice(chosen)) {
+				variantList.setSelected(entry);
+				return;
+			}
+		}
 	}
 
 	private Component emptyListHint;
@@ -196,10 +234,12 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private Component subtitleForSound(SoundVariant variant) {
-		if (variant.wikiFile() != null && !variant.wikiFile().isBlank()) {
-			return Component.literal(variant.wikiFile().replace('_', ' '));
+		String version = variant.versionLabel();
+		String wiki = variant.wikiFile() != null ? variant.wikiFile().replace('_', ' ') : "";
+		if (!wiki.isBlank() && !wiki.equalsIgnoreCase(version)) {
+			return Component.literal(wiki);
 		}
-		return Component.literal(variant.label());
+		return null;
 	}
 
 	private boolean matchesFilter(String value) {
@@ -251,6 +291,9 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		if (HistoricalCatalog.get().textureVariants().isEmpty()) {
 			graphics.text(font, Component.literal("Catalog not loaded — rebuild mod with wiki-indexer output."), 8, height / 2 + 12, TEXT_ERROR);
 		}
+		if (activeTab == Tab.SOUNDS && HistoricalCatalog.get().soundVariants().isEmpty()) {
+			graphics.text(font, Component.literal("No sounds in catalog — run ./gradlew :wiki-indexer:indexSounds build"), 8, height / 2 + 24, TEXT_ERROR);
+		}
 	}
 
 	private enum Tab {
@@ -261,7 +304,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private final class TextureTargetEntry extends TargetList.Entry {
-		private final TextureTarget target;
+		final TextureTarget target;
 
 		private TextureTargetEntry(TextureTarget target) {
 			this.target = target;
@@ -274,6 +317,9 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
+			if (targetList.getSelected() == this) {
+				graphics.fill(getContentX(), getContentY(), getContentRight(), getContentBottom(), SELECTED_ROW);
+			}
 			int variantCount = TextureTargetRegistry.variantCount(target.configKey());
 			String line = target.displayName();
 			if (variantCount > 0) {
@@ -311,7 +357,23 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
-			graphics.text(font, soundEvent, getContentX() + 4, getContentYMiddle() - 4, TEXT_WHITE);
+			if (targetList.getSelected() == this) {
+				graphics.fill(getContentX(), getContentY(), getContentRight(), getContentBottom(), SELECTED_ROW);
+			}
+			int variantCount = HistoricalCatalog.get().soundVariantsForEvent(soundEvent).size();
+			String line = soundEvent;
+			if (variantCount > 0) {
+				line += " (" + variantCount + ")";
+			}
+			graphics.text(font, line, getContentX() + 4, getContentY() + 4, TEXT_WHITE);
+			String choice = ModConfig.get().getSoundChoice(soundEvent);
+			if (choice != null) {
+				HistoricalCatalog.get().soundVariant(choice).ifPresent(variant ->
+						graphics.text(font, Component.literal(variant.versionLabel()), getContentX() + 4, getContentY() + 14, TEXT_MUTED)
+				);
+			} else if (variantCount == 0) {
+				graphics.text(font, Component.literal("no catalog variants"), getContentX() + 4, getContentY() + 14, TEXT_MUTED);
+			}
 		}
 
 		@Override
@@ -345,6 +407,9 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
+			if (variantList.getSelected() == this) {
+				graphics.fill(getContentX(), getContentY(), getContentRight(), getContentBottom(), SELECTED_ROW);
+			}
 			int previewX = getContentX() + 4;
 			int previewY = getContentYMiddle() - PREVIEW_SIZE / 2;
 			int textX = previewX;
@@ -371,7 +436,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				}
 			}
 
-			int color = variantId == null ? TEXT_ACCENT : TEXT_WHITE;
+			int color = variantId == null ? TEXT_ACCENT : (variantList.getSelected() == this ? TEXT_ACCENT : TEXT_WHITE);
 			if (subtitle != null && variantId != null) {
 				graphics.text(font, label, textX, getContentY() + 4, color);
 				graphics.text(font, subtitle, textX, getContentY() + 16, TEXT_MUTED);
@@ -380,8 +445,19 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			}
 		}
 
+		boolean matchesChoice(String chosenId) {
+			if (variantId == null) {
+				return chosenId == null || chosenId.isEmpty();
+			}
+			return variantId.equals(chosenId);
+		}
+
 		@Override
 		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+			if (event.button() != 0) {
+				return false;
+			}
+			variantList.setSelected(this);
 			if (activeTab == Tab.SOUNDS) {
 				ModConfig.get().setSoundChoice(configKey, variantId);
 			} else {
