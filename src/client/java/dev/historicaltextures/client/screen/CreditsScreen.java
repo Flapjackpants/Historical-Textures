@@ -25,9 +25,9 @@ public final class CreditsScreen extends Screen {
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 		int y = 40;
-		graphics.centeredText(font, title, width / 2, 16, 0xFFFFFF);
+		graphics.centeredText(font, title, width / 2, 16, 0xFFFFFFFF);
 		for (String line : ATTRIBUTION) {
-			graphics.centeredText(font, Component.literal(line), width / 2, y, 0xC0C0C0);
+			graphics.centeredText(font, Component.literal(line), width / 2, y, 0xFFC0C0C0);
 			y += 12;
 		}
 	}

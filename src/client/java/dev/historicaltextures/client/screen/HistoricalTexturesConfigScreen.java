@@ -10,8 +10,8 @@ import dev.historicaltextures.config.ModConfig;
 import dev.historicaltextures.pack.OverlayPackManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.AbstractSelectionList;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
@@ -22,6 +22,11 @@ import java.util.List;
 import java.util.Locale;
 
 public final class HistoricalTexturesConfigScreen extends Screen {
+	private static final int TEXT_WHITE = 0xFFFFFFFF;
+	private static final int TEXT_MUTED = 0xFFA0A0A0;
+	private static final int TEXT_ACCENT = 0xFF55FF55;
+	private static final int TEXT_ERROR = 0xFFFF5555;
+
 	private final Screen parent;
 	private Tab activeTab = Tab.BLOCKS;
 	private EditBox searchBox;
@@ -188,10 +193,10 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-		graphics.text(font, Component.literal("Targets"), 8, 40, 0xFFFFFF);
-		graphics.text(font, Component.literal("Variants"), width / 2 + 4, 40, 0xFFFFFF);
+		graphics.text(font, Component.literal("Targets"), 8, 40, TEXT_WHITE);
+		graphics.text(font, Component.literal("Variants"), width / 2 + 4, 40, TEXT_WHITE);
 		if (emptyListHint != null) {
-			graphics.text(font, emptyListHint, 8, height / 2, 0xFF5555);
+			graphics.text(font, emptyListHint, 8, height / 2, TEXT_ERROR);
 		}
 	}
 
@@ -210,11 +215,16 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		}
 
 		@Override
+		public net.minecraft.network.chat.Component getNarration() {
+			return Component.literal(target.displayName());
+		}
+
+		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
-			graphics.text(font, target.displayName(), getContentX() + 4, getContentY() + 4, 0xFFFFFF);
+			graphics.text(font, target.displayName(), getContentX() + 4, getContentY() + 4, TEXT_WHITE);
 			String choice = ModConfig.get().getTextureChoice(target.configKey());
 			if (choice != null) {
-				graphics.text(font, Component.literal(choice), getContentX() + 4, getContentY() + 14, 0xA0A0A0);
+				graphics.text(font, Component.literal(choice), getContentX() + 4, getContentY() + 14, TEXT_MUTED);
 			}
 		}
 
@@ -235,8 +245,13 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		}
 
 		@Override
+		public net.minecraft.network.chat.Component getNarration() {
+			return Component.literal(soundEvent);
+		}
+
+		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
-			graphics.text(font, soundEvent, getContentX() + 4, getContentY() + 6, 0xFFFFFF);
+			graphics.text(font, soundEvent, getContentX() + 4, getContentYMiddle() - 4, TEXT_WHITE);
 		}
 
 		@Override
@@ -260,9 +275,14 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		}
 
 		@Override
+		public net.minecraft.network.chat.Component getNarration() {
+			return label;
+		}
+
+		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
-			int color = variantId == null ? 0x55FF55 : 0xFFFFFF;
-			graphics.text(font, label, getContentX() + 4, getContentY() + 6, color);
+			int color = variantId == null ? TEXT_ACCENT : TEXT_WHITE;
+			graphics.text(font, label, getContentX() + 4, getContentYMiddle() - 4, color);
 		}
 
 		@Override
@@ -286,8 +306,13 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		}
 
 		@Override
+		public net.minecraft.network.chat.Component getNarration() {
+			return label;
+		}
+
+		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
-			graphics.text(font, label, getContentX() + 4, getContentY() + 6, 0xFFFFFF);
+			graphics.text(font, label, getContentX() + 4, getContentYMiddle() - 4, TEXT_WHITE);
 		}
 
 		@Override
@@ -299,7 +324,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		}
 	}
 
-	private static class TargetList extends AbstractSelectionList<TargetList.Entry> {
+	private static class TargetList extends ObjectSelectionList<TargetList.Entry> {
 		TargetList(Minecraft minecraft, int width, int height, int top, int entryHeight) {
 			super(minecraft, width, height, top, entryHeight);
 		}
@@ -309,16 +334,11 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			return width - 8;
 		}
 
-		@Override
-		protected void updateWidgetNarration(net.minecraft.client.gui.narration.NarrationElementOutput output) {
-			this.defaultButtonNarrationText(output);
-		}
-
-		abstract static class Entry extends AbstractSelectionList.Entry<Entry> {
+		abstract static class Entry extends ObjectSelectionList.Entry<Entry> {
 		}
 	}
 
-	private static class VariantList extends AbstractSelectionList<VariantList.Entry> {
+	private static class VariantList extends ObjectSelectionList<VariantList.Entry> {
 		VariantList(Minecraft minecraft, int width, int height, int top, int entryHeight) {
 			super(minecraft, width, height, top, entryHeight);
 		}
@@ -328,12 +348,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			return width - 8;
 		}
 
-		@Override
-		protected void updateWidgetNarration(net.minecraft.client.gui.narration.NarrationElementOutput output) {
-			this.defaultButtonNarrationText(output);
-		}
-
-		abstract static class Entry extends AbstractSelectionList.Entry<Entry> {
+		abstract static class Entry extends ObjectSelectionList.Entry<Entry> {
 		}
 	}
 }
