@@ -3,6 +3,7 @@ package dev.historicaltextures.catalog;
 import dev.historicaltextures.HistoricalTextures;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import dev.historicaltextures.client.CatalogThumbnailCache;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.Resource;
@@ -15,19 +16,38 @@ public final class ClientCatalogLoader {
 	}
 
 	public static void reload() {
-		Identifier catalogId = Identifier.fromNamespaceAndPath(HistoricalTextures.MOD_ID, "catalog/catalog.json");
+		CatalogThumbnailCache.clear();
+		boolean loaded = false;
+
 		Minecraft minecraft = Minecraft.getInstance();
 		if (minecraft != null && minecraft.getResourceManager() != null) {
+			Identifier catalogId = Identifier.fromNamespaceAndPath(HistoricalTextures.MOD_ID, "catalog/catalog.json");
 			Resource resource = minecraft.getResourceManager().getResource(catalogId).orElse(null);
 			if (resource != null) {
 				try (InputStream stream = resource.open()) {
 					HistoricalCatalog.loadFromStream(stream);
-					return;
+					loaded = true;
 				} catch (Exception exception) {
 					HistoricalTextures.LOGGER.warn("Failed to load catalog from ResourceManager, falling back", exception);
 				}
 			}
 		}
-		HistoricalCatalog.reload();
+
+		if (!loaded) {
+			HistoricalCatalog.reload();
+		}
+
+		HistoricalCatalog catalog = HistoricalCatalog.get();
+		HistoricalTextures.LOGGER.info(
+				"Config UI catalog: {} texture variants across {} targets, {} sound events",
+				catalog.textureVariants().size(),
+				catalog.texturesByTarget().size(),
+				catalog.soundsByEvent().size()
+		);
+		if (catalog.textureVariants().isEmpty()) {
+			HistoricalTextures.LOGGER.error(
+					"Catalog is empty. Run './gradlew :wiki-indexer:indexQuick build' to bundle wiki assets."
+			);
+		}
 	}
 }

@@ -45,8 +45,21 @@ tasks.register('exportCatalog', Copy) {
 		def hasOutput = source.isDirectory() && source.list()?.length > 0
 		if (!hasOutput) {
 			logger.lifecycle('exportCatalog: skipped (no wiki-indexer/build/catalog). Using existing resources under src/main/resources/assets/historical_textures/catalog/.')
+			return false
 		}
-		hasOutput
+		def destJson = exportDir.file('catalog.json').asFile
+		if (!destJson.isFile()) {
+			return true
+		}
+		def sourceJson = source.toPath().resolve('catalog.json').toFile()
+		if (!sourceJson.isFile()) {
+			return false
+		}
+		if (sourceJson.length() >= destJson.length()) {
+			return true
+		}
+		logger.lifecycle('exportCatalog: skipped (existing bundled catalog is larger than indexer output). Run :wiki-indexer:run for a full catalog refresh.')
+		return false
 	}
 }
 

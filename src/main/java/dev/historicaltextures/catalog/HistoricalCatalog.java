@@ -5,12 +5,10 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.historicaltextures.HistoricalTextures;
-import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -56,10 +54,10 @@ public final class HistoricalCatalog {
 		}
 
 		for (Map.Entry<String, List<TextureVariant>> entry : texturesByTarget.entrySet()) {
-			entry.setValue(List.copyOf(entry.getValue()));
+			entry.setValue(VersionOrdering.sortTextureVariants(entry.getValue()));
 		}
 		for (Map.Entry<String, List<SoundVariant>> entry : soundsByEvent.entrySet()) {
-			entry.setValue(List.copyOf(entry.getValue()));
+			entry.setValue(VersionOrdering.sortSoundVariants(entry.getValue()));
 		}
 	}
 
@@ -79,7 +77,7 @@ public final class HistoricalCatalog {
 	}
 
 	private static HistoricalCatalog load() {
-		try (InputStream stream = openCatalogStream()) {
+		try (InputStream stream = CatalogResources.openCatalogJson()) {
 			if (stream == null) {
 				HistoricalTextures.LOGGER.error("Missing bundled catalog at assets/historical_textures/catalog/catalog.json");
 				return empty();
@@ -108,22 +106,6 @@ public final class HistoricalCatalog {
 			HistoricalTextures.LOGGER.error("Failed to parse catalog", exception);
 			return empty();
 		}
-	}
-
-	private static InputStream openCatalogStream() throws Exception {
-		String resourcePath = "assets/historical_textures/catalog/catalog.json";
-		InputStream fromLoader = HistoricalCatalog.class.getClassLoader().getResourceAsStream(resourcePath);
-		if (fromLoader != null) {
-			return fromLoader;
-		}
-		var container = FabricLoader.getInstance().getModContainer(HistoricalTextures.MOD_ID);
-		if (container.isPresent()) {
-			var path = container.get().findPath(resourcePath);
-			if (path.isPresent() && Files.isRegularFile(path.get())) {
-				return Files.newInputStream(path.get());
-			}
-		}
-		return null;
 	}
 
 	private static HistoricalCatalog empty() {
@@ -165,6 +147,11 @@ public final class HistoricalCatalog {
 			}
 		}
 		boolean mapped = !object.has("mapped") || object.get("mapped").getAsBoolean();
+		String label = object.has("label") ? object.get("label").getAsString() : object.get("wikiFile").getAsString();
+		List<String> textureTags = parseStringArray(object, "textureTags");
+		String javaVersion = object.has("javaVersion") ? object.get("javaVersion").getAsString() : "";
+		String bedrockVersion = object.has("bedrockVersion") ? object.get("bedrockVersion").getAsString() : "";
+		String displayVersion = object.has("displayVersion") ? object.get("displayVersion").getAsString() : "";
 		return new TextureVariant(
 				object.get("id").getAsString(),
 				object.get("wikiFile").getAsString(),
@@ -172,8 +159,12 @@ public final class HistoricalCatalog {
 				object.has("introducedIn") ? object.get("introducedIn").getAsString() : "",
 				object.get("assetPath").getAsString(),
 				List.copyOf(targets),
-				object.has("label") ? object.get("label").getAsString() : object.get("wikiFile").getAsString(),
-				mapped
+				label,
+				mapped,
+				textureTags,
+				javaVersion,
+				bedrockVersion,
+				displayVersion
 		);
 	}
 
@@ -199,13 +190,28 @@ public final class HistoricalCatalog {
 						object.get("soundEvent").getAsString(),
 						object.get("assetPath").getAsString(),
 						object.has("vanillaSoundPath") ? object.get("vanillaSoundPath").getAsString() : "",
-						object.has("label") ? object.get("label").getAsString() : object.get("wikiFile").getAsString()
+						object.has("label") ? object.get("label").getAsString() : object.get("wikiFile").getAsString(),
+						parseStringArray(object, "textureTags"),
+						object.has("javaVersion") ? object.get("javaVersion").getAsString() : "",
+						object.has("bedrockVersion") ? object.get("bedrockVersion").getAsString() : "",
+						object.has("displayVersion") ? object.get("displayVersion").getAsString() : ""
 				));
 			} catch (Exception exception) {
 				HistoricalTextures.LOGGER.warn("Skipping invalid sound catalog entry: {}", exception.getMessage());
 			}
 		}
 		return result;
+	}
+
+	private static List<String> parseStringArray(JsonObject object, String field) {
+		if (!object.has(field)) {
+			return List.of();
+		}
+		List<String> values = new ArrayList<>();
+		for (var element : object.getAsJsonArray(field)) {
+			values.add(element.getAsString());
+		}
+		return List.copyOf(values);
 	}
 
 	public int schemaVersion() {
@@ -228,6 +234,10 @@ public final class HistoricalCatalog {
 		return texturesByTarget.getOrDefault(target, List.of());
 	}
 
+	public int variantCountForTarget(String target) {
+		return textureVariantsForTarget(target).size();
+	}
+
 	public Map<String, List<TextureVariant>> texturesByTarget() {
 		return Collections.unmodifiableMap(texturesByTarget);
 	}
@@ -245,7 +255,6 @@ public final class HistoricalCatalog {
 	}
 
 	public InputStream openAsset(String assetPath) {
-		String resourcePath = "assets/historical_textures/catalog/" + assetPath;
-		return HistoricalCatalog.class.getClassLoader().getResourceAsStream(resourcePath);
+		return CatalogResources.openAsset(assetPath);
 	}
 }

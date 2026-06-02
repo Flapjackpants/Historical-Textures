@@ -3,6 +3,7 @@ package dev.historicaltextures.indexer;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.io.IOException;
@@ -19,6 +20,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -33,7 +35,10 @@ public final class WikiIndexer {
 	private static final String API = "https://minecraft.wiki/api.php";
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final Pattern FILE_PATTERN = Pattern.compile("File:([^\\]|#]+)");
-	private static final Pattern EDITION_PATTERN = Pattern.compile("_(JE|BE)(\\d+)");
+	private static final Pattern SOUND_EVENT_PATTERN = Pattern.compile(
+			"\\b([a-z]+\\.[a-z0-9_.]+\\.[a-z0-9_.]+)\\b",
+			Pattern.CASE_INSENSITIVE
+	);
 	private static final List<String> SEED_PAGES = List.of(
 			"List_of_historical_block_textures",
 			"Java_Edition_history_of_textures/Blocks",
@@ -43,13 +48,37 @@ public final class WikiIndexer {
 			"Bedrock_Edition_history_of_textures/Items",
 			"Bedrock_Edition_history_of_textures/Entities"
 	);
+	private static final List<String> SOUND_SEED_PAGES = List.of(
+			"History_of_sounds"
+	);
+	private static final Map<String, String> SOUND_HEURISTICS = Map.ofEntries(
+			Map.entry("cow_hurt_old", "entity.cow.hurt"),
+			Map.entry("cow_old", "entity.cow.ambient"),
+			Map.entry("creeper_oldhurt1", "entity.creeper.hurt"),
+			Map.entry("door_opening_old", "block.wooden_door.open"),
+			Map.entry("door_closing_old", "block.wooden_door.close"),
+			Map.entry("explosion_old", "entity.generic.explode"),
+			Map.entry("bow_shooting_old", "entity.arrow.shoot"),
+			Map.entry("skeleton_death_old", "entity.skeleton.death"),
+			Map.entry("xp_old", "entity.experience_orb.pickup"),
+			Map.entry("arrow_old", "entity.arrow.hit"),
+			Map.entry("hurt_old", "entity.player.hurt"),
+			Map.entry("lava_old", "block.lava.ambient"),
+			Map.entry("water_old", "liquid.water"),
+			Map.entry("fall_old", "entity.generic.small_fall")
+	);
 
 	private final Path outputRoot;
 	private final boolean quickMode;
 	private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
 	private final Map<String, String> shaToAssetPath = new LinkedHashMap<>();
-	private final Set<String> downloadedFiles = new LinkedHashSet<>();
+	private final Set<String> processedFileKeys = new LinkedHashSet<>();
+	private final Map<String, WikiTableParser.VersionInfo> versionByFile = new LinkedHashMap<>();
+	private final Map<String, String> wikitextCache = new HashMap<>();
 	private JsonObject overrides;
+	private int mappedTextureCount;
+	private int unmappedTextureCount;
+	private int skippedSoundCount;
 
 	public WikiIndexer(Path outputRoot, boolean quickMode) {
 		this.outputRoot = outputRoot;
@@ -67,7 +96,16 @@ public final class WikiIndexer {
 		} else {
 			for (String page : SEED_PAGES) {
 				System.out.println("Indexing page: " + page);
-				crawlPage(page, textures);
+				String wikitext = fetchPageWikitext(page);
+				versionByFile.putAll(WikiTableParser.parseVersionsFromWikitext(wikitext));
+				crawlPage(page, wikitext, textures);
+				Thread.sleep(250);
+			}
+			for (String page : SOUND_SEED_PAGES) {
+				System.out.println("Indexing sound page: " + page);
+				String wikitext = fetchPageWikitext(page);
+				versionByFile.putAll(WikiTableParser.parseVersionsFromWikitext(wikitext));
+				crawlSoundPage(page, wikitext, sounds);
 				Thread.sleep(250);
 			}
 			crawlHistoricalSounds(sounds);
@@ -75,14 +113,17 @@ public final class WikiIndexer {
 
 		writeCatalog(textures, sounds);
 		System.out.println("Catalog written to " + outputRoot.resolve("catalog.json"));
-		System.out.println("Texture variants: " + textures.size() + ", sound variants: " + sounds.size());
+		System.out.println("Texture variants: " + textures.size()
+				+ " (mapped=" + mappedTextureCount + ", unmapped=" + unmappedTextureCount + ")");
+		System.out.println("Sound variants: " + sounds.size() + " (skipped unmapped downloads=" + skippedSoundCount + ")");
+		System.out.println("Version table entries: " + versionByFile.size());
 	}
 
 	private void indexOverrideFiles(List<VariantRecord> textures, List<SoundRecord> sounds) throws Exception {
 		JsonObject fileTargets = overrides.getAsJsonObject("fileTargets");
 		if (fileTargets != null) {
 			for (var entry : fileTargets.entrySet()) {
-				processTextureFile(entry.getKey(), textures, "overrides.json");
+				processTextureFile(entry.getKey(), textures, WikiFilenameUtil.CrawlContext.UNKNOWN, "overrides.json");
 				Thread.sleep(100);
 			}
 		}
@@ -105,33 +146,31 @@ public final class WikiIndexer {
 		}
 	}
 
-	private void crawlPage(String pageTitle, List<VariantRecord> textures) throws Exception {
-		String url = API + "?action=parse&page=" + encode(pageTitle) + "&prop=images|wikitext&format=json";
-		JsonObject response = getJson(url);
-		JsonObject parse = response.getAsJsonObject("parse");
-		if (parse == null) {
-			return;
-		}
-		JsonArray images = parse.getAsJsonArray("images");
-		if (images != null) {
-			for (var element : images) {
-				String title = element.getAsString();
-				if (!title.startsWith("File:")) {
-					continue;
-				}
-				String fileName = title.substring("File:".length());
-				if (!isTextureFile(fileName)) {
-					continue;
-				}
-				processTextureFile(fileName, textures, pageTitle);
-			}
-		}
-		String wikitext = parse.has("wikitext") ? parse.getAsJsonObject("wikitext").get("*").getAsString() : "";
+	private void crawlPage(String pageTitle, String wikitext, List<VariantRecord> textures) throws Exception {
+		WikiFilenameUtil.CrawlContext context = WikiFilenameUtil.parsePageContext(pageTitle);
+		Set<String> seenOnPage = new LinkedHashSet<>();
 		Matcher matcher = FILE_PATTERN.matcher(wikitext);
 		while (matcher.find()) {
 			String fileName = matcher.group(1).trim();
-			if (isTextureFile(fileName)) {
-				processTextureFile(fileName, textures, pageTitle);
+			if (!WikiFilenameUtil.isTextureFile(fileName)) {
+				continue;
+			}
+			if (seenOnPage.add(WikiFilenameUtil.normalizeKey(fileName))) {
+				processTextureFile(fileName, textures, context, pageTitle);
+			}
+		}
+	}
+
+	private void crawlSoundPage(String pageTitle, String wikitext, List<SoundRecord> sounds) throws Exception {
+		Set<String> seenOnPage = new LinkedHashSet<>();
+		Matcher matcher = FILE_PATTERN.matcher(wikitext);
+		while (matcher.find()) {
+			String fileName = matcher.group(1).trim();
+			if (!fileName.toLowerCase(Locale.ROOT).endsWith(".ogg")) {
+				continue;
+			}
+			if (seenOnPage.add(WikiFilenameUtil.normalizeKey(fileName))) {
+				processSoundFile(fileName, sounds);
 			}
 		}
 	}
@@ -164,8 +203,14 @@ public final class WikiIndexer {
 		} while (continuation != null);
 	}
 
-	private void processTextureFile(String fileName, List<VariantRecord> textures, String sourcePage) throws Exception {
-		if (!downloadedFiles.add(fileName)) {
+	private void processTextureFile(
+			String fileName,
+			List<VariantRecord> textures,
+			WikiFilenameUtil.CrawlContext context,
+			String sourcePage
+	) throws Exception {
+		String fileKey = WikiFilenameUtil.normalizeKey(fileName);
+		if (!processedFileKeys.add(fileKey)) {
 			return;
 		}
 		String assetPath = downloadFile(fileName);
@@ -175,16 +220,27 @@ public final class WikiIndexer {
 		List<String> targets = resolveTextureTargets(fileName);
 		boolean mapped = !targets.isEmpty();
 		if (!mapped) {
-			targets = guessTargetsFromFileName(fileName);
+			targets = WikiFilenameUtil.guessTargets(fileName, context);
 		}
+		if (mapped) {
+			mappedTextureCount++;
+		} else {
+			unmappedTextureCount++;
+		}
+		List<String> textureTags = WikiFilenameUtil.parseTextureTags(fileName);
+		WikiTableParser.VersionInfo version = versionForFile(fileName, textureTags);
 		VariantRecord record = new VariantRecord(
-				toId(fileName),
+				WikiFilenameUtil.toId(fileName),
 				fileName,
-				parseEditions(fileName),
+				WikiFilenameUtil.parseEditions(fileName),
+				textureTags,
+				version.javaVersion(),
+				version.bedrockVersion(),
+				version.displayVersion(),
 				sourcePage,
 				assetPath,
 				targets,
-				humanLabel(fileName),
+				WikiFilenameUtil.humanLabel(fileName),
 				mapped
 		);
 		textures.add(record);
@@ -194,58 +250,143 @@ public final class WikiIndexer {
 		if (!fileName.toLowerCase(Locale.ROOT).endsWith(".ogg")) {
 			return;
 		}
-		if (!downloadedFiles.add(fileName)) {
+		String fileKey = WikiFilenameUtil.normalizeKey(fileName);
+		if (!processedFileKeys.add("sound:" + fileKey)) {
+			return;
+		}
+		JsonObject mapping = findSoundMapping(fileName);
+		String soundEvent = null;
+		String vanillaSoundPath = "";
+		if (mapping != null) {
+			soundEvent = mapping.get("soundEvent").getAsString();
+			if (mapping.has("vanillaSoundPath")) {
+				vanillaSoundPath = mapping.get("vanillaSoundPath").getAsString();
+			}
+		} else {
+			soundEvent = guessSoundEvent(fileName);
+			if (soundEvent == null) {
+				String pageText = fetchPageWikitext("File:" + fileName);
+				soundEvent = extractSoundEventFromText(pageText);
+			}
+		}
+		if (soundEvent == null || soundEvent.isEmpty()) {
+			skippedSoundCount++;
+			processedFileKeys.remove("sound:" + fileKey);
 			return;
 		}
 		String assetPath = downloadFile(fileName);
 		if (assetPath == null) {
 			return;
 		}
-		JsonObject soundTargets = overrides.getAsJsonObject("soundTargets");
-		if (soundTargets == null || !soundTargets.has(fileName)) {
-			return;
-		}
-		JsonObject mapping = soundTargets.getAsJsonObject(fileName);
+		List<String> textureTags = List.of();
+		WikiTableParser.VersionInfo version = versionForFile(fileName, textureTags);
+		String human = WikiFilenameUtil.humanLabel(fileName);
+		String label = version.displayVersion().isEmpty() || version.displayVersion().equals(human)
+				? human
+				: version.displayVersion() + " — " + human;
 		sounds.add(new SoundRecord(
-				toId(fileName),
+				WikiFilenameUtil.toId(fileName),
 				fileName,
-				mapping.get("soundEvent").getAsString(),
+				soundEvent,
 				assetPath,
-				mapping.has("vanillaSoundPath") ? mapping.get("vanillaSoundPath").getAsString() : "",
-				fileName
+				vanillaSoundPath,
+				label,
+				textureTags,
+				version.javaVersion(),
+				version.bedrockVersion(),
+				version.displayVersion()
 		));
 	}
 
-	private List<String> resolveTextureTargets(String fileName) {
-		JsonObject fileTargets = overrides.getAsJsonObject("fileTargets");
-		if (fileTargets != null && fileTargets.has(fileName)) {
-			List<String> list = new ArrayList<>();
-			for (var element : fileTargets.getAsJsonArray(fileName)) {
-				list.add(element.getAsString());
-			}
-			return list;
+	private WikiTableParser.VersionInfo versionForFile(String fileName, List<String> textureTags) {
+		WikiTableParser.VersionInfo version = versionByFile.getOrDefault(
+				WikiFilenameUtil.normalizeKey(fileName),
+				WikiTableParser.VersionInfo.empty()
+		);
+		if (!version.displayVersion().isEmpty()) {
+			return version;
 		}
-		return List.of();
+		String fallback = WikiFilenameUtil.fallbackDisplayVersion(fileName, textureTags);
+		return new WikiTableParser.VersionInfo("", "", fallback);
 	}
 
-	private List<String> guessTargetsFromFileName(String fileName) {
-		String base = fileName;
-		int underscore = base.indexOf("_(");
-		if (underscore > 0) {
-			base = base.substring(0, underscore);
+	private List<String> resolveTextureTargets(String fileName) {
+		JsonArray array = findOverrideArray(overrides.getAsJsonObject("fileTargets"), fileName);
+		if (array == null) {
+			return List.of();
 		}
-		base = base.replace(' ', '_').toLowerCase(Locale.ROOT);
-		List<String> guesses = new ArrayList<>();
-		if (fileName.contains("(top_texture)")) {
-			guesses.add("minecraft:textures/block/" + base + "_top.png");
-		} else if (fileName.contains("(side_texture)")) {
-			guesses.add("minecraft:textures/block/" + base + "_side.png");
-		} else if (fileName.contains("(texture)")) {
-			guesses.add("minecraft:textures/block/" + base + ".png");
-			guesses.add("minecraft:textures/item/" + base + ".png");
-			guesses.add("minecraft:textures/entity/" + base + "/" + base + ".png");
+		List<String> list = new ArrayList<>();
+		for (JsonElement element : array) {
+			list.add(element.getAsString());
 		}
-		return guesses;
+		return list;
+	}
+
+	private JsonObject findSoundMapping(String fileName) {
+		JsonObject soundTargets = overrides.getAsJsonObject("soundTargets");
+		if (soundTargets == null) {
+			return null;
+		}
+		JsonElement element = findOverrideElement(soundTargets, fileName);
+		return element != null ? element.getAsJsonObject() : null;
+	}
+
+	private JsonArray findOverrideArray(JsonObject object, String fileName) {
+		JsonElement element = findOverrideElement(object, fileName);
+		return element != null ? element.getAsJsonArray() : null;
+	}
+
+	private JsonElement findOverrideElement(JsonObject object, String fileName) {
+		if (object == null) {
+			return null;
+		}
+		if (object.has(fileName)) {
+			return object.get(fileName);
+		}
+		String normalized = WikiFilenameUtil.normalizeKey(fileName);
+		for (var entry : object.entrySet()) {
+			if (WikiFilenameUtil.normalizeKey(entry.getKey()).equals(normalized)) {
+				return entry.getValue();
+			}
+		}
+		return null;
+	}
+
+	private String guessSoundEvent(String fileName) {
+		String key = WikiFilenameUtil.normalizeKey(fileName);
+		if (key.endsWith(".ogg")) {
+			key = key.substring(0, key.length() - 4);
+		}
+		return SOUND_HEURISTICS.get(key);
+	}
+
+	private String extractSoundEventFromText(String text) {
+		if (text == null || text.isEmpty()) {
+			return null;
+		}
+		Matcher matcher = SOUND_EVENT_PATTERN.matcher(text);
+		while (matcher.find()) {
+			String candidate = matcher.group(1).toLowerCase(Locale.ROOT);
+			if (candidate.contains(".") && !candidate.startsWith("file.")) {
+				return candidate;
+			}
+		}
+		return null;
+	}
+
+	private String fetchPageWikitext(String pageTitle) throws Exception {
+		if (wikitextCache.containsKey(pageTitle)) {
+			return wikitextCache.get(pageTitle);
+		}
+		String url = API + "?action=parse&page=" + encode(pageTitle) + "&prop=wikitext&format=json";
+		JsonObject response = getJson(url);
+		JsonObject parse = response.getAsJsonObject("parse");
+		String wikitext = "";
+		if (parse != null && parse.has("wikitext")) {
+			wikitext = parse.getAsJsonObject("wikitext").get("*").getAsString();
+		}
+		wikitextCache.put(pageTitle, wikitext);
+		return wikitext;
 	}
 
 	private String downloadFile(String fileName) throws Exception {
@@ -284,7 +425,7 @@ public final class WikiIndexer {
 
 	private void writeCatalog(List<VariantRecord> textures, List<SoundRecord> sounds) throws IOException {
 		JsonObject root = new JsonObject();
-		root.addProperty("schemaVersion", 1);
+		root.addProperty("schemaVersion", 2);
 		JsonArray variantArray = new JsonArray();
 		for (VariantRecord texture : textures) {
 			JsonObject object = new JsonObject();
@@ -295,6 +436,14 @@ public final class WikiIndexer {
 				editions.add(edition);
 			}
 			object.add("editions", editions);
+			JsonArray tags = new JsonArray();
+			for (String tag : texture.textureTags()) {
+				tags.add(tag);
+			}
+			object.add("textureTags", tags);
+			object.addProperty("javaVersion", texture.javaVersion());
+			object.addProperty("bedrockVersion", texture.bedrockVersion());
+			object.addProperty("displayVersion", texture.displayVersion());
 			object.addProperty("introducedIn", texture.introducedIn());
 			object.addProperty("assetPath", texture.assetPath());
 			object.addProperty("label", texture.label());
@@ -317,6 +466,14 @@ public final class WikiIndexer {
 			object.addProperty("assetPath", sound.assetPath());
 			object.addProperty("vanillaSoundPath", sound.vanillaSoundPath());
 			object.addProperty("label", sound.label());
+			object.addProperty("javaVersion", sound.javaVersion());
+			object.addProperty("bedrockVersion", sound.bedrockVersion());
+			object.addProperty("displayVersion", sound.displayVersion());
+			JsonArray tags = new JsonArray();
+			for (String tag : sound.textureTags()) {
+				tags.add(tag);
+			}
+			object.add("textureTags", tags);
 			soundArray.add(object);
 		}
 		root.add("soundVariants", soundArray);
@@ -333,31 +490,6 @@ public final class WikiIndexer {
 		return GSON.fromJson(response.body(), JsonObject.class);
 	}
 
-	private static List<String> parseEditions(String fileName) {
-		Set<String> editions = new LinkedHashSet<>();
-		Matcher matcher = EDITION_PATTERN.matcher(fileName);
-		while (matcher.find()) {
-			editions.add(matcher.group(1));
-		}
-		if (editions.isEmpty()) {
-			editions.add("JE");
-		}
-		return List.copyOf(editions);
-	}
-
-	private static boolean isTextureFile(String fileName) {
-		String lower = fileName.toLowerCase(Locale.ROOT);
-		return lower.endsWith(".png") && lower.contains("(texture)");
-	}
-
-	private static String humanLabel(String fileName) {
-		return fileName.replace('_', ' ');
-	}
-
-	private static String toId(String fileName) {
-		return fileName.replaceAll("[^a-zA-Z0-9]+", "_").toLowerCase(Locale.ROOT);
-	}
-
 	private static String encode(String value) {
 		return URLEncoder.encode(value, StandardCharsets.UTF_8);
 	}
@@ -372,6 +504,10 @@ public final class WikiIndexer {
 			String id,
 			String wikiFile,
 			List<String> editions,
+			List<String> textureTags,
+			String javaVersion,
+			String bedrockVersion,
+			String displayVersion,
 			String introducedIn,
 			String assetPath,
 			List<String> targets,
@@ -386,7 +522,11 @@ public final class WikiIndexer {
 			String soundEvent,
 			String assetPath,
 			String vanillaSoundPath,
-			String label
+			String label,
+			List<String> textureTags,
+			String javaVersion,
+			String bedrockVersion,
+			String displayVersion
 	) {
 	}
 }

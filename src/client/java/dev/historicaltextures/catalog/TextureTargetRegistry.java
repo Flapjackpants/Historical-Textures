@@ -227,8 +227,15 @@ public final class TextureTargetRegistry {
 
 	private static List<TextureTarget> sorted(Map<String, TextureTarget> map) {
 		List<TextureTarget> list = new ArrayList<>(map.values());
-		list.sort(Comparator.comparing(TextureTarget::displayName, String.CASE_INSENSITIVE_ORDER));
+		list.sort(Comparator
+				.comparingInt((TextureTarget target) -> HistoricalCatalog.get().variantCountForTarget(target.configKey()))
+				.reversed()
+				.thenComparing(TextureTarget::displayName, String.CASE_INSENSITIVE_ORDER));
 		return List.copyOf(list);
+	}
+
+	public static int variantCount(String configKey) {
+		return HistoricalCatalog.get().variantCountForTarget(configKey);
 	}
 
 	private static Identifier pathToBlockId(String target) {

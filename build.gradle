@@ -36,6 +36,7 @@ dependencies {
 }
 
 def catalogDir = layout.projectDirectory.dir('src/main/resources/assets/historical_textures/catalog')
+def catalogJson = catalogDir.file('catalog.json')
 
 tasks.register('indexWiki') {
 	group = 'historical textures'
@@ -43,8 +44,17 @@ tasks.register('indexWiki') {
 	dependsOn ':wiki-indexer:run', ':wiki-indexer:exportCatalog'
 }
 
+tasks.register('ensureCatalog') {
+	group = 'historical textures'
+	description = 'Build a minimal catalog when none is bundled yet'
+	onlyIf {
+		!catalogJson.asFile.exists()
+	}
+	dependsOn ':wiki-indexer:indexQuick'
+}
+
 tasks.named('processResources').configure {
-	dependsOn ':wiki-indexer:exportCatalog'
+	dependsOn 'ensureCatalog', ':wiki-indexer:exportCatalog'
 }
 
 processResources {
