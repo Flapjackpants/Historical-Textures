@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import dev.historicaltextures.HistoricalTextures;
+import dev.historicaltextures.GamePaths;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -40,8 +41,7 @@ public final class ModConfig {
 	}
 
 	private static ModConfig load() {
-		Path configDir = Path.of("config");
-		Path path = configDir.resolve("historical_textures.json");
+		Path path = GamePaths.configFile();
 		ModConfig config = new ModConfig(path);
 		if (!Files.isRegularFile(path)) {
 			return config;

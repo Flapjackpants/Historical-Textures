@@ -2,7 +2,9 @@ package dev.historicaltextures.pack;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import dev.historicaltextures.GamePaths;
 import dev.historicaltextures.HistoricalTextures;
 import dev.historicaltextures.catalog.HistoricalCatalog;
 import dev.historicaltextures.catalog.SoundVariant;
@@ -16,17 +18,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public final class OverlayPackManager {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	private static final int PACK_FORMAT = 75;
+	/** Resource pack format for Minecraft 26.1 (see minecraft.wiki Pack format). */
+	private static final int PACK_FORMAT_MAJOR = 84;
 
 	private OverlayPackManager() {
 	}
 
 	public static Path overlayDirectory() {
-		return Path.of("config", "historical_textures", "overlay");
+		return GamePaths.overlayDirectory();
 	}
 
 	public static boolean packExists() {
@@ -37,10 +41,15 @@ public final class OverlayPackManager {
 		try {
 			ApplyResult result = generateOverlayPack();
 			enableOverlayPack();
-			if (reloadResources && result.hadChoices()) {
+			if (reloadResources) {
 				Minecraft minecraft = Minecraft.getInstance();
 				if (minecraft != null) {
-					minecraft.reloadResourcePacks();
+					minecraft.reloadResourcePacks()
+							.thenRun(minecraft::delayTextureReload)
+							.exceptionally(error -> {
+								HistoricalTextures.LOGGER.error("Resource reload failed after applying overlay", error);
+								return null;
+							});
 				}
 			}
 			if (result.hadChoices()) {
@@ -70,24 +79,40 @@ public final class OverlayPackManager {
 			return;
 		}
 		var repository = minecraft.getResourcePackRepository();
+		var options = minecraft.options;
+		repository.reload();
+
+		List<String> enabledPacks = new ArrayList<>(options.resourcePacks);
+		enabledPacks.remove(OverlayResourcePackProvider.PACK_ID);
+
 		if (packExists()) {
-			repository.reload();
-			var selected = new ArrayList<>(repository.getSelectedIds());
-			if (!selected.contains(OverlayResourcePackProvider.PACK_ID)) {
-				repository.addPack(OverlayResourcePackProvider.PACK_ID);
-				selected = new ArrayList<>(repository.getSelectedIds());
+			if (!repository.isAvailable(OverlayResourcePackProvider.PACK_ID)) {
+				HistoricalTextures.LOGGER.error(
+						"Overlay pack exists on disk at {} but is not registered. Check mixin / pack.mcmeta.",
+						overlayDirectory().toAbsolutePath()
+				);
+				return;
 			}
-			if (!selected.contains(OverlayResourcePackProvider.PACK_ID)) {
-				selected.add(OverlayResourcePackProvider.PACK_ID);
-				repository.setSelected(selected);
+			var pack = repository.getPack(OverlayResourcePackProvider.PACK_ID);
+			if (pack != null && !pack.getCompatibility().isCompatible()) {
+				HistoricalTextures.LOGGER.error(
+						"Overlay pack is incompatible ({}). Update pack.mcmeta format.",
+						pack.getCompatibility()
+				);
+				return;
 			}
-		} else {
-			var selected = new ArrayList<>(repository.getSelectedIds());
-			if (selected.remove(OverlayResourcePackProvider.PACK_ID)) {
-				repository.setSelected(selected);
-			}
-			repository.reload();
+			// Last in the list wins over earlier packs when Minecraft merges resources.
+			enabledPacks.add(OverlayResourcePackProvider.PACK_ID);
+			HistoricalTextures.LOGGER.info(
+					"Overlay pack enabled at {} (compatibility={})",
+					overlayDirectory().toAbsolutePath(),
+					pack != null ? pack.getCompatibility() : "unknown"
+			);
 		}
+
+		options.resourcePacks.clear();
+		options.resourcePacks.addAll(enabledPacks);
+		options.loadSelectedResourcePacks(repository);
 	}
 
 	public static ApplyResult generateOverlayPack() throws IOException {
@@ -138,7 +163,15 @@ public final class OverlayPackManager {
 		JsonObject packMeta = new JsonObject();
 		JsonObject pack = new JsonObject();
 		pack.addProperty("description", "Historical Textures overlay");
-		pack.addProperty("pack_format", PACK_FORMAT);
+		pack.addProperty("pack_format", PACK_FORMAT_MAJOR);
+		JsonArray formatComponent = new JsonArray();
+		formatComponent.add(PACK_FORMAT_MAJOR);
+		formatComponent.add(0);
+		JsonArray maxFormat = new JsonArray();
+		maxFormat.add(PACK_FORMAT_MAJOR);
+		maxFormat.add(0);
+		pack.add("min_format", formatComponent);
+		pack.add("max_format", maxFormat);
 		packMeta.add("pack", pack);
 		Files.writeString(root.resolve("pack.mcmeta"), GSON.toJson(packMeta));
 
@@ -146,9 +179,10 @@ public final class OverlayPackManager {
 	}
 
 	private static boolean copyTextureVariant(Path root, TextureVariant variant, String targetPath) throws IOException {
-		String relative = targetPath;
-		if (relative.startsWith("minecraft:")) {
-			relative = relative.substring("minecraft:".length());
+		String relative = normalizeTargetPath(targetPath);
+		if (relative.isEmpty()) {
+			HistoricalTextures.LOGGER.warn("Invalid texture target path: {}", targetPath);
+			return false;
 		}
 		Path destination = root.resolve("assets/minecraft").resolve(relative);
 		Files.createDirectories(destination.getParent());
@@ -159,6 +193,7 @@ public final class OverlayPackManager {
 				return false;
 			}
 			Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING);
+			HistoricalTextures.LOGGER.debug("Wrote overlay texture {}", destination.toAbsolutePath());
 			return true;
 		}
 	}
@@ -193,6 +228,20 @@ public final class OverlayPackManager {
 			soundRoot.add(event, eventObject);
 		}
 		return soundRoot;
+	}
+
+	private static String normalizeTargetPath(String targetPath) {
+		if (targetPath == null || targetPath.isBlank()) {
+			return "";
+		}
+		String relative = targetPath.trim();
+		if (relative.startsWith("minecraft:")) {
+			relative = relative.substring("minecraft:".length());
+		}
+		while (relative.startsWith("/")) {
+			relative = relative.substring(1);
+		}
+		return relative;
 	}
 
 	private static Path copySoundVariant(Path root, SoundVariant variant) throws IOException {

@@ -20,8 +20,6 @@ public abstract class ResourcePackManagerMixin {
 
 	@Inject(method = "<init>", at = @At("TAIL"))
 	private void historicalTextures$registerOverlaySource(RepositorySource[] repositorySources, CallbackInfo callbackInfo) {
-		if (OverlayResourcePackProvider.getInstance() != null) {
-			sources.add(OverlayResourcePackProvider.getInstance());
-		}
+		sources.add(new OverlayResourcePackProvider());
 	}
 }

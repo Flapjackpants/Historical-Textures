@@ -16,19 +16,10 @@ import java.util.function.Consumer;
 
 public final class OverlayResourcePackProvider implements RepositorySource {
 	public static final String PACK_ID = "historical_textures_overlay";
-	private static RepositorySource instance;
-
-	public static void register() {
-		instance = new OverlayResourcePackProvider();
-	}
-
-	public static RepositorySource getInstance() {
-		return instance;
-	}
 
 	@Override
 	public void loadPacks(Consumer<Pack> consumer) {
-		Path overlayRoot = OverlayPackManager.overlayDirectory();
+		Path overlayRoot = OverlayPackManager.overlayDirectory().toAbsolutePath().normalize();
 		if (!OverlayPackManager.packExists()) {
 			return;
 		}
