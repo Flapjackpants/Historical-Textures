@@ -30,12 +30,24 @@ java {
 }
 
 def exportDir = rootProject.layout.projectDirectory.dir('src/main/resources/assets/historical_textures/catalog')
+def indexerCatalogDir = layout.buildDirectory.dir('catalog')
 
 tasks.register('exportCatalog', Copy) {
 	group = 'historical textures'
 	description = 'Copy indexer output into mod resources'
-	from layout.buildDirectory.dir('catalog')
+	from indexerCatalogDir
 	into exportDir
+	duplicatesStrategy = DuplicatesStrategy.INCLUDE
+	inputs.dir(indexerCatalogDir).withPathSensitivity(PathSensitivity.RELATIVE)
+	outputs.dir(exportDir)
+	onlyIf {
+		def source = indexerCatalogDir.get().asFile
+		def hasOutput = source.isDirectory() && source.list()?.length > 0
+		if (!hasOutput) {
+			logger.lifecycle('exportCatalog: skipped (no wiki-indexer/build/catalog). Using existing resources under src/main/resources/assets/historical_textures/catalog/.')
+		}
+		hasOutput
+	}
 }
 
 tasks.register('indexQuick', JavaExec) {

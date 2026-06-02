@@ -37,21 +37,14 @@ dependencies {
 
 def catalogDir = layout.projectDirectory.dir('src/main/resources/assets/historical_textures/catalog')
 
-tasks.register('indexWiki', Exec) {
+tasks.register('indexWiki') {
 	group = 'historical textures'
-	description = 'Crawl minecraft.wiki and refresh the bundled catalog'
-	dependsOn ':wiki-indexer:run'
-	doFirst {
-		catalogDir.asFile.mkdirs()
-	}
-	commandLine 'echo', 'Wiki indexer output is copied by wiki-indexer:run'
+	description = 'Crawl minecraft.wiki and export catalog into mod resources'
+	dependsOn ':wiki-indexer:run', ':wiki-indexer:exportCatalog'
 }
 
-def catalogJson = catalogDir.file('catalog.json')
-if (!catalogJson.asFile.exists()) {
-	tasks.named('processResources').configure {
-		dependsOn ':wiki-indexer:exportCatalog'
-	}
+tasks.named('processResources').configure {
+	dependsOn ':wiki-indexer:exportCatalog'
 }
 
 processResources {

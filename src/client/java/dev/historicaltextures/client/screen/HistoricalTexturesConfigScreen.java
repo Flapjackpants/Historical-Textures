@@ -1,5 +1,6 @@
 package dev.historicaltextures.client.screen;
 
+import dev.historicaltextures.catalog.ClientCatalogLoader;
 import dev.historicaltextures.catalog.HistoricalCatalog;
 import dev.historicaltextures.catalog.SoundVariant;
 import dev.historicaltextures.catalog.TextureTarget;
@@ -16,6 +17,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -36,6 +38,9 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 	@Override
 	protected void init() {
+		ClientCatalogLoader.reload();
+		TextureTargetRegistry.reload();
+
 		int tabY = 8;
 		int tabX = 8;
 		addRenderableWidget(Button.builder(Component.literal("Blocks"), b -> switchTab(Tab.BLOCKS)).bounds(tabX, tabY, 72, 20).build());
@@ -55,12 +60,17 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		int leftWidth = width / 2 - 12;
 		int rightX = width / 2 + 4;
 
-		targetList = new TargetList(minecraft, leftWidth, listTop, listTop + listHeight);
-		variantList = new VariantList(minecraft, leftWidth, listTop, listTop + listHeight);
+		int entryHeight = TextureTargetRegistry.entryHeight();
+		targetList = new TargetList(minecraft, leftWidth, listHeight, listTop, entryHeight);
+		variantList = new VariantList(minecraft, leftWidth, listHeight, listTop, entryHeight);
 		targetList.setX(8);
+		targetList.setY(listTop);
 		targetList.setWidth(leftWidth);
+		targetList.setHeight(listHeight);
 		variantList.setX(rightX);
+		variantList.setY(listTop);
 		variantList.setWidth(leftWidth);
+		variantList.setHeight(listHeight);
 		addRenderableWidget(targetList);
 		addRenderableWidget(variantList);
 
@@ -85,19 +95,24 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private void rebuildLists() {
-		targetList.replaceEntries(List.of());
-		variantList.replaceEntries(List.of());
+		List<TargetList.Entry> targetEntries = new ArrayList<>();
+		List<VariantList.Entry> variantEntries = new ArrayList<>();
 
 		if (activeTab == Tab.SOUNDS) {
 			for (String event : TextureTargetRegistry.soundEvents()) {
 				if (!matchesFilter(event)) {
 					continue;
 				}
-				targetList.addPublicEntry(new SoundTargetEntry(event));
+				targetEntries.add(new SoundTargetEntry(event));
 			}
 			if (selectedSoundEvent != null) {
-				populateSoundVariants(selectedSoundEvent);
+				variantEntries.addAll(buildSoundVariantEntries(selectedSoundEvent));
 			}
+			targetList.replaceEntries(targetEntries);
+			variantList.replaceEntries(variantEntries);
+			emptyListHint = targetEntries.isEmpty()
+					? Component.literal("No sound events in catalog. Run the wiki indexer or check latest.log.")
+					: null;
 			return;
 		}
 
@@ -112,27 +127,39 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			if (!matchesFilter(target.displayName()) && !matchesFilter(target.configKey())) {
 				continue;
 			}
-			targetList.addPublicEntry(new TextureTargetEntry(target));
+			targetEntries.add(new TextureTargetEntry(target));
 		}
 
 		if (selectedTarget != null) {
-			populateTextureVariants(selectedTarget);
+			variantEntries.addAll(buildTextureVariantEntries(selectedTarget));
 		}
+
+		targetList.replaceEntries(targetEntries);
+		variantList.replaceEntries(variantEntries);
+		emptyListHint = targetEntries.isEmpty()
+				? Component.literal("No targets loaded. Check latest.log for catalog errors (look for \"Loaded catalog\").")
+				: null;
 	}
 
-	private void populateTextureVariants(TextureTarget target) {
-		variantList.addPublicEntry(new VariantEntry(Component.literal("Vanilla (default)"), null, target.configKey()));
+	private Component emptyListHint;
+
+	private List<VariantList.Entry> buildTextureVariantEntries(TextureTarget target) {
+		List<VariantList.Entry> entries = new ArrayList<>();
+		entries.add(new VariantEntry(Component.literal("Vanilla (default)"), null, target.configKey()));
 		for (TextureVariant variant : HistoricalCatalog.get().textureVariantsForTarget(target.configKey())) {
 			String label = variant.label() + " [" + String.join("/", variant.editions().stream().map(Enum::name).toList()) + "]";
-			variantList.addPublicEntry(new VariantEntry(Component.literal(label), variant.id(), target.configKey()));
+			entries.add(new VariantEntry(Component.literal(label), variant.id(), target.configKey()));
 		}
+		return entries;
 	}
 
-	private void populateSoundVariants(String event) {
-		variantList.addPublicEntry(new SoundVariantEntry(Component.literal("Vanilla (default)"), null, event));
+	private List<VariantList.Entry> buildSoundVariantEntries(String event) {
+		List<VariantList.Entry> entries = new ArrayList<>();
+		entries.add(new SoundVariantEntry(Component.literal("Vanilla (default)"), null, event));
 		for (SoundVariant variant : HistoricalCatalog.get().soundVariantsForEvent(event)) {
-			variantList.addPublicEntry(new SoundVariantEntry(Component.literal(variant.label()), variant.id(), event));
+			entries.add(new SoundVariantEntry(Component.literal(variant.label()), variant.id(), event));
 		}
+		return entries;
 	}
 
 	private boolean matchesFilter(String value) {
@@ -163,6 +190,9 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 		graphics.text(font, Component.literal("Targets"), 8, 40, 0xFFFFFF);
 		graphics.text(font, Component.literal("Variants"), width / 2 + 4, 40, 0xFFFFFF);
+		if (emptyListHint != null) {
+			graphics.text(font, emptyListHint, 8, height / 2, 0xFF5555);
+		}
 	}
 
 	private enum Tab {
@@ -270,12 +300,8 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private static class TargetList extends AbstractSelectionList<TargetList.Entry> {
-		TargetList(Minecraft minecraft, int width, int top, int bottom) {
-			super(minecraft, width, bottom - top, top, bottom);
-		}
-
-		void addPublicEntry(Entry entry) {
-			addEntry(entry);
+		TargetList(Minecraft minecraft, int width, int height, int top, int entryHeight) {
+			super(minecraft, width, height, top, entryHeight);
 		}
 
 		@Override
@@ -293,12 +319,8 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private static class VariantList extends AbstractSelectionList<VariantList.Entry> {
-		VariantList(Minecraft minecraft, int width, int top, int bottom) {
-			super(minecraft, width, bottom - top, top, bottom);
-		}
-
-		void addPublicEntry(Entry entry) {
-			addEntry(entry);
+		VariantList(Minecraft minecraft, int width, int height, int top, int entryHeight) {
+			super(minecraft, width, height, top, entryHeight);
 		}
 
 		@Override
