@@ -97,14 +97,14 @@ public final class WikiIndexer {
 			for (String page : SEED_PAGES) {
 				System.out.println("Indexing page: " + page);
 				String wikitext = fetchPageWikitext(page);
-				versionByFile.putAll(WikiTableParser.parseVersionsFromWikitext(wikitext));
+				mergeVersions(WikiTableParser.parseVersionsFromWikitext(wikitext, pageEdition(page)));
 				crawlPage(page, wikitext, textures);
 				Thread.sleep(250);
 			}
 			for (String page : SOUND_SEED_PAGES) {
 				System.out.println("Indexing sound page: " + page);
 				String wikitext = fetchPageWikitext(page);
-				versionByFile.putAll(WikiTableParser.parseVersionsFromWikitext(wikitext));
+				mergeVersions(WikiTableParser.parseVersionsFromWikitext(wikitext, pageEdition(page)));
 				crawlSoundPage(page, wikitext, sounds);
 				Thread.sleep(250);
 			}
@@ -303,11 +303,24 @@ public final class WikiIndexer {
 				WikiFilenameUtil.normalizeKey(fileName),
 				WikiTableParser.VersionInfo.empty()
 		);
-		if (!version.displayVersion().isEmpty()) {
+		if (!version.javaVersion().isEmpty() || !version.bedrockVersion().isEmpty()) {
 			return version;
 		}
 		String fallback = WikiFilenameUtil.fallbackDisplayVersion(fileName, textureTags);
 		return new WikiTableParser.VersionInfo("", "", fallback);
+	}
+
+	private void mergeVersions(Map<String, WikiTableParser.VersionInfo> parsed) {
+		for (Map.Entry<String, WikiTableParser.VersionInfo> entry : parsed.entrySet()) {
+			versionByFile.merge(entry.getKey(), entry.getValue(), WikiTableParser.VersionInfo::merge);
+		}
+	}
+
+	private static WikiTableParser.WikiEdition pageEdition(String pageTitle) {
+		if (pageTitle.startsWith("Bedrock_Edition")) {
+			return WikiTableParser.WikiEdition.BEDROCK;
+		}
+		return WikiTableParser.WikiEdition.JAVA;
 	}
 
 	private List<String> resolveTextureTargets(String fileName) {

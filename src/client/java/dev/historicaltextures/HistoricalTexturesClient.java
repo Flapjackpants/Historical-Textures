@@ -14,6 +14,6 @@ public final class HistoricalTexturesClient implements ClientModInitializer {
 		ClientCatalogLoader.reload();
 		ModConfig.reload();
 
-		ClientLifecycleEvents.CLIENT_STARTED.register(client -> OverlayPackManager.applyChoices(false));
+		ClientLifecycleEvents.CLIENT_STARTED.register(client -> OverlayPackManager.applyChoices(true));
 	}
 }

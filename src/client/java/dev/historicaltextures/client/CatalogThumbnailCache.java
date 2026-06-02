@@ -6,7 +6,6 @@ import dev.historicaltextures.catalog.CatalogResources;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
-import net.minecraft.server.packs.resources.Resource;
 
 import java.io.InputStream;
 import java.util.HashMap;
@@ -14,22 +13,25 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class CatalogThumbnailCache {
-	private static final Map<String, Identifier> TEXTURES = new HashMap<>();
-	private static final Map<String, DynamicTexture> DYNAMIC_TEXTURES = new HashMap<>();
+	private static final Map<String, CachedPreview> CACHE = new HashMap<>();
 
 	private CatalogThumbnailCache() {
 	}
 
-	public static Optional<Identifier> get(String variantId, String assetPath) {
+	public record CachedPreview(Identifier textureId, int width, int height) {
+	}
+
+	public static Optional<CachedPreview> get(String variantId, String assetPath) {
 		if (variantId == null || assetPath == null || assetPath.isBlank()) {
 			return Optional.empty();
 		}
-		Identifier cached = TEXTURES.get(variantId);
+		CachedPreview cached = CACHE.get(variantId);
 		if (cached != null) {
 			return Optional.of(cached);
 		}
-		try (InputStream stream = openAssetStream(assetPath)) {
+		try (InputStream stream = CatalogResources.openAsset(assetPath)) {
 			if (stream == null) {
+				HistoricalTextures.LOGGER.warn("Missing catalog preview asset {} for variant {}", assetPath, variantId);
 				return Optional.empty();
 			}
 			NativeImage image = NativeImage.read(stream);
@@ -40,49 +42,25 @@ public final class CatalogThumbnailCache {
 			DynamicTexture dynamicTexture = new DynamicTexture(textureId::toString, image);
 			Minecraft.getInstance().getTextureManager().register(textureId, dynamicTexture);
 			dynamicTexture.upload();
-			TEXTURES.put(variantId, textureId);
-			DYNAMIC_TEXTURES.put(variantId, dynamicTexture);
-			return Optional.of(textureId);
+			CachedPreview preview = new CachedPreview(textureId, image.getWidth(), image.getHeight());
+			CACHE.put(variantId, preview);
+			return Optional.of(preview);
 		} catch (Exception exception) {
-			HistoricalTextures.LOGGER.debug("Failed to load catalog preview for {}", variantId, exception);
+			HistoricalTextures.LOGGER.warn("Failed to load catalog preview for {}", variantId, exception);
 			return Optional.empty();
 		}
 	}
 
-	private static InputStream openAssetStream(String assetPath) {
-		Minecraft minecraft = Minecraft.getInstance();
-		if (minecraft != null && minecraft.getResourceManager() != null) {
-			String normalized = assetPath.replace('\\', '/');
-			while (normalized.startsWith("/")) {
-				normalized = normalized.substring(1);
-			}
-			Identifier resourceId = Identifier.fromNamespaceAndPath(
-					HistoricalTextures.MOD_ID,
-					"catalog/" + normalized
-			);
-			Resource resource = minecraft.getResourceManager().getResource(resourceId).orElse(null);
-			if (resource != null) {
-				try {
-					return resource.open();
-				} catch (Exception exception) {
-					HistoricalTextures.LOGGER.debug("ResourceManager failed for {}", resourceId, exception);
-				}
-			}
-		}
-		return CatalogResources.openAsset(assetPath);
+	public static void preload(String variantId, String assetPath) {
+		get(variantId, assetPath);
 	}
 
 	public static void clear() {
 		Minecraft minecraft = Minecraft.getInstance();
-		for (Map.Entry<String, Identifier> entry : TEXTURES.entrySet()) {
-			minecraft.getTextureManager().release(entry.getValue());
-			DynamicTexture dynamicTexture = DYNAMIC_TEXTURES.remove(entry.getKey());
-			if (dynamicTexture != null) {
-				dynamicTexture.close();
-			}
+		for (CachedPreview preview : CACHE.values()) {
+			minecraft.getTextureManager().release(preview.textureId());
 		}
-		TEXTURES.clear();
-		DYNAMIC_TEXTURES.clear();
+		CACHE.clear();
 	}
 
 	private static String sanitizeId(String variantId) {

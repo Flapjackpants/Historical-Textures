@@ -63,6 +63,15 @@ tasks.register('exportCatalog', Copy) {
 	}
 }
 
+tasks.register('enrichCatalogVersions', JavaExec) {
+	group = 'historical textures'
+	description = 'Fetch wiki version labels and update bundled catalog.json'
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'dev.historicaltextures.indexer.WikiIndexerMain'
+	args = ['--enrich-versions', '../src/main/resources/assets/historical_textures/catalog/catalog.json']
+	workingDir = project.projectDir
+}
+
 tasks.register('indexQuick', JavaExec) {
 	group = 'historical textures'
 	description = 'Download only override-listed wiki assets'

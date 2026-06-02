@@ -17,6 +17,15 @@ public record TextureVariant(
 		String displayVersion
 ) {
 	public String versionLabel() {
+		if (javaVersion != null && !javaVersion.isBlank()) {
+			if (bedrockVersion != null && !bedrockVersion.isBlank()) {
+				return javaVersion + " / " + bedrockVersion;
+			}
+			return javaVersion;
+		}
+		if (bedrockVersion != null && !bedrockVersion.isBlank()) {
+			return bedrockVersion;
+		}
 		if (displayVersion != null && !displayVersion.isBlank()) {
 			return displayVersion;
 		}

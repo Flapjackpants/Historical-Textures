@@ -17,7 +17,6 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +31,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private static final int TARGET_ENTRY_HEIGHT = 24;
 	private static final int VARIANT_ENTRY_HEIGHT = 32;
 	private static final int PREVIEW_SIZE = 16;
+	private static final int PREVIEW_PLACEHOLDER = 0xFF404040;
 
 	private final Screen parent;
 	private Tab activeTab = Tab.BLOCKS;
@@ -164,6 +164,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		List<TextureVariant> variants = HistoricalCatalog.get().textureVariantsForTarget(target.configKey());
 		entries.add(new VariantEntry(Component.literal("Vanilla (default)"), null, null, null, target.configKey()));
 		for (TextureVariant variant : variants) {
+			CatalogThumbnailCache.preload(variant.id(), variant.assetPath());
 			Component label = Component.literal(variant.versionLabel());
 			Component subtitle = subtitleForVariant(variant.textureTags(), variant.label());
 			entries.add(new VariantEntry(label, subtitle, variant.id(), variant, target.configKey()));
@@ -207,7 +208,19 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 	private void applyChanges() {
 		ModConfig.get().save();
-		OverlayPackManager.applyChoices(true);
+		OverlayPackManager.ApplyResult result = OverlayPackManager.applyChoices(true);
+		if (minecraft.player != null) {
+			if (result.hadChoices() && result.texturesWritten() == 0 && result.soundsWritten() == 0) {
+				minecraft.player.sendOverlayMessage(
+						Component.literal("Apply failed: catalog assets missing. Rebuild the mod with the wiki indexer.")
+				);
+			} else if (result.texturesWritten() > 0 || result.soundsWritten() > 0) {
+				minecraft.player.sendOverlayMessage(
+						Component.literal("Applied " + result.texturesWritten() + " texture(s) and "
+								+ result.soundsWritten() + " sound(s).")
+				);
+			}
+		}
 	}
 
 	private void clearAll() {
@@ -332,25 +345,32 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
-			int textX = getContentX() + 4;
+			int previewX = getContentX() + 4;
+			int previewY = getContentYMiddle() - PREVIEW_SIZE / 2;
+			int textX = previewX;
+
 			if (textureVariant != null) {
-				Optional<Identifier> preview = CatalogThumbnailCache.get(textureVariant.id(), textureVariant.assetPath());
+				textX = previewX + PREVIEW_SIZE + 4;
+				Optional<CatalogThumbnailCache.CachedPreview> preview =
+						CatalogThumbnailCache.get(textureVariant.id(), textureVariant.assetPath());
 				if (preview.isPresent()) {
-					int previewY = getContentYMiddle() - PREVIEW_SIZE / 2;
+					CatalogThumbnailCache.CachedPreview cached = preview.get();
 					graphics.blit(
-							preview.get(),
-							getContentX() + 4,
+							cached.textureId(),
+							previewX,
 							previewY,
 							0,
 							0,
 							PREVIEW_SIZE,
 							PREVIEW_SIZE,
-							PREVIEW_SIZE,
-							PREVIEW_SIZE
+							cached.width(),
+							cached.height()
 					);
-					textX = getContentX() + 4 + PREVIEW_SIZE + 4;
+				} else {
+					graphics.fill(previewX, previewY, previewX + PREVIEW_SIZE, previewY + PREVIEW_SIZE, PREVIEW_PLACEHOLDER);
 				}
 			}
+
 			int color = variantId == null ? TEXT_ACCENT : TEXT_WHITE;
 			if (subtitle != null && variantId != null) {
 				graphics.text(font, label, textX, getContentY() + 4, color);

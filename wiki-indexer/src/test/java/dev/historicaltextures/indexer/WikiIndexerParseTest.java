@@ -3,6 +3,7 @@ package dev.historicaltextures.indexer;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -59,6 +60,44 @@ class WikiIndexerParseTest {
 						+ "|}"
 		).get("stone_(texture)_je2_be1.png");
 		assertEquals("1.14", info.javaVersion());
-		assertTrue(info.displayVersion().contains("JE 1.14"));
+		assertEquals("1.14", info.displayVersion());
+	}
+
+	@Test
+	void parsesVersionFromHistoryLineSnapshot() {
+		WikiTableParser.VersionInfo info = WikiTableParser.parseHistoryLinesFromWikitext(
+				"{{HistoryLine||1.14|dev=18w43a|[[File:Stone (texture) JE4.png|32px]] Changed stone.}}",
+				WikiTableParser.WikiEdition.JAVA
+		).get("stone_(texture)_je4.png");
+		assertEquals("18w43a", info.javaVersion());
+		assertEquals("18w43a", info.displayVersion());
+	}
+
+	@Test
+	void parsesVersionFromHistoryLinePreRelease() {
+		WikiTableParser.VersionInfo info = WikiTableParser.parseHistoryLinesFromWikitext(
+				"{{HistoryLine|||dev=Beta 1.9 Prerelease 5|[[File:Stone (texture) JE3 BE2.png|32px]] Changed stone.}}",
+				WikiTableParser.WikiEdition.JAVA
+		).get("stone_(texture)_je3_be2.png");
+		assertEquals("Beta 1.9 Prerelease 5", info.javaVersion());
+	}
+
+	@Test
+	void mergesJavaAndBedrockVersions() {
+		Map<String, WikiTableParser.VersionInfo> javaVersions = WikiTableParser.parseHistoryLinesFromWikitext(
+				"{{HistoryLine||1.14|dev=18w43a|[[File:Stone (texture) JE4.png|32px]] Changed stone.}}",
+				WikiTableParser.WikiEdition.JAVA
+		);
+		Map<String, WikiTableParser.VersionInfo> bedrockVersions = WikiTableParser.parseHistoryLinesFromWikitext(
+				"{{HistoryLine||1.10.0|dev=beta 1.10.0.3|[[File:Stone (texture) JE4.png|32px]] Changed stone.}}",
+				WikiTableParser.WikiEdition.BEDROCK
+		);
+		WikiTableParser.VersionInfo merged = WikiTableParser.VersionInfo.merge(
+				javaVersions.get("stone_(texture)_je4.png"),
+				bedrockVersions.get("stone_(texture)_je4.png")
+		);
+		assertEquals("18w43a", merged.javaVersion());
+		assertEquals("1.10.0.3", merged.bedrockVersion());
+		assertEquals("18w43a / 1.10.0.3", merged.displayVersion());
 	}
 }
