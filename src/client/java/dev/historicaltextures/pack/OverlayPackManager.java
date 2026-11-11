@@ -46,7 +46,6 @@ public final class OverlayPackManager {
 				Minecraft minecraft = Minecraft.getInstance();
 				if (minecraft != null) {
 					minecraft.reloadResourcePacks()
-							.thenRun(minecraft::delayTextureReload)
 							.exceptionally(error -> {
 								HistoricalTextures.LOGGER.error("Resource reload failed after applying overlay", error);
 								return null;
