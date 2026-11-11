@@ -8,6 +8,8 @@ public final class WikiIndexerMain {
 		boolean quick = false;
 		boolean soundsOnly = false;
 		Path enrichCatalog = null;
+		Path vanillaDir = null;
+		String minecraftVersion = null;
 		for (int index = 0; index < args.length; index++) {
 			String arg = args[index];
 			if ("--quick".equals(arg)) {
@@ -20,6 +22,14 @@ public final class WikiIndexerMain {
 				} else {
 					enrichCatalog = Path.of("../src/main/resources/assets/historical_textures/catalog/catalog.json");
 				}
+			} else if ("--vanilla-dir".equals(arg)) {
+				if (index + 1 < args.length && !args[index + 1].startsWith("--")) {
+					vanillaDir = Path.of(args[++index]);
+				}
+			} else if ("--minecraft-version".equals(arg)) {
+				if (index + 1 < args.length && !args[index + 1].startsWith("--")) {
+					minecraftVersion = args[++index];
+				}
 			} else if (!arg.startsWith("--")) {
 				output = Path.of(arg);
 			}
@@ -28,6 +38,6 @@ public final class WikiIndexerMain {
 			new CatalogVersionEnricher().enrich(enrichCatalog);
 			return;
 		}
-		new WikiIndexer(output, quick, soundsOnly).run();
+		new WikiIndexer(output, quick, soundsOnly, vanillaDir, minecraftVersion).run();
 	}
 }

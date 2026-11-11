@@ -63,12 +63,17 @@ tasks.register('exportCatalog', Copy) {
 	}
 }
 
+def vanillaArgs = [
+		'--vanilla-dir', "${gradle.gradleUserHomeDir}/caches/fabric-loom",
+		'--minecraft-version', rootProject.minecraft_version
+]
+
 tasks.register('indexSounds', JavaExec) {
 	group = 'historical textures'
 	description = 'Re-index historical sounds into bundled catalog (keeps existing textures)'
 	classpath = sourceSets.main.runtimeClasspath
 	mainClass = 'dev.historicaltextures.indexer.WikiIndexerMain'
-	args = ['--sounds-only', '../src/main/resources/assets/historical_textures/catalog']
+	args = ['--sounds-only', '../src/main/resources/assets/historical_textures/catalog'] + vanillaArgs
 	workingDir = project.projectDir
 }
 
@@ -86,11 +91,12 @@ tasks.register('indexQuick', JavaExec) {
 	description = 'Download only override-listed wiki assets'
 	classpath = sourceSets.main.runtimeClasspath
 	mainClass = 'dev.historicaltextures.indexer.WikiIndexerMain'
-	args = ['--quick']
+	args = ['--quick'] + vanillaArgs
 	workingDir = project.projectDir
 	finalizedBy exportCatalog
 }
 
 tasks.named('run') {
 	finalizedBy exportCatalog
+	args(vanillaArgs)
 }

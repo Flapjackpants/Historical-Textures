@@ -9,17 +9,28 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class WikiFilenameUtil {
-	private static final Pattern TEXTURE_SUFFIX = Pattern.compile(
-			"\\s*\\((?:top|side|bottom|front|back|overlay|particle|texture)[^)]*\\)",
+	private static final String EDITION_GROUP = "(JE|BE|PE|TU|CU|EE|LCE)";
+	private static final Pattern TAG_PATTERN = Pattern.compile(
+			"(?:^|[\\s_])" + EDITION_GROUP + "(\\d+)",
 			Pattern.CASE_INSENSITIVE
 	);
-	private static final Pattern TAG_PATTERN = Pattern.compile("(?:^|[\\s_])(JE|BE|TU)(\\d+)", Pattern.CASE_INSENSITIVE);
-	private static final Pattern EDITION_PATTERN = Pattern.compile("(?:^|[\\s_])(JE|BE|TU)(\\d+)", Pattern.CASE_INSENSITIVE);
+	private static final Pattern EDITION_PATTERN = Pattern.compile(
+			"(?:^|[\\s_])" + EDITION_GROUP + "(\\d+)",
+			Pattern.CASE_INSENSITIVE
+	);
+	private static final Pattern EDITION_TAG_TOKEN = Pattern.compile(
+			"(?i)\\s+" + EDITION_GROUP + "\\d+"
+	);
+	private static final Pattern PARENTHETICAL = Pattern.compile("\\(([^)]*)\\)");
 
 	public enum CrawlContext {
 		BLOCKS,
 		ITEMS,
 		ENTITIES,
+		PARTICLES,
+		PAINTINGS,
+		EFFECTS,
+		MAP_ICONS,
 		UNKNOWN
 	}
 
@@ -38,30 +49,50 @@ public final class WikiFilenameUtil {
 	}
 
 	public static boolean isTextureFile(String fileName) {
+		return isTextureFile(fileName, CrawlContext.UNKNOWN);
+	}
+
+	public static boolean isTextureFile(String fileName, CrawlContext context) {
+		if (fileName == null) {
+			return false;
+		}
 		String lower = fileName.toLowerCase(Locale.ROOT);
 		if (!lower.endsWith(".png")) {
 			return false;
 		}
-		return lower.contains("(texture)")
-				|| lower.contains("(top_texture)")
-				|| lower.contains("(side_texture)")
-				|| lower.contains("(bottom_texture)")
-				|| lower.contains("(front_texture)")
-				|| lower.contains("(back_texture)")
-				|| lower.contains("(overlay_texture)")
-				|| lower.contains("(particle_texture)");
+		String spaced = lower.replace('_', ' ');
+		Matcher parenthetical = PARENTHETICAL.matcher(spaced);
+		while (parenthetical.find()) {
+			String content = parenthetical.group(1).trim();
+			if (content.contains("texture") || content.equals("item") || content.equals("held")) {
+				return true;
+			}
+		}
+		return context != CrawlContext.UNKNOWN && TAG_PATTERN.matcher(spaced).find();
 	}
 
 	public static CrawlContext parsePageContext(String pageTitle) {
-		String lower = pageTitle.toLowerCase(Locale.ROOT);
+		String lower = pageTitle.toLowerCase(Locale.ROOT).replace(' ', '_');
 		if (lower.contains("/blocks") || lower.contains("block_textures")) {
 			return CrawlContext.BLOCKS;
 		}
-		if (lower.contains("/items") || lower.contains("item_textures")) {
+		if (lower.contains("/items") || lower.contains("item_textures") || lower.contains("item_texture_history")) {
 			return CrawlContext.ITEMS;
 		}
 		if (lower.contains("/entities") || lower.contains("entity_textures")) {
 			return CrawlContext.ENTITIES;
+		}
+		if (lower.contains("/particles")) {
+			return CrawlContext.PARTICLES;
+		}
+		if (lower.contains("/paintings")) {
+			return CrawlContext.PAINTINGS;
+		}
+		if (lower.contains("/effects")) {
+			return CrawlContext.EFFECTS;
+		}
+		if (lower.contains("/map_icons")) {
+			return CrawlContext.MAP_ICONS;
 		}
 		return CrawlContext.UNKNOWN;
 	}
@@ -72,10 +103,11 @@ public final class WikiFilenameUtil {
 		if (dot > 0) {
 			name = name.substring(0, dot);
 		}
-		Matcher suffixMatcher = TEXTURE_SUFFIX.matcher(name);
-		if (suffixMatcher.find()) {
-			name = name.substring(0, suffixMatcher.start()).trim();
+		int parenthetical = name.indexOf('(');
+		if (parenthetical >= 0) {
+			name = name.substring(0, parenthetical);
 		}
+		name = EDITION_TAG_TOKEN.matcher(name).replaceAll("");
 		return name.replace('_', ' ').trim();
 	}
 
@@ -87,26 +119,26 @@ public final class WikiFilenameUtil {
 	}
 
 	public static String textureSuffix(String fileName) {
-		String lower = fileName.toLowerCase(Locale.ROOT);
-		if (lower.contains("(top_texture)")) {
+		String lower = fileName.toLowerCase(Locale.ROOT).replace('_', ' ');
+		if (lower.contains("(top texture")) {
 			return "_top";
 		}
-		if (lower.contains("(side_texture)")) {
+		if (lower.contains("(side texture")) {
 			return "_side";
 		}
-		if (lower.contains("(bottom_texture)")) {
+		if (lower.contains("(bottom texture")) {
 			return "_bottom";
 		}
-		if (lower.contains("(front_texture)")) {
+		if (lower.contains("(front texture")) {
 			return "_front";
 		}
-		if (lower.contains("(back_texture)")) {
+		if (lower.contains("(back texture")) {
 			return "_back";
 		}
-		if (lower.contains("(overlay_texture)")) {
+		if (lower.contains("(overlay texture")) {
 			return "_overlay";
 		}
-		if (lower.contains("(particle_texture)")) {
+		if (lower.contains("(particle texture")) {
 			return "_particle";
 		}
 		return "";
@@ -127,6 +159,10 @@ public final class WikiFilenameUtil {
 				String folder = registryPath;
 				guesses.add("minecraft:textures/entity/" + folder + "/" + registryPath + suffix + ".png");
 			}
+			case PARTICLES -> guesses.add("minecraft:textures/particle/" + registryPath + suffix + ".png");
+			case PAINTINGS -> guesses.add("minecraft:textures/painting/" + registryPath + suffix + ".png");
+			case EFFECTS -> guesses.add("minecraft:textures/mob_effect/" + registryPath + suffix + ".png");
+			case MAP_ICONS -> guesses.add("minecraft:textures/map/decorations/" + registryPath + suffix + ".png");
 			case UNKNOWN -> {
 				if (!suffix.isEmpty()) {
 					guesses.add("minecraft:textures/block/" + registryPath + suffix + ".png");
