@@ -83,8 +83,12 @@ public final class WikiIndexer {
 	private final Set<String> crawledSoundCategories = new LinkedHashSet<>();
 	private final Map<String, WikiTableParser.VersionInfo> versionByFile = new LinkedHashMap<>();
 	private final Map<String, String> wikitextCache = new HashMap<>();
+	private final Map<String, String> soundTableEvents = new LinkedHashMap<>();
+	private final Set<String> javaTableKeys = new LinkedHashSet<>();
 	private final boolean soundsOnly;
 	private final VanillaAssets vanillaAssets;
+	private LegacySoundEvents legacySoundEvents;
+	private Set<String> knownSoundEvents = Set.of();
 	private JsonObject overrides;
 	private int mappedTextureCount;
 	private int unmappedTextureCount;
@@ -440,11 +444,98 @@ public final class WikiIndexer {
 	}
 
 	private void indexWikiSoundCatalog(List<SoundRecord> sounds) throws Exception {
+		prepareSoundMappings();
+		crawlSoundTables(sounds);
 		for (String root : SOUND_CATEGORY_ROOTS) {
 			System.out.println("Crawling sound category tree: " + root);
 			crawlSoundCategoryRecursive(root, sounds);
 		}
 		crawlDiscoveredSoundCategories(sounds);
+	}
+
+	private void prepareSoundMappings() throws Exception {
+		String history = fetchPageWikitext("Java_Edition_history_of_sound_events");
+		Set<String> vanillaEvents = vanillaAssets != null ? vanillaAssets.soundEvents() : Set.of();
+		if (!vanillaEvents.isEmpty()) {
+			knownSoundEvents = vanillaEvents;
+			System.out.println("Known sound events: " + knownSoundEvents.size() + " (source: vanilla sounds.json)");
+		} else {
+			knownSoundEvents = LegacySoundEvents.parseKnownEvents(history);
+			System.out.println("Known sound events: " + knownSoundEvents.size() + " (source: wiki history)");
+		}
+		legacySoundEvents = new LegacySoundEvents(LegacySoundEvents.parseRenames(history), knownSoundEvents);
+	}
+
+	private void crawlSoundTables(List<SoundRecord> sounds) throws Exception {
+		List<String> pages = discoverSoundTablePages();
+		Map<String, String> fileNames = new LinkedHashMap<>();
+		int javaCount = 0;
+		int bedrockCount = 0;
+		int unmappableCount = 0;
+		for (String page : pages) {
+			String wikitext = fetchPageWikitext(page);
+			for (WikiSoundTableParser.Entry entry : WikiSoundTableParser.parse(wikitext)) {
+				Optional<String> modern = legacySoundEvents.toModern(entry.id());
+				if (modern.isEmpty()) {
+					unmappableCount++;
+					continue;
+				}
+				String key = WikiFilenameUtil.normalizeKey(entry.fileName());
+				fileNames.putIfAbsent(key, entry.fileName());
+				if (entry.edition() == WikiSoundTableParser.Edition.JAVA) {
+					javaCount++;
+					if (javaTableKeys.add(key)) {
+						soundTableEvents.put(key, modern.get());
+					}
+				} else {
+					bedrockCount++;
+					soundTableEvents.putIfAbsent(key, modern.get());
+				}
+			}
+			Thread.sleep(200);
+		}
+		System.out.println("Sound tables: pages=" + pages.size()
+				+ " java=" + javaCount
+				+ " bedrock=" + bedrockCount
+				+ " unmappable=" + unmappableCount
+				+ " files=" + soundTableEvents.size());
+		for (Map.Entry<String, String> entry : fileNames.entrySet()) {
+			if (!soundTableEvents.containsKey(entry.getKey())) {
+				continue;
+			}
+			processSoundFile(entry.getValue(), null, sounds);
+		}
+	}
+
+	private List<String> discoverSoundTablePages() throws Exception {
+		List<String> titles = new ArrayList<>();
+		String continuation = null;
+		do {
+			String url = API + "?action=query&list=embeddedin&eititle=Template:SoundLine"
+					+ "&einamespace=0&eilimit=500&format=json";
+			if (continuation != null) {
+				url += "&eicontinue=" + encode(continuation);
+			}
+			JsonObject response = getJson(url);
+			JsonObject query = response.getAsJsonObject("query");
+			if (query != null && query.has("embeddedin")) {
+				for (var element : query.getAsJsonArray("embeddedin")) {
+					JsonObject page = element.getAsJsonObject();
+					if (page.has("title")) {
+						titles.add(pageTitle(page.get("title").getAsString()));
+					}
+				}
+			}
+			continuation = null;
+			if (response.has("continue")) {
+				JsonObject cont = response.getAsJsonObject("continue");
+				if (cont.has("eicontinue")) {
+					continuation = cont.get("eicontinue").getAsString();
+				}
+			}
+			Thread.sleep(200);
+		} while (continuation != null);
+		return titles;
 	}
 
 	private void crawlSoundCategoryRecursive(String categoryTitle, List<SoundRecord> sounds) throws Exception {
@@ -615,23 +706,41 @@ public final class WikiIndexer {
 				versionHint = overrideMapping.get("versionHint").getAsString();
 			}
 		} else {
-			Optional<WikiSoundUtil.SoundMapping> guessed = Optional.empty();
-			if (wikiSoundCategory != null) {
-				guessed = WikiSoundCategoryUtil.mapCategoryFile(wikiSoundCategory, fileName);
-			}
-			if (guessed.isEmpty()) {
-				guessed = WikiSoundUtil.mapFile(fileName);
-			}
-			if (guessed.isPresent()) {
-				soundEvent = guessed.get().soundEvent();
-				vanillaSoundPath = guessed.get().vanillaSoundPath();
-				versionHint = guessed.get().versionHint();
+			String tableEvent = soundTableEvents.get(fileKey);
+			if (tableEvent != null) {
+				soundEvent = tableEvent;
+			} else {
+				Optional<WikiSoundUtil.SoundMapping> guessed = Optional.empty();
+				if (wikiSoundCategory != null) {
+					guessed = WikiSoundCategoryUtil.mapCategoryFile(wikiSoundCategory, fileName);
+				}
+				if (guessed.isEmpty()) {
+					guessed = WikiSoundUtil.mapFile(fileName);
+				}
+				if (guessed.isPresent()) {
+					String validated = validateSoundEvent(
+							guessed.get().soundEvent(),
+							knownSoundEvents,
+							legacySoundEvents
+					);
+					if (validated != null) {
+						soundEvent = validated;
+						if (validated.equals(guessed.get().soundEvent())) {
+							vanillaSoundPath = guessed.get().vanillaSoundPath();
+						}
+						versionHint = guessed.get().versionHint();
+					}
+				}
 			}
 		}
 		String pageText = "";
 		if (soundEvent == null || soundEvent.isEmpty()) {
 			pageText = fetchPageWikitext("File:" + fileName);
-			soundEvent = extractSoundEventFromText(pageText);
+			soundEvent = validateSoundEvent(
+					extractSoundEventFromText(pageText),
+					knownSoundEvents,
+					legacySoundEvents
+			);
 		}
 		if (soundEvent == null || soundEvent.isEmpty()) {
 			skippedSoundCount++;
@@ -767,6 +876,23 @@ public final class WikiIndexer {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Validates a guessed sound event, translating legacy names and dropping unmappable guesses
+	 * once the vanilla event list is known.
+	 */
+	static String validateSoundEvent(String event, Set<String> known, LegacySoundEvents legacy) {
+		if (event == null || event.isBlank()) {
+			return null;
+		}
+		if (known == null || known.isEmpty() || legacy == null) {
+			return event;
+		}
+		if (known.contains(event)) {
+			return event;
+		}
+		return legacy.toModern(event).orElse(null);
 	}
 
 	private String fetchPageWikitext(String pageTitle) throws Exception {
