@@ -1,11 +1,11 @@
 # Historical Textures
 
-Fabric mod for **Minecraft 26.1+** that lets you pick historical textures and sounds per block, item, entity, and sound event. Assets are indexed from [minecraft.wiki](https://minecraft.wiki) and bundled with the mod.
+Fabric mod for **Minecraft 26.3+** that lets you pick historical textures and sounds per block, item, entity, and sound event. Assets are indexed from [minecraft.wiki](https://minecraft.wiki) and bundled with the mod.
 
 ## Requirements
 
-- Minecraft 26.1+
-- Fabric Loader 0.19+
+- Minecraft 26.3+
+- Fabric Loader 0.20+
 - Fabric API
 - [Mod Menu](https://modrinth.com/mod/modmenu) (recommended)
 - Java **25** for building (Gradle toolchains auto-download via Foojay)

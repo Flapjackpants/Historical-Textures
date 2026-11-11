@@ -90,7 +90,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		addRenderableWidget(Button.builder(Component.literal("Clear all"), b -> clearAll())
 				.bounds(width / 2 + 4, height - 52, 98, 20).build());
 		addRenderableWidget(Button.builder(Component.translatable("historical_textures.credits"), b ->
-						minecraft.setScreen(new CreditsScreen(this)))
+						minecraft.setScreenAndShow(new CreditsScreen(this)))
 				.bounds(8, height - 28, 120, 20).build());
 		addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> onClose())
 				.bounds(width - 108, height - 28, 100, 20).build());
@@ -274,7 +274,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 	@Override
 	public void onClose() {
-		minecraft.setScreen(parent);
+		minecraft.setScreenAndShow(parent);
 	}
 
 	@Override

@@ -23,8 +23,9 @@ import java.util.Map;
 
 public final class OverlayPackManager {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	/** Resource pack format for Minecraft 26.1 (see minecraft.wiki Pack format). */
-	private static final int PACK_FORMAT_MAJOR = 84;
+	/** Resource pack format for Minecraft 26.3 (see minecraft.wiki Pack format). */
+	private static final int PACK_FORMAT_MAJOR = 97;
+	private static final int PACK_FORMAT_MINOR = 1;
 
 	private OverlayPackManager() {
 	}
@@ -166,10 +167,10 @@ public final class OverlayPackManager {
 		pack.addProperty("pack_format", PACK_FORMAT_MAJOR);
 		JsonArray formatComponent = new JsonArray();
 		formatComponent.add(PACK_FORMAT_MAJOR);
-		formatComponent.add(0);
+		formatComponent.add(PACK_FORMAT_MINOR);
 		JsonArray maxFormat = new JsonArray();
 		maxFormat.add(PACK_FORMAT_MAJOR);
-		maxFormat.add(0);
+		maxFormat.add(PACK_FORMAT_MINOR);
 		pack.add("min_format", formatComponent);
 		pack.add("max_format", maxFormat);
 		packMeta.add("pack", pack);
