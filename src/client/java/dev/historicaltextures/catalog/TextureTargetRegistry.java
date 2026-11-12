@@ -79,21 +79,21 @@ public final class TextureTargetRegistry {
 
 	private static List<TextureTarget> buildBlockTargets() {
 		Map<String, TextureTarget> byPath = new LinkedHashMap<>();
-		addCatalogTargets(byPath, TextureTargetKind.BLOCK, "/textures/block/");
+		addCatalogTargets(byPath, TextureTargetKind.BLOCK, "textures/block/");
 		enumerateBlocks(byPath);
 		return sorted(byPath);
 	}
 
 	private static List<TextureTarget> buildItemTargets() {
 		Map<String, TextureTarget> byPath = new LinkedHashMap<>();
-		addCatalogTargets(byPath, TextureTargetKind.ITEM, "/textures/item/");
+		addCatalogTargets(byPath, TextureTargetKind.ITEM, "textures/item/");
 		enumerateItems(byPath);
 		return sorted(byPath);
 	}
 
 	private static List<TextureTarget> buildEntityTargets() {
 		Map<String, TextureTarget> byPath = new LinkedHashMap<>();
-		addCatalogTargets(byPath, TextureTargetKind.ENTITY, "/textures/entity/");
+		addCatalogTargets(byPath, TextureTargetKind.ENTITY, "textures/entity/");
 		enumerateEntities(byPath);
 		return sorted(byPath);
 	}
