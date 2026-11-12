@@ -23,6 +23,7 @@ public final class TextureTargetRegistry {
 	private static List<TextureTarget> blockTargets;
 	private static List<TextureTarget> itemTargets;
 	private static List<TextureTarget> entityTargets;
+	private static List<TextureTarget> otherTargets;
 	private static List<String> soundEvents;
 
 	private TextureTargetRegistry() {
@@ -60,10 +61,19 @@ public final class TextureTargetRegistry {
 		return soundEvents;
 	}
 
+	public static List<TextureTarget> otherTargets() {
+		if (otherTargets == null) {
+			otherTargets = buildOtherTargets();
+			HistoricalTextures.LOGGER.info("Config UI: {} other texture targets", otherTargets.size());
+		}
+		return otherTargets;
+	}
+
 	public static void reload() {
 		blockTargets = null;
 		itemTargets = null;
 		entityTargets = null;
+		otherTargets = null;
 		soundEvents = null;
 	}
 
@@ -86,6 +96,27 @@ public final class TextureTargetRegistry {
 		addCatalogTargets(byPath, TextureTargetKind.ENTITY, "/textures/entity/");
 		enumerateEntities(byPath);
 		return sorted(byPath);
+	}
+
+	private static List<TextureTarget> buildOtherTargets() {
+		Map<String, TextureTarget> byPath = new LinkedHashMap<>();
+		for (String target : HistoricalCatalog.get().texturesByTarget().keySet()) {
+			if (!isOtherTarget(target)) {
+				continue;
+			}
+			byPath.putIfAbsent(target, new TextureTarget(target, null, TextureTargetKind.OTHER, otherLabel(target)));
+		}
+		return sorted(byPath);
+	}
+
+	private static boolean isOtherTarget(String target) {
+		String path = target;
+		if (path.startsWith("minecraft:")) {
+			path = path.substring("minecraft:".length());
+		}
+		return !path.startsWith("textures/block/")
+				&& !path.startsWith("textures/item/")
+				&& !path.startsWith("textures/entity/");
 	}
 
 	private static void enumerateBlocks(Map<String, TextureTarget> byPath) {
@@ -191,6 +222,7 @@ public final class TextureTargetRegistry {
 				case BLOCK -> pathToBlockId(target);
 				case ITEM -> pathToItemId(target);
 				case ENTITY -> pathToEntityId(target);
+				case OTHER -> null;
 			};
 			String label = labelForTarget(target, registryId, kind);
 			byPath.putIfAbsent(target, new TextureTarget(target, registryId, kind, label));
@@ -209,11 +241,23 @@ public final class TextureTargetRegistry {
 				case ENTITY -> BuiltInRegistries.ENTITY_TYPE.getOptional(registryId)
 						.map(type -> type.getDescription().getString())
 						.orElseGet(registryId::toString);
+				case OTHER -> otherLabel(target);
 			};
 		}
 		String path = target;
 		if (path.startsWith("minecraft:")) {
 			path = path.substring("minecraft:".length());
+		}
+		return path;
+	}
+
+	private static String otherLabel(String target) {
+		String path = target;
+		if (path.startsWith("minecraft:")) {
+			path = path.substring("minecraft:".length());
+		}
+		if (path.startsWith("textures/")) {
+			path = path.substring("textures/".length());
 		}
 		return path;
 	}

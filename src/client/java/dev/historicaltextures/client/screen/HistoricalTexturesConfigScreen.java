@@ -55,10 +55,11 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		int tabY = 8;
 		int tabX = 8;
-		addRenderableWidget(Button.builder(Component.literal("Blocks"), b -> switchTab(Tab.BLOCKS)).bounds(tabX, tabY, 72, 20).build());
-		addRenderableWidget(Button.builder(Component.literal("Items"), b -> switchTab(Tab.ITEMS)).bounds(tabX + 76, tabY, 72, 20).build());
-		addRenderableWidget(Button.builder(Component.literal("Entities"), b -> switchTab(Tab.ENTITIES)).bounds(tabX + 152, tabY, 72, 20).build());
-		addRenderableWidget(Button.builder(Component.literal("Sounds"), b -> switchTab(Tab.SOUNDS)).bounds(tabX + 228, tabY, 72, 20).build());
+		addRenderableWidget(Button.builder(Component.literal("Blocks"), b -> switchTab(Tab.BLOCKS)).bounds(tabX, tabY, 60, 20).build());
+		addRenderableWidget(Button.builder(Component.literal("Items"), b -> switchTab(Tab.ITEMS)).bounds(tabX + 64, tabY, 60, 20).build());
+		addRenderableWidget(Button.builder(Component.literal("Entities"), b -> switchTab(Tab.ENTITIES)).bounds(tabX + 128, tabY, 60, 20).build());
+		addRenderableWidget(Button.builder(Component.literal("Other"), b -> switchTab(Tab.OTHER)).bounds(tabX + 192, tabY, 60, 20).build());
+		addRenderableWidget(Button.builder(Component.literal("Sounds"), b -> switchTab(Tab.SOUNDS)).bounds(tabX + 256, tabY, 60, 20).build());
 
 		searchBox = new EditBox(font, tabX, tabY + 26, width / 2 - 16, 20, Component.literal("Search"));
 		searchBox.setResponder(value -> {
@@ -145,6 +146,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			case BLOCKS -> TextureTargetRegistry.blockTargets();
 			case ITEMS -> TextureTargetRegistry.itemTargets();
 			case ENTITIES -> TextureTargetRegistry.entityTargets();
+			case OTHER -> TextureTargetRegistry.otherTargets();
 			default -> List.of();
 		};
 
@@ -300,6 +302,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		BLOCKS,
 		ITEMS,
 		ENTITIES,
+		OTHER,
 		SOUNDS
 	}
 
