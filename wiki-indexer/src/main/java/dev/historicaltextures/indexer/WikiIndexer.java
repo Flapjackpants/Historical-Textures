@@ -15,8 +15,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -74,6 +76,10 @@ public final class WikiIndexer {
 			"Category:Entity sounds",
 			"Category:Item sounds"
 	);
+	private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);
+	private static final int MAX_ATTEMPTS = 5;
+	private static final long MIN_REQUEST_INTERVAL_NANOS = Duration.ofMillis(300).toNanos();
+	private static final long MAX_BACKOFF_MILLIS = 120000L;
 
 	private final Path outputRoot;
 	private final boolean quickMode;
@@ -90,6 +96,7 @@ public final class WikiIndexer {
 	private LegacySoundEvents legacySoundEvents;
 	private Set<String> knownSoundEvents = Set.of();
 	private JsonObject overrides;
+	private long lastRequestNanos;
 	private int mappedTextureCount;
 	private int unmappedTextureCount;
 	private int unmatchedTextureCount;
@@ -952,26 +959,104 @@ public final class WikiIndexer {
 					return assetPath;
 				}
 				Files.createDirectories(destination.getParent());
-				HttpRequest request = HttpRequest.newBuilder(URI.create(downloadUrl))
-						.header("User-Agent", "HistoricalTexturesIndexer/1.0")
-						.GET()
-						.build();
-				HttpResponse<InputStream> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
-				if (httpResponse.statusCode() >= 400) {
-					System.out.println("HTTP " + httpResponse.statusCode() + " downloading " + fileName);
-					return null;
+				Path part = destination.resolveSibling(destination.getFileName() + ".part");
+				Exception lastException = null;
+				for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+					throttle();
+					HttpRequest request = HttpRequest.newBuilder(URI.create(downloadUrl))
+							.header("User-Agent", "HistoricalTexturesIndexer/1.0")
+							.timeout(REQUEST_TIMEOUT)
+							.GET()
+							.build();
+					String reason = null;
+					Optional<String> retryAfter = Optional.empty();
+					try {
+						HttpResponse<InputStream> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+						retryAfter = httpResponse.headers().firstValue("Retry-After");
+						int status = httpResponse.statusCode();
+						if (status >= 400) {
+							httpResponse.body().close();
+							if (status != 429) {
+								System.out.println("HTTP " + status + " downloading " + fileName);
+								deleteQuietly(part);
+								return null;
+							}
+							reason = "HTTP " + status;
+						} else {
+							try (InputStream body = httpResponse.body()) {
+								Files.copy(body, part, StandardCopyOption.REPLACE_EXISTING);
+							}
+							moveIntoPlace(part, destination);
+							shaToAssetPath.put(sha1, assetPath);
+							return assetPath;
+						}
+					} catch (IOException exception) {
+						lastException = exception;
+						reason = exception.toString();
+					}
+					if (attempt == MAX_ATTEMPTS) {
+						break;
+					}
+					long delay = backoffMillis(attempt, retryAfter);
+					System.out.println("Retrying (" + attempt + "/" + MAX_ATTEMPTS + ") after " + delay + " ms: " + reason);
+					Thread.sleep(delay);
 				}
-				try (InputStream body = httpResponse.body()) {
-					Files.copy(body, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+				deleteQuietly(part);
+				if (lastException != null) {
+					System.out.println("Download error for " + fileName + ": " + lastException.getMessage());
+				} else {
+					System.out.println("Download failed for " + fileName + " after " + MAX_ATTEMPTS + " attempts");
 				}
-				shaToAssetPath.put(sha1, assetPath);
-				return assetPath;
+				return null;
 			}
 		} catch (Exception exception) {
 			System.out.println("Download error for " + fileName + ": " + exception.getMessage());
 			return null;
 		}
 		return null;
+	}
+
+	private void throttle() {
+		long elapsed = System.nanoTime() - lastRequestNanos;
+		long remaining = MIN_REQUEST_INTERVAL_NANOS - elapsed;
+		if (lastRequestNanos != 0 && remaining > 0) {
+			try {
+				Thread.sleep(remaining / 1_000_000L, (int) (remaining % 1_000_000L));
+			} catch (InterruptedException exception) {
+				Thread.currentThread().interrupt();
+			}
+		}
+		lastRequestNanos = System.nanoTime();
+	}
+
+	static long backoffMillis(int attempt, Optional<String> retryAfter) {
+		if (retryAfter != null && retryAfter.isPresent()) {
+			try {
+				long seconds = Long.parseLong(retryAfter.get().trim());
+				if (seconds >= 0) {
+					return Math.min(seconds * 1000L, MAX_BACKOFF_MILLIS);
+				}
+			} catch (NumberFormatException ignored) {
+				// Fall through to exponential backoff.
+			}
+		}
+		return Math.min(2000L << Math.max(0, attempt - 1), 60000L);
+	}
+
+	private static void moveIntoPlace(Path source, Path destination) throws IOException {
+		try {
+			Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+		} catch (AtomicMoveNotSupportedException exception) {
+			Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING);
+		}
+	}
+
+	private static void deleteQuietly(Path path) {
+		try {
+			Files.deleteIfExists(path);
+		} catch (IOException ignored) {
+			// Best effort cleanup.
+		}
 	}
 
 	private void writeCatalog(List<VariantRecord> textures, List<SoundRecord> sounds) throws IOException {
@@ -1033,23 +1118,72 @@ public final class WikiIndexer {
 	}
 
 	private JsonObject getJson(String url) throws Exception {
-		HttpRequest request = HttpRequest.newBuilder(URI.create(url.replace("|", "%7C")))
-				.header("User-Agent", "HistoricalTexturesIndexer/1.0")
-				.GET()
-				.build();
-		HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-		String body = response.body();
-		if (body == null || body.isBlank()) {
-			return new JsonObject();
+		Exception lastException = null;
+		String lastBody = null;
+		JsonObject lastParsed = null;
+		boolean lastBodyInvalid = false;
+		for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+			throttle();
+			HttpRequest request = HttpRequest.newBuilder(URI.create(url.replace("|", "%7C")))
+					.header("User-Agent", "HistoricalTexturesIndexer/1.0")
+					.timeout(REQUEST_TIMEOUT)
+					.GET()
+					.build();
+			String reason = null;
+			Optional<String> retryAfter = Optional.empty();
+			try {
+				HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+				retryAfter = response.headers().firstValue("Retry-After");
+				int status = response.statusCode();
+				String body = response.body();
+				JsonObject parsed = null;
+				boolean bodyInvalid = false;
+				if (body != null && !body.isBlank()) {
+					try {
+						parsed = GSON.fromJson(body, JsonObject.class);
+						if (parsed == null) {
+							bodyInvalid = true;
+						}
+					} catch (com.google.gson.JsonSyntaxException exception) {
+						bodyInvalid = true;
+					}
+				}
+				boolean retryableStatus = status == 429 || status >= 500;
+				lastException = null;
+				lastBody = body;
+				lastParsed = parsed;
+				lastBodyInvalid = bodyInvalid;
+				if (!retryableStatus && !bodyInvalid) {
+					if (body == null || body.isBlank()) {
+						return new JsonObject();
+					}
+					return parsed;
+				}
+				reason = retryableStatus ? "HTTP " + status : "invalid JSON";
+			} catch (IOException exception) {
+				lastException = exception;
+				lastBody = null;
+				lastParsed = null;
+				lastBodyInvalid = false;
+				reason = exception.toString();
+			}
+			if (attempt == MAX_ATTEMPTS) {
+				break;
+			}
+			long delay = backoffMillis(attempt, retryAfter);
+			System.out.println("Retrying (" + attempt + "/" + MAX_ATTEMPTS + ") after " + delay + " ms: " + reason);
+			Thread.sleep(delay);
 		}
-		try {
-			return GSON.fromJson(body, JsonObject.class);
-		} catch (com.google.gson.JsonSyntaxException exception) {
-			JsonObject error = new JsonObject();
-			error.addProperty("error", "invalid_json_response");
-			error.addProperty("body", body.length() > 200 ? body.substring(0, 200) : body);
-			return error;
+		if (lastException != null) {
+			throw lastException;
 		}
+		if (!lastBodyInvalid && lastParsed != null) {
+			return lastParsed;
+		}
+		JsonObject error = new JsonObject();
+		error.addProperty("error", "invalid_json_response");
+		error.addProperty("body", lastBody != null && lastBody.length() > 200 ? lastBody.substring(0, 200) : lastBody);
+		return error;
 	}
 
 	private static String encode(String value) {
