@@ -94,3 +94,8 @@ jar {
 		rename { "${it}_${project.base.archivesName.get()}" }
 	}
 }
+
+// sourcesJar packs src/main/resources, which exportCatalog writes into.
+tasks.named('sourcesJar').configure {
+	dependsOn ':wiki-indexer:exportCatalog'
+}
