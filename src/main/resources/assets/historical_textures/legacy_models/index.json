@@ -30,10 +30,125 @@
   },
   "minecraft:textures/entity/piglin/zombified_piglin.png": {
     "zombie_pigman_texture_je0_png": {
-      "textures/entity/piglin/zombified_piglin.png": "zombie_pigman_texture_je0_64.png"
+      "textures/entity/piglin/zombified_piglin.png": "zombie_pigman_texture_je0_64.png",
+      "optifine/cem/zombified_piglin.jem": "zombified_piglin_biped.jem"
     },
     "zombie_pigman_texture_je1_png": {
-      "textures/entity/piglin/zombified_piglin.png": "zombie_pigman_texture_je1_64.png"
+      "textures/entity/piglin/zombified_piglin.png": "zombie_pigman_texture_je1_64.png",
+      "optifine/cem/zombified_piglin.jem": "zombified_piglin_biped.jem"
+    },
+    "zombie_pigman_texture_je2_png": {
+      "optifine/cem/zombified_piglin.jem": "zombified_piglin_biped.jem"
+    }
+  },
+  "minecraft:textures/entity/cow/cow_temperate.png": {
+    "cow_texture_je1_png": {
+      "optifine/cem/cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_je2_png": {
+      "optifine/cem/cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_je3_png": {
+      "optifine/cem/cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_je4_png": {
+      "optifine/cem/cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_je5_png": {
+      "optifine/cem/cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_png": {
+      "optifine/cem/cow.jem": "cow_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/cow/cow_cold.png": {
+    "cow_texture_je1_png": {
+      "optifine/cem/cold_cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_je2_png": {
+      "optifine/cem/cold_cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_je3_png": {
+      "optifine/cem/cold_cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_je4_png": {
+      "optifine/cem/cold_cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_je5_png": {
+      "optifine/cem/cold_cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_png": {
+      "optifine/cem/cold_cow.jem": "cow_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/cow/cow_warm.png": {
+    "cow_texture_je1_png": {
+      "optifine/cem/warm_cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_je2_png": {
+      "optifine/cem/warm_cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_je3_png": {
+      "optifine/cem/warm_cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_je4_png": {
+      "optifine/cem/warm_cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_je5_png": {
+      "optifine/cem/warm_cow.jem": "cow_legacy.jem"
+    },
+    "cow_texture_png": {
+      "optifine/cem/warm_cow.jem": "cow_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/pig/pig_temperate.png": {
+    "pig_texture_je1_png": {
+      "optifine/cem/pig.jem": "pig_legacy.jem"
+    },
+    "pig_texture_je2_png": {
+      "optifine/cem/pig.jem": "pig_legacy.jem"
+    },
+    "pig_texture_je3_png": {
+      "optifine/cem/pig.jem": "pig_legacy.jem"
+    },
+    "pig_texture_je4_be2_png": {
+      "optifine/cem/pig.jem": "pig_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/pig/pig_cold.png": {
+    "pig_texture_je1_png": {
+      "optifine/cem/cold_pig.jem": "pig_legacy.jem"
+    },
+    "pig_texture_je2_png": {
+      "optifine/cem/cold_pig.jem": "pig_legacy.jem"
+    },
+    "pig_texture_je3_png": {
+      "optifine/cem/cold_pig.jem": "pig_legacy.jem"
+    },
+    "pig_texture_je4_be2_png": {
+      "optifine/cem/cold_pig.jem": "pig_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/pig/pig_warm.png": {
+    "pig_texture_je1_png": {
+      "optifine/cem/warm_pig.jem": "pig_legacy.jem"
+    },
+    "pig_texture_je2_png": {
+      "optifine/cem/warm_pig.jem": "pig_legacy.jem"
+    },
+    "pig_texture_je3_png": {
+      "optifine/cem/warm_pig.jem": "pig_legacy.jem"
+    },
+    "pig_texture_je4_be2_png": {
+      "optifine/cem/warm_pig.jem": "pig_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/equipment/pig_saddle/saddle.png": {
+    "saddle_pig_texture_je1_png": {
+      "optifine/cem/pig_saddle.jem": "pig_saddle_legacy.jem"
+    },
+    "saddle_pig_texture_je2_png": {
+      "optifine/cem/pig_saddle.jem": "pig_saddle_legacy.jem"
     }
   }
 }

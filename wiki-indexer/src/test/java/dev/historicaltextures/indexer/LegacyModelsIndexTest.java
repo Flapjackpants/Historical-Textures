@@ -80,6 +80,36 @@ class LegacyModelsIndexTest {
 	}
 
 	@Test
+	void jemSourcesDeclareTextureSizeAndModelParts() {
+		int checked = 0;
+		for (Entry entry : entries()) {
+			if (!entry.source().endsWith(".jem")) {
+				continue;
+			}
+			checked++;
+			JsonObject jem = readJson(ROOT.resolve(entry.source()));
+			JsonElement textureSize = jem.get("textureSize");
+			assertTrue(textureSize != null && textureSize.isJsonArray() && textureSize.getAsJsonArray().size() == 2,
+					entry.source() + " textureSize is not a 2-number array");
+			for (JsonElement dimension : textureSize.getAsJsonArray()) {
+				assertTrue(dimension.isJsonPrimitive() && dimension.getAsJsonPrimitive().isNumber(),
+						entry.source() + " textureSize has a non-number entry");
+			}
+			JsonElement models = jem.get("models");
+			assertTrue(models != null && models.isJsonArray() && !models.getAsJsonArray().isEmpty(),
+					entry.source() + " models is not a non-empty array");
+			for (JsonElement model : models.getAsJsonArray()) {
+				assertTrue(model.isJsonObject(), entry.source() + " has a model that is not an object");
+				JsonElement part = model.getAsJsonObject().get("part");
+				assertTrue(part != null && part.isJsonPrimitive() && part.getAsJsonPrimitive().isString()
+								&& !part.getAsString().isBlank(),
+						entry.source() + " has a model without a part");
+			}
+		}
+		assertTrue(checked > 0, "index.json references no .jem sources");
+	}
+
+	@Test
 	void destinationsAreSafeResourcePaths() {
 		for (Entry entry : entries()) {
 			String dest = entry.dest();
@@ -120,6 +150,14 @@ class LegacyModelsIndexTest {
 				}
 			}
 			assertTrue(targetsTarget, "variant " + entry.variantId() + " does not target " + entry.target());
+		}
+	}
+
+	private static JsonObject readJson(Path path) {
+		try {
+			return JsonParser.parseString(Files.readString(path)).getAsJsonObject();
+		} catch (IOException exception) {
+			throw new UncheckedIOException(exception);
 		}
 	}
 
