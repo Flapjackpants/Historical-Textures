@@ -76,10 +76,10 @@ tasks.register('copyRemappedCatalog', Copy) {
 
 tasks.register('remapCatalog', JavaExec) {
 	group = 'historical textures'
-	description = 'Recompute texture targets in build/catalog offline and copy it into mod resources'
+	description = 'Recompute texture targets in build/catalog offline, download override files missing from it, and copy the result into mod resources'
 	classpath = sourceSets.main.runtimeClasspath
 	mainClass = 'dev.historicaltextures.indexer.WikiIndexerMain'
-	args = ['--remap'] + vanillaArgs
+	args = ['--remap', '--add-overrides'] + vanillaArgs
 	workingDir = project.projectDir
 	finalizedBy 'copyRemappedCatalog'
 }

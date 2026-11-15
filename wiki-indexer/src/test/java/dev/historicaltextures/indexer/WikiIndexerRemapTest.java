@@ -65,6 +65,42 @@ class WikiIndexerRemapTest {
 		assertTrue(written.has("soundVariants"));
 	}
 
+	@Test
+	void overrideTargetsWinOverVanillaResolution(@TempDir Path tempDir) throws Exception {
+		Path cacheDir = Files.createDirectories(tempDir.resolve("loom"));
+		Path versionDir = Files.createDirectories(cacheDir.resolve("26.3"));
+		try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(versionDir.resolve("minecraft-client.jar")))) {
+			writeEntry(zip, "assets/minecraft/textures/entity/creeper/creeper.png");
+		}
+
+		Path outputRoot = Files.createDirectories(tempDir.resolve("catalog"));
+		JsonObject existing = new JsonObject();
+		existing.addProperty("schemaVersion", 2);
+		JsonArray variants = new JsonArray();
+		variants.add(variant(
+				"zombie_texture_je1_png",
+				"Zombie (texture) JE1.png",
+				"Java_Edition_history_of_textures/Entities",
+				"minecraft:textures/block/dirt.png"
+		));
+		existing.add("variants", variants);
+		existing.add("soundVariants", new JsonArray());
+		Files.writeString(outputRoot.resolve("catalog.json"), existing.toString());
+
+		new WikiIndexer(outputRoot, false, false, true, cacheDir, "26.3").run();
+
+		JsonObject written = JsonParser
+				.parseString(Files.readString(outputRoot.resolve("catalog.json")))
+				.getAsJsonObject();
+		JsonArray remaining = written.getAsJsonArray("variants");
+		assertEquals(1, remaining.size());
+		List<String> targets = new ArrayList<>();
+		for (var target : remaining.get(0).getAsJsonObject().getAsJsonArray("targets")) {
+			targets.add(target.getAsString());
+		}
+		assertEquals(List.of("minecraft:textures/entity/zombie/zombie.png"), targets);
+	}
+
 	private static JsonObject variant(String id, String wikiFile, String introducedIn, String... targets) {
 		JsonObject object = new JsonObject();
 		object.addProperty("id", id);

@@ -8,6 +8,7 @@ public final class WikiIndexerMain {
 		boolean quick = false;
 		boolean soundsOnly = false;
 		boolean remap = false;
+		boolean addOverrides = false;
 		Path enrichCatalog = null;
 		Path vanillaDir = null;
 		String minecraftVersion = null;
@@ -19,6 +20,8 @@ public final class WikiIndexerMain {
 				soundsOnly = true;
 			} else if ("--remap".equals(arg)) {
 				remap = true;
+			} else if ("--add-overrides".equals(arg)) {
+				addOverrides = true;
 			} else if ("--enrich-versions".equals(arg)) {
 				if (index + 1 < args.length && !args[index + 1].startsWith("--")) {
 					enrichCatalog = Path.of(args[++index]);
@@ -41,6 +44,6 @@ public final class WikiIndexerMain {
 			new CatalogVersionEnricher().enrich(enrichCatalog);
 			return;
 		}
-		new WikiIndexer(output, quick, soundsOnly, remap, vanillaDir, minecraftVersion).run();
+		new WikiIndexer(output, quick, soundsOnly, remap, addOverrides, vanillaDir, minecraftVersion).run();
 	}
 }

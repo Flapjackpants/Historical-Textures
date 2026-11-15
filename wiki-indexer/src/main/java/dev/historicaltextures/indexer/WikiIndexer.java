@@ -93,6 +93,7 @@ public final class WikiIndexer {
 	private final Set<String> javaTableKeys = new LinkedHashSet<>();
 	private final boolean soundsOnly;
 	private final boolean remap;
+	private final boolean addOverrides;
 	private final VanillaAssets vanillaAssets;
 	private LegacySoundEvents legacySoundEvents;
 	private Set<String> knownSoundEvents = Set.of();
@@ -123,10 +124,23 @@ public final class WikiIndexer {
 			Path vanillaDir,
 			String minecraftVersion
 	) {
+		this(outputRoot, quickMode, soundsOnly, remap, false, vanillaDir, minecraftVersion);
+	}
+
+	public WikiIndexer(
+			Path outputRoot,
+			boolean quickMode,
+			boolean soundsOnly,
+			boolean remap,
+			boolean addOverrides,
+			Path vanillaDir,
+			String minecraftVersion
+	) {
 		this.outputRoot = outputRoot;
 		this.quickMode = quickMode;
 		this.soundsOnly = soundsOnly;
 		this.remap = remap;
+		this.addOverrides = addOverrides;
 		this.vanillaAssets = vanillaDir != null && minecraftVersion != null && !minecraftVersion.isBlank()
 				? VanillaAssets.load(vanillaDir, minecraftVersion).orElse(null)
 				: null;
@@ -147,8 +161,14 @@ public final class WikiIndexer {
 				throw new IllegalStateException("--remap needs --vanilla-dir and --minecraft-version");
 			}
 			loadExistingTextures(textures);
+			for (VariantRecord texture : textures) {
+				processedFileKeys.add(WikiFilenameUtil.normalizeKey(texture.wikiFile()));
+			}
 			loadExistingSounds(sounds);
 			remapTextures(textures);
+			if (addOverrides) {
+				addMissingOverrideTextures(textures);
+			}
 		} else if (soundsOnly) {
 			loadExistingTextures(textures);
 			loadExistingSounds(sounds);
@@ -222,6 +242,21 @@ public final class WikiIndexer {
 		textures.clear();
 		textures.addAll(remapped);
 		System.out.println("Remap: unchanged=" + unchanged + " changed=" + changed + " dropped=" + dropped);
+	}
+
+	private void addMissingOverrideTextures(List<VariantRecord> textures) throws Exception {
+		int before = textures.size();
+		JsonObject fileTargets = overrides.getAsJsonObject("fileTargets");
+		if (fileTargets != null) {
+			for (var entry : fileTargets.entrySet()) {
+				if (processedFileKeys.contains(WikiFilenameUtil.normalizeKey(entry.getKey()))) {
+					continue;
+				}
+				processTextureFile(entry.getKey(), textures, WikiFilenameUtil.CrawlContext.UNKNOWN, "overrides.json");
+				Thread.sleep(100);
+			}
+		}
+		System.out.println("Remap: added=" + (textures.size() - before));
 	}
 
 	private void indexOverrideFiles(List<VariantRecord> textures, List<SoundRecord> sounds) throws Exception {
