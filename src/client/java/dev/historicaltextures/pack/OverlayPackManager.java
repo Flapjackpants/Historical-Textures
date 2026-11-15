@@ -144,6 +144,15 @@ public final class OverlayPackManager {
 				skipped++;
 				continue;
 			}
+			if (!optionalVariant.get().targets().contains(target)) {
+				HistoricalTextures.LOGGER.warn(
+						"Variant {} no longer targets {}; skipping stale choice",
+						variantId,
+						target
+				);
+				skipped++;
+				continue;
+			}
 			if (copyTextureVariant(root, optionalVariant.get(), target)) {
 				texturesWritten++;
 			} else {

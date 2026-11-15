@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -22,6 +23,20 @@ public final class WikiFilenameUtil {
 			"(?i)\\s+" + EDITION_GROUP + "\\d+"
 	);
 	private static final Pattern PARENTHETICAL = Pattern.compile("\\(([^)]*)\\)");
+	private static final Pattern TEXTURE_NUMBER = Pattern.compile("(?i)texture\\s+(\\d+)");
+	private static final Set<String> QUALIFIER_SUFFIXES = Set.of(
+			"top", "bottom", "side", "front", "back", "overlay", "particle"
+	);
+	private static final Map<String, String> QUALIFIER_ALIASES = Map.of(
+			"dry", "",
+			"body", "",
+			"wet", "moist",
+			"charged", "armor",
+			"firing", "shooting",
+			"single leaf", "singleleaf",
+			"lit log", "log_lit",
+			"inside", "inner"
+	);
 
 	public enum CrawlContext {
 		BLOCKS,
@@ -173,6 +188,46 @@ public final class WikiFilenameUtil {
 			}
 		}
 		return List.copyOf(guesses);
+	}
+
+	public static List<String> textureNameCandidates(String fileName) {
+		String base = toRegistryPath(extractBaseName(fileName));
+		if (base.isEmpty()) {
+			return List.of();
+		}
+		String content = null;
+		Matcher parenthetical = PARENTHETICAL.matcher(fileName.replace('_', ' '));
+		while (parenthetical.find()) {
+			String group = parenthetical.group(1);
+			if (group.toLowerCase(Locale.ROOT).contains("texture")) {
+				content = group.trim();
+				break;
+			}
+		}
+		if (content == null) {
+			return List.of(base);
+		}
+		Matcher numbered = TEXTURE_NUMBER.matcher(content);
+		if (numbered.matches()) {
+			return List.of(base + "_" + numbered.group(1));
+		}
+		String qualifier = content.toLowerCase(Locale.ROOT);
+		qualifier = qualifier.substring(0, qualifier.indexOf("texture")).trim();
+		if (qualifier.isEmpty()) {
+			return List.of(base);
+		}
+		if (QUALIFIER_SUFFIXES.contains(qualifier)) {
+			return List.of(base + "_" + qualifier);
+		}
+		String alias = QUALIFIER_ALIASES.get(qualifier);
+		if (alias != null) {
+			return alias.isEmpty() ? List.of(base) : List.of(base + "_" + alias);
+		}
+		String registryQualifier = toRegistryPath(qualifier);
+		if (registryQualifier.isEmpty()) {
+			return List.of(base);
+		}
+		return List.of(base + "_" + registryQualifier, registryQualifier + "_" + base);
 	}
 
 	public static List<String> parseTextureTags(String fileName) {

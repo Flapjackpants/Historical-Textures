@@ -32,7 +32,18 @@
     "Zombie_(texture)_JE1.png": ["minecraft:textures/entity/zombie/zombie.png"],
     "Pig_(texture)_JE1.png": ["minecraft:textures/entity/pig/pig.png"],
     "Creeper_(texture)_JE1.png": ["minecraft:textures/entity/creeper/creeper.png"],
-    "Skeleton_(texture)_JE1.png": ["minecraft:textures/entity/skeleton/skeleton.png"]
+    "Skeleton_(texture)_JE1.png": ["minecraft:textures/entity/skeleton/skeleton.png"],
+    "Saddle (pig texture) JE1.png": ["minecraft:textures/entity/equipment/pig_saddle/saddle.png"],
+    "Saddle (pig texture) JE2.png": ["minecraft:textures/entity/equipment/pig_saddle/saddle.png"],
+    "Butcher (texture) JE1.png": ["minecraft:textures/entity/villager/profession/butcher.png"],
+    "Farmer (texture) JE1.png": ["minecraft:textures/entity/villager/profession/farmer.png"],
+    "Librarian (texture) JE1.png": ["minecraft:textures/entity/villager/profession/librarian.png"],
+    "Nitwit (texture) JE1.png": ["minecraft:textures/entity/villager/profession/nitwit.png"],
+    "Steve (texture) JE1.png": ["minecraft:textures/entity/player/wide/steve.png"],
+    "Steve (texture) JE2.png": ["minecraft:textures/entity/player/wide/steve.png"],
+    "Steve (texture) JE3 BE1.png": ["minecraft:textures/entity/player/wide/steve.png"],
+    "Steve (texture) JE4.png": ["minecraft:textures/entity/player/wide/steve.png"],
+    "Alex (texture) JE1.png": ["minecraft:textures/entity/player/slim/alex.png"]
   },
   "soundTargets": {
     "Door_closing_old.ogg": {

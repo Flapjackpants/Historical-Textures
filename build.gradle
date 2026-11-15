@@ -47,23 +47,20 @@ tasks.register('indexWiki') {
 tasks.register('ensureCatalog') {
 	group = 'historical textures'
 	description = 'Build a minimal catalog when none is bundled yet'
-	onlyIf {
-		!catalogJson.asFile.exists()
+	if (!catalogJson.asFile.exists()) {
+		dependsOn ':wiki-indexer:indexQuick'
 	}
-	dependsOn ':wiki-indexer:indexQuick'
 }
 
 tasks.register('ensureSoundCatalog') {
 	group = 'historical textures'
 	description = 'Index historical sounds when catalog.json has no soundVariants'
-	onlyIf {
-		if (!catalogJson.asFile.exists()) {
-			return false
-		}
+	if (catalogJson.asFile.exists()) {
 		def text = catalogJson.asFile.text
-		return !text.contains('"soundVariants"') || text.contains('"soundVariants": []')
+		if (!text.contains('"soundVariants"') || text.contains('"soundVariants": []')) {
+			dependsOn ':wiki-indexer:indexSounds'
+		}
 	}
-	dependsOn ':wiki-indexer:indexSounds'
 }
 
 tasks.named('processResources').configure {

@@ -97,4 +97,90 @@ class VanillaAssetsTest {
 		Path empty = Files.createDirectories(cacheDir.resolve("empty"));
 		assertTrue(VanillaAssets.load(empty, "26.3").isEmpty());
 	}
+
+	private static final Set<String> QUALIFIED_TEXTURES = Set.of(
+			"textures/entity/creeper/creeper.png",
+			"textures/entity/banner/creeper.png",
+			"textures/entity/shield/creeper.png",
+			"textures/entity/enderman/enderman.png",
+			"textures/entity/enderman/enderman_eyes.png",
+			"textures/block/bamboo_small_leaves.png",
+			"textures/entity/boat/bamboo.png",
+			"textures/item/bamboo.png",
+			"textures/block/fern.png",
+			"textures/painting/fern.png",
+			"textures/block/bush.png",
+			"textures/item/chicken.png",
+			"textures/entity/chicken/chicken_temperate.png",
+			"textures/entity/chicken/chicken_cold.png",
+			"textures/entity/chicken/chicken_temperate_baby.png",
+			"textures/entity/decorated_pot/archer_pottery_pattern.png",
+			"textures/particle/spark_0.png",
+			"textures/entity/shulker/spark.png",
+			"textures/block/farmland_moist.png",
+			"textures/painting/water.png",
+			"textures/block/item_frame.png",
+			"textures/item/item_frame.png"
+	);
+
+	private final VanillaAssets qualified = new VanillaAssets(QUALIFIED_TEXTURES, Set.of());
+
+	@Test
+	void prefersSameFolderMatchesAndSkipsExcludedEntityFolders() {
+		assertEquals(
+				List.of("minecraft:textures/entity/creeper/creeper.png"),
+				qualified.resolveTextureFile("Creeper (texture) JE2.png", WikiFilenameUtil.CrawlContext.ENTITIES)
+		);
+		assertEquals(
+				List.of("minecraft:textures/block/bamboo_small_leaves.png"),
+				qualified.resolveTextureFile("Bamboo (small leaves texture) JE1.png", WikiFilenameUtil.CrawlContext.BLOCKS)
+		);
+		assertEquals(
+				List.of("minecraft:textures/item/bamboo.png"),
+				qualified.resolveTextureFile("Bamboo (texture) JE1.png", WikiFilenameUtil.CrawlContext.BLOCKS)
+		);
+		assertEquals(
+				List.of("minecraft:textures/entity/enderman/enderman_eyes.png"),
+				qualified.resolveTextureFile("Enderman (eyes texture) JE1.png", WikiFilenameUtil.CrawlContext.ENTITIES)
+		);
+	}
+
+	@Test
+	void resolvesQualifiedNamesByPageContext() {
+		assertEquals(
+				List.of(),
+				qualified.resolveTextureFile("Fern (carried texture) BE1.png", WikiFilenameUtil.CrawlContext.ITEMS)
+		);
+		assertEquals(
+				List.of("minecraft:textures/block/bush.png"),
+				qualified.resolveTextureFile("Bush (item) JE1 BE1.png", WikiFilenameUtil.CrawlContext.ITEMS)
+		);
+		assertEquals(
+				List.of(
+						"minecraft:textures/entity/chicken/chicken_cold.png",
+						"minecraft:textures/entity/chicken/chicken_temperate.png"
+				),
+				qualified.resolveTextureFile("Chicken (texture) JE1.png", WikiFilenameUtil.CrawlContext.ENTITIES)
+		);
+		assertEquals(
+				List.of("minecraft:textures/entity/decorated_pot/archer_pottery_pattern.png"),
+				qualified.resolveTextureFile("Archer Pottery Pattern (texture).png", WikiFilenameUtil.CrawlContext.BLOCKS)
+		);
+		assertEquals(
+				List.of("minecraft:textures/particle/spark_0.png"),
+				qualified.resolveTextureFile("Spark (texture 0) JE1 BE1.png", WikiFilenameUtil.CrawlContext.PARTICLES)
+		);
+		assertEquals(
+				List.of("minecraft:textures/block/farmland_moist.png"),
+				qualified.resolveTextureFile("Farmland (wet texture) JE1 BE1.png", WikiFilenameUtil.CrawlContext.BLOCKS)
+		);
+		assertEquals(
+				List.of(),
+				qualified.resolveTextureFile("Water (texture) BE3.png", WikiFilenameUtil.CrawlContext.BLOCKS)
+		);
+		assertEquals(
+				List.of("minecraft:textures/block/item_frame.png"),
+				qualified.resolveTextureFile("Item Frame (texture) JE2 BE2.png", WikiFilenameUtil.CrawlContext.ENTITIES)
+		);
+	}
 }

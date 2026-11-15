@@ -92,6 +92,7 @@ public final class WikiIndexer {
 	private final Map<String, String> soundTableEvents = new LinkedHashMap<>();
 	private final Set<String> javaTableKeys = new LinkedHashSet<>();
 	private final boolean soundsOnly;
+	private final boolean remap;
 	private final VanillaAssets vanillaAssets;
 	private LegacySoundEvents legacySoundEvents;
 	private Set<String> knownSoundEvents = Set.of();
@@ -103,17 +104,29 @@ public final class WikiIndexer {
 	private int skippedSoundCount;
 
 	public WikiIndexer(Path outputRoot, boolean quickMode) {
-		this(outputRoot, quickMode, false, null, null);
+		this(outputRoot, quickMode, false, false, null, null);
 	}
 
 	public WikiIndexer(Path outputRoot, boolean quickMode, boolean soundsOnly) {
-		this(outputRoot, quickMode, soundsOnly, null, null);
+		this(outputRoot, quickMode, soundsOnly, false, null, null);
 	}
 
 	public WikiIndexer(Path outputRoot, boolean quickMode, boolean soundsOnly, Path vanillaDir, String minecraftVersion) {
+		this(outputRoot, quickMode, soundsOnly, false, vanillaDir, minecraftVersion);
+	}
+
+	public WikiIndexer(
+			Path outputRoot,
+			boolean quickMode,
+			boolean soundsOnly,
+			boolean remap,
+			Path vanillaDir,
+			String minecraftVersion
+	) {
 		this.outputRoot = outputRoot;
 		this.quickMode = quickMode;
 		this.soundsOnly = soundsOnly;
+		this.remap = remap;
 		this.vanillaAssets = vanillaDir != null && minecraftVersion != null && !minecraftVersion.isBlank()
 				? VanillaAssets.load(vanillaDir, minecraftVersion).orElse(null)
 				: null;
@@ -129,7 +142,14 @@ public final class WikiIndexer {
 			System.out.println("Vanilla assets unavailable; texture targets are unvalidated guesses");
 		}
 
-		if (soundsOnly) {
+		if (remap) {
+			if (vanillaAssets == null) {
+				throw new IllegalStateException("--remap needs --vanilla-dir and --minecraft-version");
+			}
+			loadExistingTextures(textures);
+			loadExistingSounds(sounds);
+			remapTextures(textures);
+		} else if (soundsOnly) {
 			loadExistingTextures(textures);
 			loadExistingSounds(sounds);
 			indexAllHistoricalSounds(sounds);
@@ -160,6 +180,48 @@ public final class WikiIndexer {
 				+ ", unmatched=" + unmatchedTextureCount + ")");
 		System.out.println("Sound variants: " + sounds.size() + " (skipped unmapped downloads=" + skippedSoundCount + ")");
 		System.out.println("Version table entries: " + versionByFile.size());
+	}
+
+	private void remapTextures(List<VariantRecord> textures) {
+		List<VariantRecord> remapped = new ArrayList<>();
+		int unchanged = 0;
+		int changed = 0;
+		int dropped = 0;
+		for (VariantRecord texture : textures) {
+			List<String> targets = resolveTextureTargets(texture.wikiFile());
+			if (targets.isEmpty()) {
+				targets = vanillaAssets.resolveTextureFile(
+						texture.wikiFile(),
+						WikiFilenameUtil.parsePageContext(texture.introducedIn())
+				);
+			}
+			if (targets.isEmpty()) {
+				dropped++;
+				continue;
+			}
+			if (targets.equals(texture.targets())) {
+				unchanged++;
+			} else {
+				changed++;
+			}
+			remapped.add(new VariantRecord(
+					texture.id(),
+					texture.wikiFile(),
+					texture.editions(),
+					texture.textureTags(),
+					texture.javaVersion(),
+					texture.bedrockVersion(),
+					texture.displayVersion(),
+					texture.introducedIn(),
+					texture.assetPath(),
+					List.copyOf(targets),
+					texture.label(),
+					true
+			));
+		}
+		textures.clear();
+		textures.addAll(remapped);
+		System.out.println("Remap: unchanged=" + unchanged + " changed=" + changed + " dropped=" + dropped);
 	}
 
 	private void indexOverrideFiles(List<VariantRecord> textures, List<SoundRecord> sounds) throws Exception {
@@ -639,9 +701,7 @@ public final class WikiIndexer {
 		boolean mapped = !targets.isEmpty();
 		if (!mapped) {
 			if (vanillaAssets != null) {
-				String name = WikiFilenameUtil.toRegistryPath(WikiFilenameUtil.extractBaseName(fileName))
-						+ WikiFilenameUtil.textureSuffix(fileName);
-				targets = vanillaAssets.resolveTexture(name, context);
+				targets = vanillaAssets.resolveTextureFile(fileName, context);
 				mapped = !targets.isEmpty();
 				if (!mapped) {
 					unmatchedTextureCount++;

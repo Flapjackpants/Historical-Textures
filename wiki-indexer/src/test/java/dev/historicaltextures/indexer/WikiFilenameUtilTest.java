@@ -45,6 +45,42 @@ class WikiFilenameUtilTest {
 	}
 
 	@Test
+	void resolvesQualifiedTextureNamesToVanillaCandidates() {
+		assertEquals(
+				List.of("enderman_eyes", "eyes_enderman"),
+				WikiFilenameUtil.textureNameCandidates("Enderman (eyes texture) JE1.png")
+		);
+		assertEquals(
+				List.of("grass_block_top"),
+				WikiFilenameUtil.textureNameCandidates("Grass Block (top texture) JE2.png")
+		);
+		assertEquals(
+				List.of("spark_0"),
+				WikiFilenameUtil.textureNameCandidates("Spark (texture 0) JE1 BE1.png")
+		);
+		assertEquals(
+				List.of("farmland_moist"),
+				WikiFilenameUtil.textureNameCandidates("Farmland (wet texture) JE1 BE1.png")
+		);
+		assertEquals(
+				List.of("farmland"),
+				WikiFilenameUtil.textureNameCandidates("Farmland (dry texture) JE1 BE1.png")
+		);
+		assertEquals(
+				List.of("stone"),
+				WikiFilenameUtil.textureNameCandidates("Stone_(texture)_JE1.png")
+		);
+		assertEquals(
+				List.of("barrier"),
+				WikiFilenameUtil.textureNameCandidates("Barrier (held) JE1 BE1.png")
+		);
+		assertEquals(
+				List.of("saddle_pig", "pig_saddle"),
+				WikiFilenameUtil.textureNameCandidates("Saddle (pig texture) JE1.png")
+		);
+	}
+
+	@Test
 	void parsesPageContexts() {
 		assertEquals(
 				WikiFilenameUtil.CrawlContext.ITEMS,

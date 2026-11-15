@@ -34,6 +34,12 @@ public final class VanillaAssets {
 			"textures/mob_effect/",
 			"textures/map/"
 	);
+	private static final List<String> EXCLUDED_ENTITY_DIRS = List.of(
+			"textures/entity/banner/",
+			"textures/entity/shield/",
+			"textures/entity/boat/",
+			"textures/entity/chest_boat/"
+	);
 
 	private final Set<String> texturePaths;
 	private final Set<String> soundEvents;
@@ -136,25 +142,103 @@ public final class VanillaAssets {
 		if (registryPath.isEmpty()) {
 			return List.of();
 		}
-		String fileName = registryPath + ".png";
-		for (String dir : preferredDirs(context)) {
-			List<String> matches = matchingUnder(dir, fileName);
+		return resolveCandidates(List.of(registryPath), registryPath, context);
+	}
+
+	public List<String> resolveTextureFile(String fileName, WikiFilenameUtil.CrawlContext context) {
+		List<String> candidates = WikiFilenameUtil.textureNameCandidates(fileName);
+		if (candidates.isEmpty()) {
+			return List.of();
+		}
+		String base = WikiFilenameUtil.toRegistryPath(WikiFilenameUtil.extractBaseName(fileName));
+		return resolveCandidates(candidates, base, context);
+	}
+
+	private List<String> resolveCandidates(
+			List<String> candidates,
+			String base,
+			WikiFilenameUtil.CrawlContext context
+	) {
+		for (String candidate : candidates) {
+			String fileName = candidate + ".png";
+			for (String dir : preferredDirs(context)) {
+				List<String> matches = matchingUnder(dir, fileName);
+				if (!matches.isEmpty()) {
+					return ownFolderFilter(matches, candidate, base);
+				}
+			}
+			Set<String> basenameMatches = new TreeSet<>();
+			for (String dir : fallbackDirs(context)) {
+				basenameMatches.addAll(matchingUnder(dir, fileName));
+			}
+			List<String> matches = dropExcluded(List.copyOf(basenameMatches));
+			if (!matches.isEmpty()) {
+				return ownFolderFilter(matches, candidate, base);
+			}
+		}
+		if (candidates.size() == 1 && candidates.get(0).equals(base)
+				&& (context == WikiFilenameUtil.CrawlContext.ENTITIES
+				|| context == WikiFilenameUtil.CrawlContext.UNKNOWN)) {
+			List<String> variants = entityVariants(base);
+			if (!variants.isEmpty()) {
+				return variants;
+			}
+		}
+		if (context == WikiFilenameUtil.CrawlContext.ENTITIES) {
+			List<String> matches = matchingUnder("textures/block/", base + ".png");
 			if (!matches.isEmpty()) {
 				return matches;
 			}
 		}
-		Set<String> basenameMatches = new TreeSet<>();
-		for (String dir : ALL_TEXTURE_DIRS) {
-			basenameMatches.addAll(matchingUnder(dir, fileName));
-		}
-		if (!basenameMatches.isEmpty()) {
-			return List.copyOf(basenameMatches);
-		}
-		if (context == WikiFilenameUtil.CrawlContext.ENTITIES
-				|| context == WikiFilenameUtil.CrawlContext.UNKNOWN) {
-			return entityVariants(registryPath);
-		}
 		return List.of();
+	}
+
+	private List<String> fallbackDirs(WikiFilenameUtil.CrawlContext context) {
+		return switch (context) {
+			case BLOCKS -> List.of("textures/item/", "textures/entity/");
+			case ITEMS -> List.of("textures/block/");
+			case UNKNOWN -> ALL_TEXTURE_DIRS;
+			case ENTITIES, PARTICLES, PAINTINGS, EFFECTS, MAP_ICONS -> List.of();
+		};
+	}
+
+	private static List<String> ownFolderFilter(List<String> matches, String candidate, String base) {
+		List<String> sameFolder = new ArrayList<>();
+		for (String match : matches) {
+			String folder = parentFolderName(match);
+			if (folder.equals(candidate) || folder.equals(base)) {
+				sameFolder.add(match);
+			}
+		}
+		return sameFolder.isEmpty() ? matches : List.copyOf(sameFolder);
+	}
+
+	private static List<String> dropExcluded(List<String> matches) {
+		List<String> kept = new ArrayList<>();
+		for (String match : matches) {
+			String path = match.startsWith(TEXTURE_PREFIX) ? match.substring(TEXTURE_PREFIX.length()) : match;
+			boolean excluded = false;
+			for (String dir : EXCLUDED_ENTITY_DIRS) {
+				if (path.startsWith(dir)) {
+					excluded = true;
+					break;
+				}
+			}
+			if (!excluded) {
+				kept.add(match);
+			}
+		}
+		return List.copyOf(kept);
+	}
+
+	private static String parentFolderName(String path) {
+		String withoutPrefix = path.startsWith(TEXTURE_PREFIX) ? path.substring(TEXTURE_PREFIX.length()) : path;
+		int slash = withoutPrefix.lastIndexOf('/');
+		if (slash < 0) {
+			return "";
+		}
+		int previous = withoutPrefix.lastIndexOf('/', slash - 1);
+		return withoutPrefix.substring(previous + 1, slash);
 	}
 
 	private List<String> preferredDirs(WikiFilenameUtil.CrawlContext context) {

@@ -68,6 +68,22 @@ def vanillaArgs = [
 		'--minecraft-version', rootProject.minecraft_version
 ]
 
+tasks.register('copyRemappedCatalog', Copy) {
+	group = 'historical textures'
+	from indexerCatalogDir
+	into exportDir
+}
+
+tasks.register('remapCatalog', JavaExec) {
+	group = 'historical textures'
+	description = 'Recompute texture targets in build/catalog offline and copy it into mod resources'
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'dev.historicaltextures.indexer.WikiIndexerMain'
+	args = ['--remap'] + vanillaArgs
+	workingDir = project.projectDir
+	finalizedBy 'copyRemappedCatalog'
+}
+
 tasks.register('indexSounds', JavaExec) {
 	group = 'historical textures'
 	description = 'Re-index historical sounds into bundled catalog (keeps existing textures)'
