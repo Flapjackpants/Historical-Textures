@@ -150,5 +150,20 @@
     "saddle_pig_texture_je2_png": {
       "optifine/cem/pig_saddle.jem": "pig_saddle_legacy.jem"
     }
+  },
+  "minecraft:textures/entity/zombie_villager/zombie_villager.png": {
+    "zombie_villager_texture_je1_png": {
+      "optifine/cem/zombie_villager.jem": "zombie_villager_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/horse/donkey.png": {
+    "donkey_texture_je1_png": {
+      "optifine/cem/donkey.jem": "donkey_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/horse/mule.png": {
+    "mule_texture_je1_png": {
+      "optifine/cem/mule.jem": "donkey_legacy.jem"
+    }
   }
 }
