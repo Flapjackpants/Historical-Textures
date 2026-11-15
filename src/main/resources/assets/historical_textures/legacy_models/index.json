@@ -1,0 +1,12 @@
+{
+  "minecraft:textures/block/stonecutter_top.png": {
+    "stonecutter_top_texture_be1_png": {
+      "models/block/stonecutter.json": "stonecutter_cube.json"
+    }
+  },
+  "minecraft:textures/block/stonecutter_side.png": {
+    "stonecutter_side_texture_be1_png": {
+      "models/block/stonecutter.json": "stonecutter_cube.json"
+    }
+  }
+}

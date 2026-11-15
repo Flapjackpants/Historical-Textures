@@ -21,7 +21,9 @@
   "depends": {
     "fabricloader": ">=0.20.0",
     "minecraft": ">=26.3",
-    "fabric-api": "*"
+    "fabric-api": "*",
+    "entity_model_features": ">=3.3.12",
+    "entity_texture_features": ">=7.2.7"
   },
   "suggests": {
     "modmenu": "*"

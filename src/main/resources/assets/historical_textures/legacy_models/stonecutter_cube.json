@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "minecraft:block/stonecutter_top",
+    "side": "minecraft:block/stonecutter_side",
+    "bottom": "minecraft:block/stonecutter_bottom"
+  }
+}

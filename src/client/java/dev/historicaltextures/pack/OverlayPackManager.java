@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import dev.historicaltextures.GamePaths;
 import dev.historicaltextures.HistoricalTextures;
 import dev.historicaltextures.catalog.HistoricalCatalog;
+import dev.historicaltextures.catalog.LegacyModels;
 import dev.historicaltextures.catalog.SoundVariant;
 import dev.historicaltextures.catalog.TextureVariant;
 import dev.historicaltextures.config.ModConfig;
@@ -203,7 +204,32 @@ public final class OverlayPackManager {
 			}
 			Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING);
 			HistoricalTextures.LOGGER.debug("Wrote overlay texture {}", destination.toAbsolutePath());
+			writeLegacyFiles(root, variant, targetPath);
 			return true;
+		}
+	}
+
+	private static void writeLegacyFiles(Path root, TextureVariant variant, String targetPath) throws IOException {
+		for (Map.Entry<String, String> entry : LegacyModels.filesFor(targetPath, variant.id()).entrySet()) {
+			String dest = entry.getKey();
+			if (!LegacyModels.isSafeDest(dest)) {
+				HistoricalTextures.LOGGER.warn("Unsafe legacy model path {} for variant {}", dest, variant.id());
+				continue;
+			}
+			Path destination = root.resolve("assets/minecraft").resolve(dest);
+			Files.createDirectories(destination.getParent());
+			try (InputStream input = LegacyModels.open(entry.getValue())) {
+				if (input == null) {
+					HistoricalTextures.LOGGER.warn(
+							"Missing legacy model {} for variant {}",
+							entry.getValue(),
+							variant.id()
+					);
+					continue;
+				}
+				Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING);
+				HistoricalTextures.LOGGER.debug("Wrote legacy model {}", destination.toAbsolutePath());
+			}
 		}
 	}
 

@@ -10,6 +10,7 @@ import java.nio.file.Path;
 public final class CatalogResources {
 	private static final String CATALOG_JSON = "assets/historical_textures/catalog/catalog.json";
 	private static final String CATALOG_ROOT = "assets/historical_textures/catalog/";
+	private static final String LEGACY_MODELS_ROOT = "assets/historical_textures/legacy_models/";
 
 	private CatalogResources() {
 	}
@@ -35,6 +36,24 @@ public final class CatalogResources {
 			return stream;
 		}
 		return HistoricalCatalog.class.getClassLoader().getResourceAsStream(CATALOG_ROOT + normalized);
+	}
+
+	public static InputStream openLegacyModel(String source) {
+		if (source == null || source.isBlank()) {
+			return null;
+		}
+		String normalized = source.replace('\\', '/');
+		while (normalized.startsWith("/")) {
+			normalized = normalized.substring(1);
+		}
+		if (normalized.contains("..")) {
+			return null;
+		}
+		InputStream stream = openAtPath(LEGACY_MODELS_ROOT + normalized);
+		if (stream != null) {
+			return stream;
+		}
+		return HistoricalCatalog.class.getClassLoader().getResourceAsStream(LEGACY_MODELS_ROOT + normalized);
 	}
 
 	private static InputStream openAtPath(String resourcePath) {

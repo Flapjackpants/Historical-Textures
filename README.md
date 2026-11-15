@@ -7,6 +7,8 @@ Fabric mod for **Minecraft 26.3+** that lets you pick historical textures and so
 - Minecraft 26.3+
 - Fabric Loader 0.20+
 - Fabric API
+- [Entity Model Features](https://modrinth.com/mod/entity-model-features) 3.3.12+ (needed for legacy entity models)
+- [Entity Texture Features](https://modrinth.com/mod/entitytexturefeatures) 7.2.7+ (needed for legacy entity models)
 - [Mod Menu](https://modrinth.com/mod/modmenu) (recommended)
 - Java **25** for building (Gradle toolchains auto-download via Foojay)
 
