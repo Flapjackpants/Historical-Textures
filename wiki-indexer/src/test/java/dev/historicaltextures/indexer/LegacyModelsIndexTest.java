@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import javax.imageio.ImageIO;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -68,6 +69,12 @@ class LegacyModelsIndexTest {
 				}
 				JsonElement parsed = JsonParser.parseString(text);
 				assertTrue(parsed.isJsonObject(), entry.source() + " is not a JSON object");
+			} else if (entry.source().endsWith(".png")) {
+				try {
+					assertTrue(ImageIO.read(source.toFile()) != null, entry.source() + " is not a readable PNG");
+				} catch (IOException exception) {
+					throw new UncheckedIOException(exception);
+				}
 			}
 		}
 	}
