@@ -24,6 +24,7 @@ public final class ModConfig {
 
 	private Map<String, String> textureChoices = new HashMap<>();
 	private Map<String, String> soundChoices = new HashMap<>();
+	private boolean hideVillagerHood = true;
 
 	public ModConfig(Path configPath) {
 		this.configPath = configPath;
@@ -55,6 +56,9 @@ public final class ModConfig {
 				if (data.soundChoices != null) {
 					config.soundChoices = new HashMap<>(data.soundChoices);
 				}
+				if (data.hideVillagerHood != null) {
+					config.hideVillagerHood = data.hideVillagerHood;
+				}
 			}
 		} catch (IOException exception) {
 			HistoricalTextures.LOGGER.warn("Could not read config, using defaults", exception);
@@ -68,6 +72,7 @@ public final class ModConfig {
 			ConfigData data = new ConfigData();
 			data.textureChoices = new HashMap<>(textureChoices);
 			data.soundChoices = new HashMap<>(soundChoices);
+			data.hideVillagerHood = hideVillagerHood;
 			try (Writer writer = Files.newBufferedWriter(configPath)) {
 				GSON.toJson(data, writer);
 			}
@@ -108,6 +113,14 @@ public final class ModConfig {
 		return Map.copyOf(soundChoices);
 	}
 
+	public boolean hideVillagerHood() {
+		return hideVillagerHood;
+	}
+
+	public void setHideVillagerHood(boolean hideVillagerHood) {
+		this.hideVillagerHood = hideVillagerHood;
+	}
+
 	public void clearAll() {
 		textureChoices.clear();
 		soundChoices.clear();
@@ -116,5 +129,6 @@ public final class ModConfig {
 	private static final class ConfigData {
 		Map<String, String> textureChoices;
 		Map<String, String> soundChoices;
+		Boolean hideVillagerHood;
 	}
 }

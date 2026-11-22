@@ -73,6 +73,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private long previewResumeAtMs;
 	private long previewLastFrameMs;
 	private TextureTarget previewTarget;
+	private Button hoodButton;
 
 	public HistoricalTexturesConfigScreen(Screen parent) {
 		super(Component.translatable("screen.historical_textures.config"));
@@ -139,6 +140,14 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				.bounds(8, height - 28, 120, 20).build());
 		addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> onClose())
 				.bounds(width - 108, height - 28, 100, 20).build());
+
+		hoodButton = Button.builder(Component.literal(""), b -> toggleHood())
+				.bounds(col3X + 4, listBottom - 24, previewW - 8, 20)
+				.build();
+		hoodButton.visible = false;
+		hoodButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+				Component.literal("Old villagers had no hood. Applies on Apply & Reload.")));
+		addRenderableWidget(hoodButton);
 
 		rebuildLists();
 	}
@@ -349,6 +358,8 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+		updateHoodButton();
+		extractPreview(graphics, mouseX, mouseY, partialTick);
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 		graphics.text(font, Component.literal("Targets"), col1X, 58, TEXT_WHITE);
 		graphics.text(font, Component.literal("Variants"), col2X, 58, TEXT_WHITE);
@@ -372,8 +383,6 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			int vy = listTop + (rowCount > 0 ? rowCount * VARIANT_ENTRY_HEIGHT : 0) + 6;
 			graphics.textWithWordWrap(font, emptyVariantHint, col2X + 4, vy, col2W - 8, TEXT_MUTED);
 		}
-
-		extractPreview(graphics, mouseX, mouseY, partialTick);
 	}
 
 	private void extractPreview(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
@@ -583,7 +592,37 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				|| shape == VariantPreviewRenderer.Shape.ENTITY;
 	}
 
+	private boolean hoodApplies() {
+		return activeTab == Tab.ENTITIES
+				&& selectedTarget != null
+				&& selectedTarget.configKey().contains("/entity/villager/profession/");
+	}
+
+	private void updateHoodButton() {
+		if (hoodButton == null) {
+			return;
+		}
+		boolean applies = hoodApplies();
+		hoodButton.visible = applies;
+		hoodButton.active = applies;
+		if (applies) {
+			hoodButton.setMessage(Component.literal(
+					ModConfig.get().hideVillagerHood() ? "Hood: Hidden" : "Hood: Shown"));
+		}
+	}
+
+	private void toggleHood() {
+		ModConfig.get().setHideVillagerHood(!ModConfig.get().hideVillagerHood());
+		ModConfig.get().save();
+		updateHoodButton();
+	}
+
 	private boolean isInsidePreview(double mouseX, double mouseY) {
+		if (hoodButton != null && hoodButton.visible
+				&& mouseX >= hoodButton.getX() && mouseX < hoodButton.getX() + hoodButton.getWidth()
+				&& mouseY >= hoodButton.getY() && mouseY < hoodButton.getY() + hoodButton.getHeight()) {
+			return false;
+		}
 		int boxX = col3X;
 		int boxY = listTop;
 		int boxW = previewW;

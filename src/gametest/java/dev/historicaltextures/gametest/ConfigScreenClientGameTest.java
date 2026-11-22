@@ -26,6 +26,7 @@ import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.phys.AABB;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -83,6 +84,18 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 
 	private static final double DIAGNOSTIC_PLAYER_EYE_HEIGHT = 1.62;
 
+	private static final String VILLAGER_PROFESSION_KEY =
+			"minecraft:textures/entity/villager/profession/farmer.png";
+	private static final String VILLAGER_FARMER_VARIANT = "farmer_texture_je1_png";
+
+	private static final FaceDiagnosticTarget VILLAGER_HOOD_TARGET = new FaceDiagnosticTarget(
+			VILLAGER_PROFESSION_KEY,
+			"minecraft:villager",
+			null,
+			EntityTypes.VILLAGER,
+			List.of()
+	);
+
 	@Override
 	public void runTest(ClientGameTestContext context) {
 		int initialWidth = context.computeOnClient(client -> client.getWindow().getWidth());
@@ -98,6 +111,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 			sp.getConnection().waitForChunksRender();
 			runPhase(context, "B", failures, screenshots, initialWidth, initialHeight);
 			runFaceDiagnostic(context, sp, failures, screenshots);
+			runHoodWorldDiagnostic(context, sp, failures, screenshots);
 		}
 
 		if (!screenshots.isEmpty()) {
@@ -384,6 +398,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		recordScreenshot(context, step05b, screenshots);
 
 		runPreviewSteps(context, phase, failures, screenshots);
+		runHoodSteps(context, phase, failures, screenshots);
 
 		// 05j search_scroll_top
 		String stepScroll = phase + "_05j_search_scroll_top";
@@ -833,6 +848,244 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		System.out.println(message);
 	}
 
+	private void runHoodSteps(
+			ClientGameTestContext context,
+			String phase,
+			List<String> failures,
+			List<Path> screenshots
+	) {
+		ModConfig.get().setHideVillagerHood(true);
+		ModConfig.get().save();
+
+		// hood_button_hidden_default: Blocks tab, block target selected
+		String stepHidden = phase + "_hood_button_hidden_default";
+		clickButton(context, "Blocks");
+		context.waitTicks(3);
+		setSearch(context, "");
+		context.waitTicks(2);
+		clickTargetRow(context, failures, 0, stepHidden, "hood_block_target");
+		context.waitTicks(2);
+		String hiddenState = hoodButtonState(context);
+		check(failures, stepHidden, "hood_button_hidden_default",
+				!hiddenState.startsWith("visible"), "state=" + hiddenState);
+
+		// hood_button_visible: Entities tab, villager profession target
+		String stepVisible = phase + "_hood_button_visible";
+		clickButton(context, "Entities");
+		context.waitTicks(3);
+		boolean farmerSelected = selectDiagnosticTarget(context, VILLAGER_PROFESSION_KEY);
+		context.waitTicks(2);
+		String visibleState = hoodButtonState(context);
+		check(failures, stepVisible, "hood_button_visible",
+				farmerSelected
+						&& visibleState.startsWith("visible")
+						&& visibleState.contains("Hood: Hidden")
+						&& ModConfig.get().hideVillagerHood(),
+				"selected=" + farmerSelected + " state=" + visibleState
+						+ " config=" + ModConfig.get().hideVillagerHood());
+
+		// hood_toggle: flip off then back on
+		String stepToggle = phase + "_hood_toggle";
+		clickHoodButton(context);
+		context.waitTicks(2);
+		String toggledOff = hoodButtonState(context);
+		check(failures, stepToggle, "hood_toggle",
+				toggledOff.contains("Hood: Shown") && !ModConfig.get().hideVillagerHood(),
+				"state=" + toggledOff + " config=" + ModConfig.get().hideVillagerHood());
+		clickHoodButton(context);
+		context.waitTicks(2);
+		String toggledOn = hoodButtonState(context);
+		check(failures, stepToggle, "hood_toggle_restore",
+				toggledOn.contains("Hood: Hidden") && ModConfig.get().hideVillagerHood(),
+				"state=" + toggledOn + " config=" + ModConfig.get().hideVillagerHood());
+		recordScreenshot(context, stepToggle, screenshots);
+
+		// hood_mcmeta_written
+		String stepMcmeta = phase + "_hood_mcmeta";
+		Path mcmeta = OverlayPackManager.overlayDirectory().resolve(
+				"assets/minecraft/textures/entity/villager/profession/farmer.png.mcmeta");
+		try {
+			ModConfig.get().clearAll();
+			ModConfig.get().setTextureChoice(VILLAGER_PROFESSION_KEY, VILLAGER_FARMER_VARIANT);
+			ModConfig.get().setHideVillagerHood(true);
+			ModConfig.get().save();
+			generateOverlay(context);
+			String content = Files.exists(mcmeta) ? Files.readString(mcmeta) : "";
+			check(failures, stepMcmeta, "hood_mcmeta_written",
+					content.contains("\"hat\": \"full\""),
+					"exists=" + Files.exists(mcmeta) + " content=" + content.replace('\n', ' '));
+
+			ModConfig.get().setHideVillagerHood(false);
+			ModConfig.get().save();
+			generateOverlay(context);
+			check(failures, stepMcmeta, "hood_mcmeta_absent_when_shown",
+					!Files.exists(mcmeta), "exists=" + Files.exists(mcmeta));
+		} catch (Exception exception) {
+			check(failures, stepMcmeta, "hood_mcmeta_written", false,
+					"error=" + exception);
+		}
+
+		// Restore config and overlay
+		ModConfig.get().clearAll();
+		ModConfig.get().setHideVillagerHood(true);
+		ModConfig.get().save();
+		generateOverlay(context);
+
+		// Restore tab and filter for the resize step
+		clickButton(context, "Blocks");
+		context.waitTicks(2);
+		setSearch(context, "");
+		context.waitTicks(2);
+	}
+
+	private void generateOverlay(ClientGameTestContext context) {
+		context.computeOnClient(client -> {
+			try {
+				OverlayPackManager.generateOverlayPack();
+			} catch (java.io.IOException exception) {
+				HistoricalTextures.LOGGER.warn("diag overlay generate failed", exception);
+			}
+			return null;
+		});
+	}
+
+	private String hoodButtonState(ClientGameTestContext context) {
+		Object result = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return "no-screen";
+			}
+			for (var child : screen.children()) {
+				if (child instanceof Button button
+						&& button.getMessage().getString().startsWith("Hood:")) {
+					return (button.visible ? "visible" : "hidden")
+							+ " msg=" + button.getMessage().getString();
+				}
+			}
+			return "absent";
+		});
+		return String.valueOf(result);
+	}
+
+	private void clickHoodButton(ClientGameTestContext context) {
+		Button button = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return null;
+			}
+			for (var child : screen.children()) {
+				if (child instanceof Button candidate
+						&& candidate.getMessage().getString().startsWith("Hood:")) {
+					return candidate;
+				}
+			}
+			return null;
+		});
+		if (button == null) {
+			return;
+		}
+		int btnX = context.computeOnClient(client -> button.getX() + button.getWidth() / 2);
+		int btnY = context.computeOnClient(client -> button.getY() + button.getHeight() / 2);
+		clickGui(context, btnX, btnY);
+	}
+
+	private void runHoodWorldDiagnostic(
+			ClientGameTestContext context,
+			TestSingleplayerContext sp,
+			List<String> failures,
+			List<Path> screenshots
+	) {
+		sp.getServer().runCommand("fill -9 100 -9 10 100 10 minecraft:stone");
+		sp.getServer().runCommand("fill -8 101 -8 9 108 9 minecraft:air");
+		sp.getServer().runCommand("gamemode spectator @p");
+		context.waitTicks(5);
+
+		boolean hudWasHidden = hideDiagnosticHud(context);
+		try {
+			ModConfig.get().clearAll();
+			ModConfig.get().setTextureChoice(VILLAGER_PROFESSION_KEY, VILLAGER_FARMER_VARIANT);
+			ModConfig.get().save();
+
+			sp.getServer().runCommand("kill @e[type=!player]");
+			try {
+				sp.getServer().runCommand(
+						"summon minecraft:villager 0.5 101 0.5 "
+								+ "{NoAI:1b,Rotation:[0f,0f],VillagerData:{profession:\"minecraft:farmer\",type:\"minecraft:plains\",level:1}}"
+				);
+			} catch (RuntimeException exception) {
+				logDiagnosticWarn("diag_world_hood summon_failed error=" + exception.getMessage());
+			}
+			context.waitTicks(10);
+			double[] anchor = diagnosticMobAnchor(sp, VILLAGER_HOOD_TARGET);
+			if (anchor == null) {
+				logDiagnosticWarn("diag_world_hood mob_missing");
+				return;
+			}
+
+			for (boolean hide : new boolean[]{true, false}) {
+				ModConfig.get().setHideVillagerHood(hide);
+				ModConfig.get().save();
+				OverlayPackManager.ApplyResult result = applyDiagnosticOverlay(context);
+				String tag = hide ? "hidden" : "shown";
+				check(
+						failures,
+						"diag_world_hood_" + tag,
+						"diag_overlay_applied",
+						result.texturesWritten() > 0,
+						"texturesWritten=" + result.texturesWritten()
+								+ " soundsWritten=" + result.soundsWritten()
+								+ " skipped=" + result.skipped()
+				);
+				captureHoodWorldViews(context, sp, screenshots, "diag_world_hood_" + tag, anchor);
+			}
+		} finally {
+			ModConfig.get().clearAll();
+			ModConfig.get().setHideVillagerHood(true);
+			ModConfig.get().save();
+			applyDiagnosticOverlay(context);
+			restoreDiagnosticHud(context, hudWasHidden);
+		}
+	}
+
+	private void captureHoodWorldViews(
+			ClientGameTestContext context,
+			TestSingleplayerContext sp,
+			List<Path> screenshots,
+			String shotPrefix,
+			double[] anchor
+	) {
+		double x = anchor[0];
+		double y = anchor[1];
+		double z = anchor[2];
+		double cameraY = y - DIAGNOSTIC_PLAYER_EYE_HEIGHT;
+		captureHoodWorldView(context, sp, screenshots, shotPrefix + "_front", x, cameraY, z + 3.0, 180.0f, 0.0f);
+		captureHoodWorldView(context, sp, screenshots, shotPrefix + "_left", x + 3.0, cameraY, z, 90.0f, 0.0f);
+	}
+
+	private void captureHoodWorldView(
+			ClientGameTestContext context,
+			TestSingleplayerContext sp,
+			List<Path> screenshots,
+			String shotName,
+			double x,
+			double y,
+			double z,
+			float yaw,
+			float pitch
+	) {
+		sp.getServer().runCommand(String.format(
+				Locale.ROOT,
+				"tp @p %.3f %.3f %.3f %.1f %.1f",
+				x,
+				y,
+				z,
+				yaw,
+				pitch
+		));
+		context.waitTicks(10);
+		recordScreenshot(context, shotName, screenshots);
+	}
+
 	private void runPreviewSteps(
 			ClientGameTestContext context,
 			String phase,
@@ -1004,7 +1257,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 			} else {
 				clickVariantRow(context, mismatchVariantIndex);
 				context.waitTicks(3);
-				String mismatchShape = previewShapeName(context);
+				String mismatchShape = effectivePreviewShapeName(context);
 				check(failures, stepMismatch, "preview_mismatch_flat", "FLAT".equals(mismatchShape),
 						"target=" + mismatchCandidate[1] + " variant=" + mismatchCandidate[2] + " shape=" + mismatchShape);
 				recordScreenshot(context, stepMismatch, screenshots);
@@ -1436,6 +1689,31 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 	private String previewShapeName(ClientGameTestContext context) {
 		Object shape = previewCall(context, "previewShape");
 		return shape instanceof Enum<?> enumValue ? enumValue.name() : "null";
+	}
+
+	private String effectivePreviewShapeName(ClientGameTestContext context) {
+		Object result = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return "null";
+			}
+			try {
+				var textureMethod = screen.getClass().getDeclaredMethod("currentPreviewTexture");
+				textureMethod.setAccessible(true);
+				Object preview = textureMethod.invoke(screen);
+				for (var method : screen.getClass().getDeclaredMethods()) {
+					if (method.getName().equals("effectivePreviewShape")) {
+						method.setAccessible(true);
+						Object shape = method.invoke(screen, preview);
+						return shape instanceof Enum<?> enumValue ? enumValue.name() : "null";
+					}
+				}
+				return "no-method";
+			} catch (ReflectiveOperationException exception) {
+				return "err";
+			}
+		});
+		return String.valueOf(result);
 	}
 
 	private Object previewTextureId(ClientGameTestContext context) {

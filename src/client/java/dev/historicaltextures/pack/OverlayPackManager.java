@@ -27,6 +27,7 @@ public final class OverlayPackManager {
 	/** Resource pack format for Minecraft 26.3 (see minecraft.wiki Pack format). */
 	private static final int PACK_FORMAT_MAJOR = 97;
 	private static final int PACK_FORMAT_MINOR = 1;
+	public static final String VILLAGER_PROFESSION_PREFIX = "textures/entity/villager/profession/";
 
 	private OverlayPackManager() {
 	}
@@ -205,8 +206,22 @@ public final class OverlayPackManager {
 			Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING);
 			HistoricalTextures.LOGGER.debug("Wrote overlay texture {}", destination.toAbsolutePath());
 			writeLegacyFiles(root, variant, targetPath);
+			writeVillagerHoodMcmeta(destination, relative);
 			return true;
 		}
+	}
+
+	private static void writeVillagerHoodMcmeta(Path destination, String relative) throws IOException {
+		if (!ModConfig.get().hideVillagerHood() || !relative.startsWith(VILLAGER_PROFESSION_PREFIX)) {
+			return;
+		}
+		JsonObject villager = new JsonObject();
+		JsonObject hat = new JsonObject();
+		hat.addProperty("hat", "full");
+		villager.add("villager", hat);
+		Path mcmeta = destination.resolveSibling(destination.getFileName() + ".mcmeta");
+		Files.writeString(mcmeta, GSON.toJson(villager));
+		HistoricalTextures.LOGGER.debug("Wrote villager hood mcmeta {}", mcmeta.toAbsolutePath());
 	}
 
 	private static void writeLegacyFiles(Path root, TextureVariant variant, String targetPath) throws IOException {
