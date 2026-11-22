@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.EntityType;
@@ -17,7 +18,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+
 public final class TextureTargetRegistry {
 	private static final int ENTRY_HEIGHT = 24;
 	private static List<TextureTarget> blockTargets;
@@ -27,6 +30,34 @@ public final class TextureTargetRegistry {
 	private static List<String> soundEvents;
 
 	private TextureTargetRegistry() {
+	}
+
+	public static String humanize(String path) {
+		if (path == null || path.isEmpty()) {
+			return "";
+		}
+		String s = path;
+		int lastSlash = s.lastIndexOf('/');
+		if (lastSlash >= 0) {
+			s = s.substring(lastSlash + 1);
+		}
+		if (s.endsWith(".png")) {
+			s = s.substring(0, s.length() - ".png".length());
+		}
+		int colon = s.indexOf(':');
+		if (colon >= 0) {
+			s = s.substring(colon + 1);
+		}
+		String[] parts = s.split("_");
+		List<String> words = new ArrayList<>();
+		for (String part : parts) {
+			if (!part.isEmpty()) {
+				String capitalized = Character.toUpperCase(part.charAt(0))
+						+ (part.length() > 1 ? part.substring(1).toLowerCase(Locale.ROOT) : "");
+				words.add(capitalized);
+			}
+		}
+		return String.join(" ", words);
 	}
 
 	public static List<TextureTarget> blockTargets() {
@@ -153,8 +184,10 @@ public final class TextureTargetRegistry {
 					continue;
 				}
 				String resourcePath = "minecraft:textures/item/" + id.getPath() + ".png";
-				ItemStack stack = new ItemStack(item);
-				String label = item.getName(stack).getString();
+				String descId = item.getDescriptionId();
+				String label = net.minecraft.locale.Language.getInstance().has(descId)
+						? Component.translatable(descId).getString()
+						: humanize(resourcePath);
 				byPath.putIfAbsent(resourcePath, new TextureTarget(resourcePath, id, TextureTargetKind.ITEM, label));
 				added++;
 			} catch (Exception exception) {
@@ -230,25 +263,29 @@ public final class TextureTargetRegistry {
 	}
 
 	private static String labelForTarget(String target, Identifier registryId, TextureTargetKind kind) {
+		if (kind == TextureTargetKind.OTHER) {
+			return otherLabel(target);
+		}
 		if (registryId != null) {
 			return switch (kind) {
 				case BLOCK -> BuiltInRegistries.BLOCK.getOptional(registryId)
 						.map(block -> block.getName().getString())
-						.orElseGet(registryId::toString);
+						.orElseGet(() -> humanize(target));
 				case ITEM -> BuiltInRegistries.ITEM.getOptional(registryId)
-						.map(item -> item.getName(new ItemStack(item)).getString())
-						.orElseGet(registryId::toString);
+						.map(item -> {
+							String descId = item.getDescriptionId();
+							return net.minecraft.locale.Language.getInstance().has(descId)
+									? Component.translatable(descId).getString()
+									: humanize(target);
+						})
+						.orElseGet(() -> humanize(target));
 				case ENTITY -> BuiltInRegistries.ENTITY_TYPE.getOptional(registryId)
 						.map(type -> type.getDescription().getString())
-						.orElseGet(registryId::toString);
+						.orElseGet(() -> humanize(target));
 				case OTHER -> otherLabel(target);
 			};
 		}
-		String path = target;
-		if (path.startsWith("minecraft:")) {
-			path = path.substring("minecraft:".length());
-		}
-		return path;
+		return humanize(target);
 	}
 
 	private static String otherLabel(String target) {
@@ -259,7 +296,13 @@ public final class TextureTargetRegistry {
 		if (path.startsWith("textures/")) {
 			path = path.substring("textures/".length());
 		}
-		return path;
+		int slash = path.indexOf('/');
+		if (slash < 0) {
+			return humanize(path);
+		}
+		String firstFolder = path.substring(0, slash);
+		String file = path.substring(path.lastIndexOf('/') + 1);
+		return humanize(file) + " (" + humanize(firstFolder) + ")";
 	}
 
 	private static List<String> buildSoundEvents() {

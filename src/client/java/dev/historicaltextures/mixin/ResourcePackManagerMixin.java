@@ -3,23 +3,18 @@ package dev.historicaltextures.mixin;
 import dev.historicaltextures.pack.OverlayResourcePackProvider;
 import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.server.packs.repository.RepositorySource;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-import java.util.Set;
+import java.util.Arrays;
 
 @Mixin(PackRepository.class)
 public abstract class ResourcePackManagerMixin {
-	@Shadow
-	@Final
-	private Set<RepositorySource> sources;
-
-	@Inject(method = "<init>", at = @At("TAIL"))
-	private void historicalTextures$registerOverlaySource(RepositorySource[] repositorySources, CallbackInfo callbackInfo) {
-		sources.add(new OverlayResourcePackProvider());
+	@ModifyVariable(method = "<init>", at = @At("HEAD"), argsOnly = true)
+	private static RepositorySource[] historicalTextures$registerOverlaySource(RepositorySource[] repositorySources) {
+		RepositorySource[] modified = Arrays.copyOf(repositorySources, repositorySources.length + 1);
+		modified[repositorySources.length] = new OverlayResourcePackProvider();
+		return modified;
 	}
 }

@@ -1,13 +1,19 @@
 package dev.historicaltextures.gametest;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.historicaltextures.HistoricalTextures;
+import dev.historicaltextures.catalog.HistoricalCatalog;
+import dev.historicaltextures.catalog.TextureTarget;
 import dev.historicaltextures.catalog.TextureTargetRegistry;
+import dev.historicaltextures.catalog.TextureVariant;
 import dev.historicaltextures.client.screen.HistoricalTexturesConfigScreen;
+import dev.historicaltextures.config.ModConfig;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.gui.components.AbstractSelectionList;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
@@ -16,6 +22,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 public class ConfigScreenClientGameTest implements FabricClientGameTest {
 
@@ -60,6 +69,10 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 			int initialWidth,
 			int initialHeight
 	) {
+		ModConfig.get().clearAll();
+		ModConfig.get().save();
+		Set<String> initialChoices = Set.copyOf(ModConfig.get().textureChoices().keySet());
+
 		// 01 open
 		String step01 = phase + "_01_open";
 		context.setScreen(() -> new HistoricalTexturesConfigScreen(null));
@@ -70,10 +83,35 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		AbstractSelectionList<?> targets01 = hasLists01 ? lists01.get(0) : null;
 		int targets01Size = targets01 != null ? targets01.children().size() : 0;
 		check(failures, step01, "target_list_non_empty", targets01Size > 0, "size=" + targets01Size);
-		int blockTargetsSize = TextureTargetRegistry.blockTargets().size();
+		int blockTargetsSize = context.computeOnClient(client -> TextureTargetRegistry.blockTargets().size());
 		String logLine01 = String.format("[HT-GAMETEST] %s block_targets_size INFO size=%d", step01, blockTargetsSize);
 		HistoricalTextures.LOGGER.info(logLine01);
 		System.out.println(logLine01);
+
+		String step01Row0Narration = targets01 != null ? getRowNarration(targets01, 0) : "";
+
+		// names_clean check
+		String firstOffender = null;
+		List<List<TextureTarget>> allTargetLists = context.computeOnClient(client -> List.of(
+				TextureTargetRegistry.blockTargets(),
+				TextureTargetRegistry.itemTargets(),
+				TextureTargetRegistry.entityTargets(),
+				TextureTargetRegistry.otherTargets()
+		));
+		for (List<TextureTarget> list : allTargetLists) {
+			for (TextureTarget target : list) {
+				String name = target.displayName();
+				if (name.contains(":") || name.contains(".png") || name.contains("_")) {
+					firstOffender = target.configKey() + " -> " + name;
+					break;
+				}
+			}
+			if (firstOffender != null) {
+				break;
+			}
+		}
+		check(failures, step01, "names_clean", firstOffender == null, firstOffender == null ? "all clean" : "offender: " + firstOffender);
+
 		recordScreenshot(context, step01, screenshots);
 
 		// 02 click_target
@@ -119,6 +157,27 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		boolean contained03 = variants03 != null && selected03 != null && variants03.children().contains(selected03);
 		boolean matchesIndex03 = variants03 != null && variantTargetIdx < variants03.children().size() && selected03 == variants03.children().get(variantTargetIdx);
 		check(failures, step03, "variant_selected_valid", contained03 && matchesIndex03, "selected=" + selected03 + " expectedIndex=" + variantTargetIdx + " contained=" + contained03 + " matchesIndex=" + matchesIndex03);
+
+		Map<String, String> currentChoices = ModConfig.get().textureChoices();
+		boolean choiceSaved = false;
+		String choiceDetails = "empty";
+		for (Map.Entry<String, String> entry : currentChoices.entrySet()) {
+			if (!initialChoices.contains(entry.getKey()) && entry.getValue() != null) {
+				String key = entry.getKey();
+				String val = entry.getValue();
+				List<String> validIds = HistoricalCatalog.get().textureVariantsForTarget(key)
+						.stream().map(TextureVariant::id).toList();
+				if (validIds.contains(val)) {
+					choiceSaved = true;
+					choiceDetails = "key=" + key + " value=" + val;
+					break;
+				} else {
+					choiceDetails = "key=" + key + " value=" + val + " not in " + validIds;
+				}
+			}
+		}
+		check(failures, step03, "variant_choice_saved", choiceSaved, choiceDetails);
+
 		recordScreenshot(context, step03, screenshots);
 
 		// 04 click_target_again
@@ -170,6 +229,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 			int btnX = context.computeOnClient(client -> entitiesButton.getX() + entitiesButton.getWidth() / 2);
 			int btnY = context.computeOnClient(client -> entitiesButton.getY() + entitiesButton.getHeight() / 2);
 			clickGui(context, btnX, btnY);
+			context.waitTicks(5);
 		} else {
 			check(failures, step05, "entities_button_found", false, "Entities button not found");
 		}
@@ -185,10 +245,74 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 
 		recordScreenshot(context, step05, screenshots);
 
+		// 05b tab_back_blocks
+		String step05b = phase + "_05b_tab_back_blocks";
+		Button blocksButton = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) return null;
+			for (var child : screen.children()) {
+				if (child instanceof Button b && "Blocks".equals(b.getMessage().getString())) {
+					return b;
+				}
+			}
+			return null;
+		});
+
+		if (blocksButton != null) {
+			int btnX = context.computeOnClient(client -> blocksButton.getX() + blocksButton.getWidth() / 2);
+			int btnY = context.computeOnClient(client -> blocksButton.getY() + blocksButton.getHeight() / 2);
+			clickGui(context, btnX, btnY);
+			context.waitTicks(5);
+		} else {
+			check(failures, step05b, "blocks_button_found", false, "Blocks button not found");
+		}
+
+		List<AbstractSelectionList<?>> lists05b = getLists(context);
+		AbstractSelectionList<?> targets05b = !lists05b.isEmpty() ? lists05b.get(0) : null;
+		String backBlocksRow0Narration = targets05b != null ? getRowNarration(targets05b, 0) : "";
+		boolean backEquals = !backBlocksRow0Narration.isEmpty() && backBlocksRow0Narration.equals(step01Row0Narration);
+		check(failures, step05b, "tab_back_blocks", backEquals, "expected=" + step01Row0Narration + " actual=" + backBlocksRow0Narration);
+
+		recordScreenshot(context, step05b, screenshots);
+
 		// 06 resize
 		String step06 = phase + "_06_resize";
+		EditBox searchBoxBeforeResize = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) return null;
+			for (var child : screen.children()) {
+				if (child instanceof EditBox eb) {
+					return eb;
+				}
+			}
+			return null;
+		});
+
+		if (searchBoxBeforeResize != null) {
+			int sbX = context.computeOnClient(client -> searchBoxBeforeResize.getX() + searchBoxBeforeResize.getWidth() / 2);
+			int sbY = context.computeOnClient(client -> searchBoxBeforeResize.getY() + searchBoxBeforeResize.getHeight() / 2);
+			clickGui(context, sbX, sbY);
+			context.waitTicks(2);
+			context.getInput().typeChars("stone");
+			context.waitTicks(2);
+		}
+
 		context.getInput().resizeWindow(1280, 720);
 		context.waitTicks(5);
+
+		EditBox searchBoxAfterResize = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) return null;
+			for (var child : screen.children()) {
+				if (child instanceof EditBox eb) {
+					return eb;
+				}
+			}
+			return null;
+		});
+
+		String queryValue = searchBoxAfterResize != null ? context.computeOnClient(client -> searchBoxAfterResize.getValue()) : null;
+		boolean searchValEquals = "stone".equals(queryValue);
 
 		List<AbstractSelectionList<?>> lists06 = getLists(context);
 		AbstractSelectionList<?> targets06 = !lists06.isEmpty() ? lists06.get(0) : null;
@@ -196,6 +320,28 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 
 		int targets06Size = targets06 != null ? targets06.children().size() : 0;
 		check(failures, step06, "target_list_non_empty", targets06Size > 0, "size=" + targets06Size);
+
+		boolean allContainStone = targets06 != null && !targets06.children().isEmpty();
+		String failedNarration = null;
+		if (targets06 != null) {
+			for (int i = 0; i < targets06.children().size(); i++) {
+				String narr = getRowNarration(targets06, i).toLowerCase(Locale.ROOT);
+				if (!narr.contains("stone")) {
+					allContainStone = false;
+					failedNarration = getRowNarration(targets06, i);
+					break;
+				}
+			}
+		}
+		boolean searchSynced = searchValEquals && allContainStone;
+		check(failures, step06, "search_synced", searchSynced, "boxValue=" + queryValue + " allContainStone=" + allContainStone + (failedNarration != null ? " failedOn=" + failedNarration : ""));
+
+		context.runOnClient(client -> {
+			if (searchBoxAfterResize != null) {
+				searchBoxAfterResize.setValue("");
+			}
+		});
+		context.waitTicks(2);
 
 		String variantState = variants06 != null ? ("size=" + variants06.children().size() + " selected=" + variants06.getSelected()) : "variants=null";
 		String logLine06 = String.format("[HT-GAMETEST] %s variant_list_state INFO %s", step06, variantState);
@@ -235,12 +381,16 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		// Restore window size
 		context.getInput().resizeWindow(initialWidth, initialHeight);
 		context.waitTicks(2);
+
+		ModConfig.get().clearAll();
+		ModConfig.get().save();
 	}
 
 	private void clickGui(ClientGameTestContext context, int guiX, int guiY) {
 		int scale = context.computeOnClient(client -> client.getWindow().getGuiScale());
 		context.getInput().setCursorPos((double) guiX * scale, (double) guiY * scale);
-		context.getInput().pressMouse(0);
+		context.waitTick();
+		context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_LEFT);
 		context.waitTicks(2);
 	}
 

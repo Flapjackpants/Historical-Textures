@@ -1,5 +1,6 @@
 package dev.historicaltextures.client.screen;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.historicaltextures.catalog.ClientCatalogLoader;
 import dev.historicaltextures.catalog.HistoricalCatalog;
 import dev.historicaltextures.catalog.SoundVariant;
@@ -12,11 +13,12 @@ import dev.historicaltextures.pack.OverlayPackManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +45,18 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private String selectedSoundEvent;
 	private String filter = "";
 
+	private int col1X;
+	private int col2X;
+	private int col3X;
+	private int col1W;
+	private int col2W;
+	private int previewW;
+	private int listTop;
+	private int listBottom;
+
+	private Component emptyListHint;
+	private Component emptyVariantHint;
+
 	public HistoricalTexturesConfigScreen(Screen parent) {
 		super(Component.translatable("screen.historical_textures.config"));
 		this.parent = parent;
@@ -61,27 +75,38 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		addRenderableWidget(Button.builder(Component.literal("Other"), b -> switchTab(Tab.OTHER)).bounds(tabX + 192, tabY, 60, 20).build());
 		addRenderableWidget(Button.builder(Component.literal("Sounds"), b -> switchTab(Tab.SOUNDS)).bounds(tabX + 256, tabY, 60, 20).build());
 
-		searchBox = new EditBox(font, tabX, tabY + 26, width / 2 - 16, 20, Component.literal("Search"));
+		int margin = 8;
+		int gap = 8;
+		previewW = Mth.clamp(width / 4, 80, 160);
+		int rest = width - 2 * margin - 2 * gap - previewW;
+		col1W = rest / 2;
+		col2W = rest - col1W;
+
+		col1X = 8;
+		col2X = col1X + col1W + gap;
+		col3X = col2X + col2W + gap;
+
+		searchBox = new EditBox(font, col1X, 32, col1W, 20, Component.literal("Search"));
+		searchBox.setValue(filter);
 		searchBox.setResponder(value -> {
 			filter = value.toLowerCase(Locale.ROOT);
 			rebuildLists();
 		});
 		addRenderableWidget(searchBox);
 
-		int listTop = tabY + 52;
-		int listHeight = height - listTop - 64;
-		int leftWidth = width / 2 - 12;
-		int rightX = width / 2 + 4;
+		listTop = 70;
+		listBottom = height - 60;
+		int listHeight = listBottom - listTop;
 
-		targetList = new TargetList(minecraft, leftWidth, listHeight, listTop, TARGET_ENTRY_HEIGHT);
-		variantList = new VariantList(minecraft, leftWidth, listHeight, listTop, VARIANT_ENTRY_HEIGHT);
-		targetList.setX(8);
+		targetList = new TargetList(minecraft, col1W, listHeight, listTop, TARGET_ENTRY_HEIGHT);
+		variantList = new VariantList(minecraft, col2W, listHeight, listTop, VARIANT_ENTRY_HEIGHT);
+		targetList.setX(col1X);
 		targetList.setY(listTop);
-		targetList.setWidth(leftWidth);
+		targetList.setWidth(col1W);
 		targetList.setHeight(listHeight);
-		variantList.setX(rightX);
+		variantList.setX(col2X);
 		variantList.setY(listTop);
-		variantList.setWidth(leftWidth);
+		variantList.setWidth(col2W);
 		variantList.setHeight(listHeight);
 		addRenderableWidget(targetList);
 		addRenderableWidget(variantList);
@@ -108,8 +133,12 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private void rebuildLists() {
+		rebuildTargets();
+		rebuildVariants();
+	}
+
+	private void rebuildTargets() {
 		List<TargetList.Entry> targetEntries = new ArrayList<>();
-		List<VariantList.Entry> variantEntries = new ArrayList<>();
 
 		if (activeTab == Tab.SOUNDS) {
 			SoundTargetEntry selectedTargetEntry = null;
@@ -123,19 +152,10 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 					selectedTargetEntry = entry;
 				}
 			}
-			if (selectedSoundEvent != null) {
-				variantEntries.addAll(buildSoundVariantEntries(selectedSoundEvent));
-				emptyVariantHint = null;
-			} else if (targetEntries.isEmpty()) {
-				emptyVariantHint = null;
-			} else {
-				emptyVariantHint = Component.literal("Select a sound event on the left to choose a variant.");
-			}
 			targetList.replaceEntries(targetEntries);
 			if (selectedTargetEntry != null) {
 				targetList.setSelected(selectedTargetEntry);
 			}
-			finishVariantList(variantEntries, selectedSoundEvent, true);
 			emptyListHint = targetEntries.isEmpty()
 					? Component.literal("No sound events in catalog. Run ./gradlew :wiki-indexer:indexSounds build and restart.")
 					: null;
@@ -150,11 +170,41 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			default -> List.of();
 		};
 
+		TextureTargetEntry selectedTargetEntry = null;
 		for (TextureTarget target : targets) {
 			if (!matchesFilter(target.displayName()) && !matchesFilter(target.configKey())) {
 				continue;
 			}
-			targetEntries.add(new TextureTargetEntry(target));
+			TextureTargetEntry entry = new TextureTargetEntry(target);
+			targetEntries.add(entry);
+			if (target.equals(selectedTarget)) {
+				selectedTargetEntry = entry;
+			}
+		}
+
+		targetList.replaceEntries(targetEntries);
+		if (selectedTargetEntry != null) {
+			targetList.setSelected(selectedTargetEntry);
+		}
+		emptyListHint = targetEntries.isEmpty()
+				? Component.literal("No targets loaded. Check latest.log for catalog errors (look for \"Loaded catalog\").")
+				: null;
+	}
+
+	private void rebuildVariants() {
+		List<VariantList.Entry> variantEntries = new ArrayList<>();
+
+		if (activeTab == Tab.SOUNDS) {
+			if (selectedSoundEvent != null) {
+				variantEntries.addAll(buildSoundVariantEntries(selectedSoundEvent));
+				emptyVariantHint = null;
+			} else if (targetList.children().isEmpty()) {
+				emptyVariantHint = null;
+			} else {
+				emptyVariantHint = Component.literal("Select a sound event on the left to choose a variant.");
+			}
+			finishVariantList(variantEntries, selectedSoundEvent, true);
+			return;
 		}
 
 		if (selectedTarget != null) {
@@ -163,22 +213,8 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			emptyVariantHint = null;
 		}
 
-		TextureTargetEntry selectedTargetEntry = null;
-		for (TargetList.Entry entry : targetEntries) {
-			if (entry instanceof TextureTargetEntry textureEntry && textureEntry.target == selectedTarget) {
-				selectedTargetEntry = textureEntry;
-				break;
-			}
-		}
-		targetList.replaceEntries(targetEntries);
-		if (selectedTargetEntry != null) {
-			targetList.setSelected(selectedTargetEntry);
-		}
 		String configKey = selectedTarget != null ? selectedTarget.configKey() : null;
 		finishVariantList(variantEntries, configKey, false);
-		emptyListHint = targetEntries.isEmpty()
-				? Component.literal("No targets loaded. Check latest.log for catalog errors (look for \"Loaded catalog\").")
-				: null;
 	}
 
 	private void finishVariantList(List<VariantList.Entry> entries, String configKey, boolean soundTab) {
@@ -195,9 +231,6 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			}
 		}
 	}
-
-	private Component emptyListHint;
-	private Component emptyVariantHint;
 
 	private List<VariantList.Entry> buildTextureVariantEntries(TextureTarget target) {
 		List<VariantList.Entry> entries = new ArrayList<>();
@@ -279,22 +312,100 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		minecraft.setScreenAndShow(parent);
 	}
 
+	private String fit(String text, int maxWidth) {
+		if (text == null) {
+			return "";
+		}
+		if (font.width(text) <= maxWidth) {
+			return text;
+		}
+		int dotsWidth = font.width("...");
+		if (maxWidth <= dotsWidth) {
+			return "...";
+		}
+		return font.plainSubstrByWidth(text, maxWidth - dotsWidth) + "...";
+	}
+
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-		graphics.text(font, Component.literal("Targets"), 8, 40, TEXT_WHITE);
-		graphics.text(font, Component.literal("Variants"), width / 2 + 4, 40, TEXT_WHITE);
+		graphics.text(font, Component.literal("Targets"), col1X, 58, TEXT_WHITE);
+		graphics.text(font, Component.literal("Variants"), col2X, 58, TEXT_WHITE);
+		graphics.text(font, Component.literal("Preview"), col3X, 58, TEXT_WHITE);
+
+		int y = listTop + 6;
 		if (emptyListHint != null) {
-			graphics.text(font, emptyListHint, 8, height / 2, TEXT_ERROR);
-		}
-		if (emptyVariantHint != null) {
-			graphics.text(font, emptyVariantHint, width / 2 + 4, height / 2, TEXT_MUTED);
+			y = graphics.textWithWordWrap(font, emptyListHint, col1X + 4, y, col1W - 8, TEXT_ERROR);
+			y += 2;
 		}
 		if (HistoricalCatalog.get().textureVariants().isEmpty()) {
-			graphics.text(font, Component.literal("Catalog not loaded — rebuild mod with wiki-indexer output."), 8, height / 2 + 12, TEXT_ERROR);
+			y = graphics.textWithWordWrap(font, Component.literal("Catalog not loaded — rebuild mod with wiki-indexer output."), col1X + 4, y, col1W - 8, TEXT_ERROR);
+			y += 2;
 		}
 		if (activeTab == Tab.SOUNDS && HistoricalCatalog.get().soundVariants().isEmpty()) {
-			graphics.text(font, Component.literal("No sounds in catalog — run ./gradlew :wiki-indexer:indexSounds build"), 8, height / 2 + 24, TEXT_ERROR);
+			graphics.textWithWordWrap(font, Component.literal("No sounds in catalog — run ./gradlew :wiki-indexer:indexSounds build"), col1X + 4, y, col1W - 8, TEXT_ERROR);
+		}
+
+		if (emptyVariantHint != null) {
+			int rowCount = variantList != null ? variantList.children().size() : 0;
+			int vy = listTop + (rowCount > 0 ? rowCount * VARIANT_ENTRY_HEIGHT : 0) + 6;
+			graphics.textWithWordWrap(font, emptyVariantHint, col2X + 4, vy, col2W - 8, TEXT_MUTED);
+		}
+
+		extractPreview(graphics, mouseX, mouseY, partialTick);
+	}
+
+	private void extractPreview(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+		int boxX = col3X;
+		int boxY = listTop;
+		int boxW = previewW;
+		int boxH = listBottom - listTop;
+
+		graphics.fill(boxX, boxY, boxX + boxW, boxY + boxH, 0xC0000000);
+		graphics.outline(boxX, boxY, boxW, boxH, 0xFF555555);
+
+		VariantList.Entry selected = variantList != null ? variantList.getSelected() : null;
+		TextureVariant textureVariant = (selected instanceof VariantEntry variantEntry) ? variantEntry.textureVariant : null;
+
+		boolean renderedPreview = false;
+		if (textureVariant != null) {
+			Optional<CatalogThumbnailCache.CachedPreview> opt =
+					CatalogThumbnailCache.get(textureVariant.id(), textureVariant.assetPath());
+			if (opt.isPresent()) {
+				CatalogThumbnailCache.CachedPreview cached = opt.get();
+				int srcW = cached.width();
+				int srcH = Math.min(cached.width(), cached.height());
+				int maxDraw = Math.min(boxW, boxH) - 16;
+				if (maxDraw > 0 && srcW > 0 && srcH > 0) {
+					float scale = Math.min((float) maxDraw / srcW, (float) maxDraw / srcH);
+					int drawW = Math.max(1, Math.round(srcW * scale));
+					int drawH = Math.max(1, Math.round(srcH * scale));
+					int drawX = boxX + (boxW - drawW) / 2;
+					int drawY = boxY + (boxH - drawH) / 2;
+					float vMax = cached.height() > 0
+							? Math.min(1.0f, (float) srcH / cached.height())
+							: 1.0f;
+					graphics.blit(
+							cached.textureId(),
+							drawX,
+							drawY,
+							drawX + drawW,
+							drawY + drawH,
+							0.0f,
+							1.0f,
+							0.0f,
+							vMax
+					);
+					renderedPreview = true;
+				}
+			}
+		}
+
+		if (!renderedPreview) {
+			Component msg = activeTab == Tab.SOUNDS
+					? Component.literal("No preview for sounds.")
+					: Component.literal("Select a variant to preview.");
+			graphics.textWithWordWrap(font, msg, boxX + 8, boxY + 12, boxW - 16, TEXT_MUTED);
 		}
 	}
 
@@ -323,25 +434,33 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			if (targetList.getSelected() == this) {
 				graphics.fill(getContentX(), getContentY(), getContentRight(), getContentBottom(), SELECTED_ROW);
 			}
+			int maxW = getContentRight() - (getContentX() + 4) - 4;
 			int variantCount = TextureTargetRegistry.variantCount(target.configKey());
 			String line = target.displayName();
 			if (variantCount > 0) {
 				line += " (" + variantCount + ")";
 			}
-			graphics.text(font, line, getContentX() + 4, getContentY() + 4, TEXT_WHITE);
+			graphics.text(font, fit(line, maxW), getContentX() + 4, getContentY() + 4, TEXT_WHITE);
 			String choice = ModConfig.get().getTextureChoice(target.configKey());
 			if (choice != null) {
-				graphics.text(font, Component.literal(choice), getContentX() + 4, getContentY() + 14, TEXT_MUTED);
+				String subtitle = HistoricalCatalog.get().textureVariant(choice)
+						.map(TextureVariant::versionLabel)
+						.orElse(choice);
+				graphics.text(font, fit(subtitle, maxW), getContentX() + 4, getContentY() + 14, TEXT_MUTED);
 			} else if (variantCount == 0) {
-				graphics.text(font, Component.literal("no catalog variants"), getContentX() + 4, getContentY() + 14, TEXT_MUTED);
+				graphics.text(font, fit("no catalog variants", maxW), getContentX() + 4, getContentY() + 14, TEXT_MUTED);
 			}
 		}
 
 		@Override
 		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+			if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) {
+				return false;
+			}
 			selectedTarget = target;
 			selectedSoundEvent = null;
-			rebuildLists();
+			targetList.setSelected(this);
+			rebuildVariants();
 			return true;
 		}
 	}
@@ -363,27 +482,33 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			if (targetList.getSelected() == this) {
 				graphics.fill(getContentX(), getContentY(), getContentRight(), getContentBottom(), SELECTED_ROW);
 			}
+			int maxW = getContentRight() - (getContentX() + 4) - 4;
 			int variantCount = HistoricalCatalog.get().soundVariantsForEvent(soundEvent).size();
 			String line = soundEvent;
 			if (variantCount > 0) {
 				line += " (" + variantCount + ")";
 			}
-			graphics.text(font, line, getContentX() + 4, getContentY() + 4, TEXT_WHITE);
+			graphics.text(font, fit(line, maxW), getContentX() + 4, getContentY() + 4, TEXT_WHITE);
 			String choice = ModConfig.get().getSoundChoice(soundEvent);
 			if (choice != null) {
-				HistoricalCatalog.get().soundVariant(choice).ifPresent(variant ->
-						graphics.text(font, Component.literal(variant.versionLabel()), getContentX() + 4, getContentY() + 14, TEXT_MUTED)
-				);
+				String choiceSub = HistoricalCatalog.get().soundVariant(choice)
+						.map(SoundVariant::versionLabel)
+						.orElse(choice);
+				graphics.text(font, fit(choiceSub, maxW), getContentX() + 4, getContentY() + 14, TEXT_MUTED);
 			} else if (variantCount == 0) {
-				graphics.text(font, Component.literal("no catalog variants"), getContentX() + 4, getContentY() + 14, TEXT_MUTED);
+				graphics.text(font, fit("no catalog variants", maxW), getContentX() + 4, getContentY() + 14, TEXT_MUTED);
 			}
 		}
 
 		@Override
 		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+			if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) {
+				return false;
+			}
 			selectedSoundEvent = soundEvent;
 			selectedTarget = null;
-			rebuildLists();
+			targetList.setSelected(this);
+			rebuildVariants();
 			return true;
 		}
 	}
@@ -423,28 +548,32 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 						CatalogThumbnailCache.get(textureVariant.id(), textureVariant.assetPath());
 				if (preview.isPresent()) {
 					CatalogThumbnailCache.CachedPreview cached = preview.get();
+					float vMax = cached.height() > 0
+							? Math.min(1.0f, (float) cached.width() / cached.height())
+							: 1.0f;
 					graphics.blit(
 							cached.textureId(),
 							previewX,
 							previewY,
-							0,
-							0,
-							PREVIEW_SIZE,
-							PREVIEW_SIZE,
-							cached.width(),
-							cached.height()
+							previewX + PREVIEW_SIZE,
+							previewY + PREVIEW_SIZE,
+							0.0f,
+							1.0f,
+							0.0f,
+							vMax
 					);
 				} else {
 					graphics.fill(previewX, previewY, previewX + PREVIEW_SIZE, previewY + PREVIEW_SIZE, PREVIEW_PLACEHOLDER);
 				}
 			}
 
+			int maxW = getContentRight() - textX - 4;
 			int color = variantId == null ? TEXT_ACCENT : (variantList.getSelected() == this ? TEXT_ACCENT : TEXT_WHITE);
 			if (subtitle != null && variantId != null) {
-				graphics.text(font, label, textX, getContentY() + 4, color);
-				graphics.text(font, subtitle, textX, getContentY() + 16, TEXT_MUTED);
+				graphics.text(font, fit(label.getString(), maxW), textX, getContentY() + 4, color);
+				graphics.text(font, fit(subtitle.getString(), maxW), textX, getContentY() + 16, TEXT_MUTED);
 			} else {
-				graphics.text(font, label, textX, getContentYMiddle() - 4, color);
+				graphics.text(font, fit(label.getString(), maxW), textX, getContentYMiddle() - 4, color);
 			}
 		}
 
@@ -457,7 +586,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		@Override
 		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
-			if (event.button() != 0) {
+			if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) {
 				return false;
 			}
 			variantList.setSelected(this);
@@ -467,7 +596,6 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				ModConfig.get().setTextureChoice(configKey, variantId);
 			}
 			ModConfig.get().save();
-			rebuildLists();
 			return true;
 		}
 	}
