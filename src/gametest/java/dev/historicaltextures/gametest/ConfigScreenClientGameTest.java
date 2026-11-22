@@ -1,0 +1,297 @@
+package dev.historicaltextures.gametest;
+
+import dev.historicaltextures.HistoricalTextures;
+import dev.historicaltextures.catalog.TextureTargetRegistry;
+import dev.historicaltextures.client.screen.HistoricalTexturesConfigScreen;
+import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
+import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.minecraft.client.gui.components.AbstractSelectionList;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.ObjectSelectionList;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.CommonComponents;
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+public class ConfigScreenClientGameTest implements FabricClientGameTest {
+
+	@Override
+	public void runTest(ClientGameTestContext context) {
+		int initialWidth = context.computeOnClient(client -> client.getWindow().getWidth());
+		int initialHeight = context.computeOnClient(client -> client.getWindow().getHeight());
+		List<String> failures = new ArrayList<>();
+		List<Path> screenshots = new ArrayList<>();
+
+		// Phase A: from title screen
+		runPhase(context, "A", failures, screenshots, initialWidth, initialHeight);
+
+		// Phase B: inside world
+		try (TestSingleplayerContext sp = context.worldBuilder().create()) {
+			sp.getConnection().waitForChunksRender();
+			runPhase(context, "B", failures, screenshots, initialWidth, initialHeight);
+		}
+
+		if (!screenshots.isEmpty()) {
+			Path dir = screenshots.get(0).getParent().toAbsolutePath();
+			String dirLine = "[HT-GAMETEST] SCREENSHOT_DIR: " + dir;
+			HistoricalTextures.LOGGER.info(dirLine);
+			System.out.println(dirLine);
+			for (Path p : screenshots) {
+				String fileLine = "[HT-GAMETEST] SCREENSHOT_FILE: " + p.getFileName();
+				HistoricalTextures.LOGGER.info(fileLine);
+				System.out.println(fileLine);
+			}
+		}
+
+		if (!failures.isEmpty()) {
+			throw new AssertionError("Gametest assertion failures (" + failures.size() + "):\n" + String.join("\n", failures));
+		}
+	}
+
+	private void runPhase(
+			ClientGameTestContext context,
+			String phase,
+			List<String> failures,
+			List<Path> screenshots,
+			int initialWidth,
+			int initialHeight
+	) {
+		// 01 open
+		String step01 = phase + "_01_open";
+		context.setScreen(() -> new HistoricalTexturesConfigScreen(null));
+		context.waitTicks(5);
+		List<AbstractSelectionList<?>> lists01 = getLists(context);
+		boolean hasLists01 = lists01.size() >= 2;
+		check(failures, step01, "lists_present", hasLists01, "found=" + lists01.size());
+		AbstractSelectionList<?> targets01 = hasLists01 ? lists01.get(0) : null;
+		int targets01Size = targets01 != null ? targets01.children().size() : 0;
+		check(failures, step01, "target_list_non_empty", targets01Size > 0, "size=" + targets01Size);
+		int blockTargetsSize = TextureTargetRegistry.blockTargets().size();
+		String logLine01 = String.format("[HT-GAMETEST] %s block_targets_size INFO size=%d", step01, blockTargetsSize);
+		HistoricalTextures.LOGGER.info(logLine01);
+		System.out.println(logLine01);
+		recordScreenshot(context, step01, screenshots);
+
+		// 02 click_target
+		String step02 = phase + "_02_click_target";
+		List<AbstractSelectionList<?>> lists02 = getLists(context);
+		AbstractSelectionList<?> targets02 = !lists02.isEmpty() ? lists02.get(0) : null;
+		if (targets02 != null && !targets02.children().isEmpty()) {
+			clickRow(context, targets02, 0);
+		} else {
+			check(failures, step02, "target_list_clickable", false, "targets is empty or null");
+		}
+		lists02 = getLists(context);
+		targets02 = !lists02.isEmpty() ? lists02.get(0) : null;
+		AbstractSelectionList<?> variants02 = lists02.size() >= 2 ? lists02.get(1) : null;
+
+		int variants02Size = variants02 != null ? variants02.children().size() : 0;
+		check(failures, step02, "variant_list_non_empty", variants02Size > 0, "size=" + variants02Size);
+
+		Object selected02 = targets02 != null ? targets02.getSelected() : null;
+		boolean selectedValid02 = targets02 != null && selected02 != null && targets02.children().contains(selected02);
+		check(failures, step02, "target_selected_valid", selectedValid02, "selected=" + selected02);
+
+		Object focused02 = targets02 != null ? targets02.getFocused() : null;
+		boolean focusedValid02 = targets02 != null && (focused02 == null || targets02.children().contains(focused02));
+		check(failures, step02, "target_focused_valid", focusedValid02, "focused=" + focused02);
+
+		recordScreenshot(context, step02, screenshots);
+
+		// 03 click_variant
+		String step03 = phase + "_03_click_variant";
+		List<AbstractSelectionList<?>> lists03 = getLists(context);
+		AbstractSelectionList<?> variants03 = lists03.size() >= 2 ? lists03.get(1) : null;
+		int variantCount = variants03 != null ? variants03.children().size() : 0;
+		int variantTargetIdx = variantCount > 1 ? 1 : 0;
+		if (variants03 != null && variantCount > 0) {
+			clickRow(context, variants03, variantTargetIdx);
+		} else {
+			check(failures, step03, "variant_clickable", false, "variants is empty or null");
+		}
+		lists03 = getLists(context);
+		variants03 = lists03.size() >= 2 ? lists03.get(1) : null;
+		Object selected03 = variants03 != null ? variants03.getSelected() : null;
+		boolean contained03 = variants03 != null && selected03 != null && variants03.children().contains(selected03);
+		boolean matchesIndex03 = variants03 != null && variantTargetIdx < variants03.children().size() && selected03 == variants03.children().get(variantTargetIdx);
+		check(failures, step03, "variant_selected_valid", contained03 && matchesIndex03, "selected=" + selected03 + " expectedIndex=" + variantTargetIdx + " contained=" + contained03 + " matchesIndex=" + matchesIndex03);
+		recordScreenshot(context, step03, screenshots);
+
+		// 04 click_target_again
+		String step04 = phase + "_04_click_target_again";
+		List<AbstractSelectionList<?>> lists04 = getLists(context);
+		AbstractSelectionList<?> targets04 = !lists04.isEmpty() ? lists04.get(0) : null;
+		int targetCount04 = targets04 != null ? targets04.children().size() : 0;
+		int targetIdx04 = targetCount04 > 1 ? 1 : 0;
+		if (targets04 != null && targetCount04 > 0) {
+			clickRow(context, targets04, targetIdx04);
+		} else {
+			check(failures, step04, "target_clickable", false, "targets is empty or null");
+		}
+		lists04 = getLists(context);
+		targets04 = !lists04.isEmpty() ? lists04.get(0) : null;
+		AbstractSelectionList<?> variants04 = lists04.size() >= 2 ? lists04.get(1) : null;
+
+		int variants04Size = variants04 != null ? variants04.children().size() : 0;
+		check(failures, step04, "variant_list_non_empty", variants04Size > 0, "size=" + variants04Size);
+
+		Object selected04 = targets04 != null ? targets04.getSelected() : null;
+		boolean selectedValid04 = targets04 != null && selected04 != null && targets04.children().contains(selected04);
+		check(failures, step04, "target_selected_valid", selectedValid04, "selected=" + selected04);
+
+		Object focused04 = targets04 != null ? targets04.getFocused() : null;
+		boolean focusedValid04 = targets04 != null && (focused04 == null || targets04.children().contains(focused04));
+		check(failures, step04, "target_focused_valid", focusedValid04, "focused=" + focused04);
+
+		recordScreenshot(context, step04, screenshots);
+
+		// 05 tab_entities
+		String step05 = phase + "_05_tab_entities";
+		List<AbstractSelectionList<?>> listsBeforeTab = getLists(context);
+		AbstractSelectionList<?> targetsBeforeTab = !listsBeforeTab.isEmpty() ? listsBeforeTab.get(0) : null;
+		String blocksTabRow0Narration = targetsBeforeTab != null ? getRowNarration(targetsBeforeTab, 0) : "";
+
+		Button entitiesButton = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) return null;
+			for (var child : screen.children()) {
+				if (child instanceof Button b && "Entities".equals(b.getMessage().getString())) {
+					return b;
+				}
+			}
+			return null;
+		});
+
+		if (entitiesButton != null) {
+			int btnX = context.computeOnClient(client -> entitiesButton.getX() + entitiesButton.getWidth() / 2);
+			int btnY = context.computeOnClient(client -> entitiesButton.getY() + entitiesButton.getHeight() / 2);
+			clickGui(context, btnX, btnY);
+		} else {
+			check(failures, step05, "entities_button_found", false, "Entities button not found");
+		}
+
+		List<AbstractSelectionList<?>> lists05 = getLists(context);
+		AbstractSelectionList<?> targets05 = !lists05.isEmpty() ? lists05.get(0) : null;
+		int targets05Size = targets05 != null ? targets05.children().size() : 0;
+		check(failures, step05, "target_list_non_empty", targets05Size > 0, "size=" + targets05Size);
+
+		String entitiesTabRow0Narration = targets05 != null ? getRowNarration(targets05, 0) : "";
+		boolean tabChanged = !entitiesTabRow0Narration.isEmpty() && !entitiesTabRow0Narration.equals(blocksTabRow0Narration);
+		check(failures, step05, "tab_changed", tabChanged, "blocksRow0=" + blocksTabRow0Narration + " entitiesRow0=" + entitiesTabRow0Narration);
+
+		recordScreenshot(context, step05, screenshots);
+
+		// 06 resize
+		String step06 = phase + "_06_resize";
+		context.getInput().resizeWindow(1280, 720);
+		context.waitTicks(5);
+
+		List<AbstractSelectionList<?>> lists06 = getLists(context);
+		AbstractSelectionList<?> targets06 = !lists06.isEmpty() ? lists06.get(0) : null;
+		AbstractSelectionList<?> variants06 = lists06.size() >= 2 ? lists06.get(1) : null;
+
+		int targets06Size = targets06 != null ? targets06.children().size() : 0;
+		check(failures, step06, "target_list_non_empty", targets06Size > 0, "size=" + targets06Size);
+
+		String variantState = variants06 != null ? ("size=" + variants06.children().size() + " selected=" + variants06.getSelected()) : "variants=null";
+		String logLine06 = String.format("[HT-GAMETEST] %s variant_list_state INFO %s", step06, variantState);
+		HistoricalTextures.LOGGER.info(logLine06);
+		System.out.println(logLine06);
+
+		recordScreenshot(context, step06, screenshots);
+
+		// 07 done
+		String step07 = phase + "_07_done";
+		Button doneButton = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) return null;
+			for (var child : screen.children()) {
+				if (child instanceof Button b && CommonComponents.GUI_DONE.getString().equals(b.getMessage().getString())) {
+					return b;
+				}
+			}
+			return null;
+		});
+
+		if (doneButton != null) {
+			int btnX = context.computeOnClient(client -> doneButton.getX() + doneButton.getWidth() / 2);
+			int btnY = context.computeOnClient(client -> doneButton.getY() + doneButton.getHeight() / 2);
+			clickGui(context, btnX, btnY);
+			context.waitTicks(5);
+		} else {
+			check(failures, step07, "done_button_found", false, "Done button not found");
+		}
+
+		Screen finalScreen = context.computeOnClient(client -> client.gui.screen());
+		boolean closed = !(finalScreen instanceof HistoricalTexturesConfigScreen);
+		check(failures, step07, "screen_closed", closed, "currentScreen=" + (finalScreen != null ? finalScreen.getClass().getName() : "null"));
+
+		recordScreenshot(context, step07, screenshots);
+
+		// Restore window size
+		context.getInput().resizeWindow(initialWidth, initialHeight);
+		context.waitTicks(2);
+	}
+
+	private void clickGui(ClientGameTestContext context, int guiX, int guiY) {
+		int scale = context.computeOnClient(client -> client.getWindow().getGuiScale());
+		context.getInput().setCursorPos((double) guiX * scale, (double) guiY * scale);
+		context.getInput().pressMouse(0);
+		context.waitTicks(2);
+	}
+
+	private void clickRow(ClientGameTestContext context, AbstractSelectionList<?> list, int rowIndex) {
+		int clickX = context.computeOnClient(client -> (list.getRowLeft() + list.getRowRight()) / 2);
+		int clickY = context.computeOnClient(client -> (list.getRowTop(rowIndex) + list.getRowBottom(rowIndex)) / 2);
+		clickGui(context, clickX, clickY);
+	}
+
+	private String getRowNarration(AbstractSelectionList<?> list, int rowIndex) {
+		if (rowIndex < 0 || rowIndex >= list.children().size()) {
+			return "";
+		}
+		Object entry = list.children().get(rowIndex);
+		if (entry instanceof ObjectSelectionList.Entry<?> objEntry) {
+			return objEntry.getNarration().getString();
+		}
+		return entry.toString();
+	}
+
+	private List<AbstractSelectionList<?>> getLists(ClientGameTestContext context) {
+		return context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return List.<AbstractSelectionList<?>>of();
+			}
+			List<AbstractSelectionList<?>> result = new ArrayList<>();
+			for (var child : screen.children()) {
+				if (child instanceof AbstractSelectionList<?> selList) {
+					result.add(selList);
+				}
+			}
+			result.sort(Comparator.comparingInt(AbstractSelectionList::getX));
+			return result;
+		});
+	}
+
+	private void check(List<String> failures, String step, String checkName, boolean condition, String details) {
+		String status = condition ? "PASS" : "FAIL";
+		String line = String.format("[HT-GAMETEST] %s %s %s %s", step, checkName, status, details);
+		HistoricalTextures.LOGGER.info(line);
+		System.out.println(line);
+		if (!condition) {
+			failures.add(line);
+		}
+	}
+
+	private void recordScreenshot(ClientGameTestContext context, String name, List<Path> screenshots) {
+		Path p = context.takeScreenshot(name);
+		if (p != null) {
+			screenshots.add(p);
+		}
+	}
+}

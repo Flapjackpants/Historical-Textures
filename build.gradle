@@ -44,6 +44,20 @@ dependencies {
 	runtimeOnly "maven.modrinth:entitytexturefeatures:${project.etf_version}"
 }
 
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "historical_textures_gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+	}
+}
+
+tasks.named('check').configure {
+	dependsOn 'gametestClasses'
+}
+
 def catalogDir = layout.projectDirectory.dir('src/main/resources/assets/historical_textures/catalog')
 def catalogJson = catalogDir.file('catalog.json')
 

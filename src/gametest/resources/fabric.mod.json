@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "historical_textures_gametest",
+  "version": "${version}",
+  "name": "Historical Textures Client GameTest",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": [
+      "dev.historicaltextures.gametest.ConfigScreenClientGameTest"
+    ]
+  },
+  "depends": {
+    "historical_textures": "*"
+  }
+}
