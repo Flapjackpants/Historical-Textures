@@ -109,6 +109,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		searchBox.setResponder(value -> {
 			filter = value.toLowerCase(Locale.ROOT);
 			rebuildLists();
+			targetList.setScrollAmount(0);
 		});
 		addRenderableWidget(searchBox);
 

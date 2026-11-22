@@ -13,6 +13,7 @@ import dev.historicaltextures.config.ModConfig;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractSelectionList;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -332,6 +333,37 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 
 		runPreviewSteps(context, phase, failures, screenshots);
 
+		// 05j search_scroll_top
+		String stepScroll = phase + "_05j_search_scroll_top";
+		double maxScroll = context.computeOnClient(client -> {
+			AbstractSelectionList<?> list = firstSelectionList(client);
+			if (list == null) {
+				return -1.0;
+			}
+			int max = list.maxScrollAmount();
+			if (max > 0) {
+				list.setScrollAmount(max);
+			}
+			return (double) max;
+		});
+		context.waitTicks(2);
+		double scrollAfterMax = targetListScrollAmount(context);
+		if (maxScroll <= 0 || scrollAfterMax <= 0.0) {
+			String infoLine = "[HT-GAMETEST] " + stepScroll + " search_scroll_max INFO max=" + maxScroll + " scroll=" + scrollAfterMax;
+			HistoricalTextures.LOGGER.info(infoLine);
+			System.out.println(infoLine);
+		}
+		check(failures, stepScroll, "search_scroll_max", maxScroll <= 0 || scrollAfterMax > 0.0,
+				"max=" + maxScroll + " scroll=" + scrollAfterMax);
+		setSearch(context, "stone");
+		context.waitTicks(2);
+		double scrollAfterSearch = targetListScrollAmount(context);
+		check(failures, stepScroll, "search_scroll_top", scrollAfterSearch == 0.0,
+				"scroll=" + scrollAfterSearch);
+		recordScreenshot(context, stepScroll, screenshots);
+		setSearch(context, "");
+		context.waitTicks(2);
+
 		// 06 resize
 		String step06 = phase + "_06_resize";
 		EditBox searchBoxBeforeResize = context.computeOnClient(client -> {
@@ -636,7 +668,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		clickVariantRow(context, Math.min(1, Math.max(0, listSize(context, 1) - 1)));
 		context.waitTicks(3);
 		String itemShape = previewShapeName(context);
-		check(failures, stepItem, "preview_item_shape", "PLANE".equals(itemShape),
+		check(failures, stepItem, "preview_item_shape", "FLAT".equals(itemShape),
 				"shape=" + itemShape + " state=" + previewState(context));
 		recordScreenshot(context, stepItem, screenshots);
 
@@ -1107,6 +1139,29 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 			return objEntry.getNarration().getString();
 		}
 		return entry.toString();
+	}
+
+	private static AbstractSelectionList<?> firstSelectionList(Minecraft client) {
+		Screen screen = client.gui.screen();
+		if (screen == null) {
+			return null;
+		}
+		List<AbstractSelectionList<?>> lists = new ArrayList<>();
+		for (var child : screen.children()) {
+			if (child instanceof AbstractSelectionList<?> candidate) {
+				lists.add(candidate);
+			}
+		}
+		lists.sort(Comparator.comparingInt(AbstractSelectionList::getX));
+		return lists.isEmpty() ? null : lists.get(0);
+	}
+
+	private double targetListScrollAmount(ClientGameTestContext context) {
+		Object result = context.computeOnClient(client -> {
+			AbstractSelectionList<?> list = firstSelectionList(client);
+			return list == null ? -1.0 : list.scrollAmount();
+		});
+		return result instanceof Double amount ? amount : -1.0;
 	}
 
 	private List<AbstractSelectionList<?>> getLists(ClientGameTestContext context) {

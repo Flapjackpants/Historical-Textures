@@ -83,7 +83,7 @@ final class VariantPreviewRenderer {
 		}
 		return switch (target.kind()) {
 			case BLOCK -> blockShape(target);
-			case ITEM -> Shape.PLANE;
+			case ITEM -> Shape.FLAT;
 			case ENTITY -> entityModel(target).isPresent() ? Shape.ENTITY : Shape.FLAT;
 			case OTHER -> Shape.FLAT;
 		};
