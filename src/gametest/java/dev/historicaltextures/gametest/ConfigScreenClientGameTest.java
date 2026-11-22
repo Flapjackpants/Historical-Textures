@@ -10,6 +10,7 @@ import dev.historicaltextures.catalog.TextureVariant;
 import dev.historicaltextures.client.CatalogThumbnailCache;
 import dev.historicaltextures.client.screen.HistoricalTexturesConfigScreen;
 import dev.historicaltextures.config.ModConfig;
+import dev.historicaltextures.pack.OverlayPackManager;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
@@ -20,6 +21,10 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.level.entity.EntityTypeTest;
+import net.minecraft.world.phys.AABB;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -31,6 +36,52 @@ import java.util.Optional;
 import java.util.Set;
 
 public class ConfigScreenClientGameTest implements FabricClientGameTest {
+	private static final List<FaceDiagnosticView> PREVIEW_VIEWS = List.of(
+			new FaceDiagnosticView("front", 0.0f, 0.0f),
+			new FaceDiagnosticView("right", 90.0f, 0.0f),
+			new FaceDiagnosticView("back", 180.0f, 0.0f),
+			new FaceDiagnosticView("left", 270.0f, 0.0f),
+			new FaceDiagnosticView("top", 0.0f, -80.0f),
+			new FaceDiagnosticView("bottom", 0.0f, 80.0f)
+	);
+
+	private static final List<FaceDiagnosticTarget> FACE_DIAGNOSTIC_TARGETS = List.of(
+			new FaceDiagnosticTarget(
+					"minecraft:textures/entity/cow/cow_temperate.png",
+					"minecraft:cow",
+					"minecraft:temperate",
+					EntityTypes.COW,
+					List.of("cow_texture_je1_png", "cow_texture_je5_png", "cow_texture_png")
+			),
+			new FaceDiagnosticTarget(
+					"minecraft:textures/entity/piglin/zombified_piglin.png",
+					"minecraft:zombified_piglin",
+					null,
+					EntityTypes.ZOMBIFIED_PIGLIN,
+					List.of("zombie_pigman_texture_je0_png", "zombie_pigman_texture_je2_png")
+			),
+			new FaceDiagnosticTarget(
+					"minecraft:textures/entity/pig/pig_temperate.png",
+					"minecraft:pig",
+					"minecraft:temperate",
+					EntityTypes.PIG,
+					List.of("pig_texture_je1_png")
+			)
+	);
+
+	private record FaceDiagnosticView(String name, float yaw, float pitch) {
+	}
+
+	private record FaceDiagnosticTarget(
+			String configKey,
+			String entityId,
+			String entityVariant,
+			EntityTypeTest<Entity, ? extends Entity> entityType,
+			List<String> variantIds
+	) {
+	}
+
+	private static final double DIAGNOSTIC_PLAYER_EYE_HEIGHT = 1.62;
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
@@ -46,6 +97,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		try (TestSingleplayerContext sp = context.worldBuilder().create()) {
 			sp.getConnection().waitForChunksRender();
 			runPhase(context, "B", failures, screenshots, initialWidth, initialHeight);
+			runFaceDiagnostic(context, sp, failures, screenshots);
 		}
 
 		if (!screenshots.isEmpty()) {
@@ -473,6 +525,312 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 
 		ModConfig.get().clearAll();
 		ModConfig.get().save();
+	}
+
+	private void runFaceDiagnostic(
+			ClientGameTestContext context,
+			TestSingleplayerContext sp,
+			List<String> failures,
+			List<Path> screenshots
+	) {
+		runPreviewFaceDiagnostic(context, screenshots);
+		runWorldFaceDiagnostic(context, sp, failures, screenshots);
+	}
+
+	private void runPreviewFaceDiagnostic(ClientGameTestContext context, List<Path> screenshots) {
+		context.setScreen(() -> new HistoricalTexturesConfigScreen(null));
+		context.waitTicks(5);
+		clickButton(context, "Entities");
+		context.waitTicks(3);
+		setPreviewField(context, "previewResumeAtMs", Long.MAX_VALUE);
+
+		for (FaceDiagnosticTarget target : FACE_DIAGNOSTIC_TARGETS) {
+			for (String variantId : target.variantIds()) {
+				if (!selectDiagnosticTarget(context, target.configKey())) {
+					logDiagnosticWarn("diag_preview target_missing target=" + target.configKey());
+					continue;
+				}
+				int variantIndex = findVariantRowById(context, variantId);
+				if (variantIndex < 0) {
+					logDiagnosticWarn("diag_preview variant_missing target=" + target.configKey() + " variant=" + variantId);
+					continue;
+				}
+				clickVariantRow(context, variantIndex);
+				context.waitTicks(5);
+				for (FaceDiagnosticView view : PREVIEW_VIEWS) {
+					setPreviewAngles(context, view.yaw(), view.pitch());
+					context.waitTicks(2);
+					float actualYaw = previewYaw(context);
+					float actualPitch = previewPitch(context);
+					recordScreenshot(context, "diag_preview_" + variantId + "_" + view.name(), screenshots);
+					logDiagnosticInfo(String.format(
+							Locale.ROOT,
+							"[HT-GAMETEST] diag_preview %s %s INFO yaw=%.2f pitch=%.2f shape=%s",
+							variantId,
+							view.name(),
+							actualYaw,
+							actualPitch,
+							previewShapeName(context)
+					));
+				}
+			}
+		}
+
+		context.runOnClient(client -> client.setScreenAndShow(null));
+		context.waitTicks(2);
+	}
+
+	private void runWorldFaceDiagnostic(
+			ClientGameTestContext context,
+			TestSingleplayerContext sp,
+			List<String> failures,
+			List<Path> screenshots
+	) {
+		sp.getServer().runCommand("time set noon");
+		try {
+			sp.getServer().runCommand("gamerule advance_time false");
+		} catch (RuntimeException exception) {
+			logDiagnosticWarn("diag_world gamerule_failed command=gamerule advance_time false error=" + exception.getMessage());
+		}
+		sp.getServer().runCommand("weather clear");
+		sp.getServer().runCommand("fill -9 100 -9 10 100 10 minecraft:stone");
+		sp.getServer().runCommand("fill -8 101 -8 9 108 9 minecraft:air");
+		sp.getServer().runCommand("gamemode spectator @p");
+		context.waitTicks(5);
+
+		boolean hudWasHidden = hideDiagnosticHud(context);
+		try {
+			for (FaceDiagnosticTarget target : FACE_DIAGNOSTIC_TARGETS) {
+				for (String variantId : target.variantIds()) {
+					ModConfig.get().clearAll();
+					ModConfig.get().setTextureChoice(target.configKey(), variantId);
+					ModConfig.get().save();
+					OverlayPackManager.ApplyResult result = applyDiagnosticOverlay(context);
+					String step = "diag_world_" + variantId;
+					check(
+							failures,
+							step,
+							"diag_overlay_applied",
+							result.texturesWritten() > 0,
+							"texturesWritten=" + result.texturesWritten() + " soundsWritten=" + result.soundsWritten() + " skipped=" + result.skipped()
+					);
+
+					sp.getServer().runCommand("kill @e[type=!player]");
+					sp.getServer().runCommand(
+							"summon " + target.entityId() + " 0.5 101 0.5 " + diagnosticSummonNbt(target.entityVariant())
+					);
+					context.waitTicks(10);
+					double[] anchor = diagnosticMobAnchor(sp, target);
+					if (anchor == null) {
+						logDiagnosticWarn("diag_world mob_missing target=" + target.configKey() + " variant=" + variantId);
+						continue;
+					}
+					captureDiagnosticWorldViews(context, sp, screenshots, variantId, anchor);
+				}
+			}
+
+			ModConfig.get().clearAll();
+			ModConfig.get().save();
+			applyDiagnosticOverlay(context);
+		} finally {
+			restoreDiagnosticHud(context, hudWasHidden);
+		}
+	}
+
+	private boolean selectDiagnosticTarget(ClientGameTestContext context, String configKey) {
+		setSearch(context, configKey);
+		int rowIndex = findDiagnosticTargetRow(context, configKey);
+		if (rowIndex < 0) {
+			return false;
+		}
+		ensureRowVisible(context, 0, rowIndex);
+		List<AbstractSelectionList<?>> lists = getLists(context);
+		AbstractSelectionList<?> targets = !lists.isEmpty() ? lists.get(0) : null;
+		if (targets == null || rowIndex >= targets.children().size()) {
+			return false;
+		}
+		clickRow(context, targets, rowIndex);
+		context.waitTicks(3);
+		return true;
+	}
+
+	private int findDiagnosticTargetRow(ClientGameTestContext context, String configKey) {
+		Object result = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return -1;
+			}
+			Object listObject;
+			try {
+				listObject = screenFieldValue(screen, "targetList");
+			} catch (ReflectiveOperationException exception) {
+				return -1;
+			}
+			if (!(listObject instanceof AbstractSelectionList<?> targetList)) {
+				return -1;
+			}
+			for (int index = 0; index < targetList.children().size(); index++) {
+				Object entry = targetList.children().get(index);
+				try {
+					var field = entry.getClass().getDeclaredField("target");
+					field.setAccessible(true);
+					if (field.get(entry) instanceof TextureTarget target && configKey.equals(target.configKey())) {
+						return index;
+					}
+				} catch (ReflectiveOperationException ignored) {
+				}
+			}
+			return -1;
+		});
+		return result instanceof Integer index ? index : -1;
+	}
+
+	private void setPreviewField(ClientGameTestContext context, String name, Object value) {
+		context.runOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return;
+			}
+			try {
+				var field = screen.getClass().getDeclaredField(name);
+				field.setAccessible(true);
+				field.set(screen, value);
+			} catch (ReflectiveOperationException ignored) {
+			}
+		});
+	}
+
+	private void setPreviewAngles(ClientGameTestContext context, float yaw, float pitch) {
+		context.runOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return;
+			}
+			try {
+				var yawField = screen.getClass().getDeclaredField("previewYaw");
+				yawField.setAccessible(true);
+				yawField.setFloat(screen, yaw);
+				var pitchField = screen.getClass().getDeclaredField("previewPitch");
+				pitchField.setAccessible(true);
+				pitchField.setFloat(screen, pitch);
+			} catch (ReflectiveOperationException ignored) {
+			}
+		});
+	}
+
+	private float previewPitch(ClientGameTestContext context) {
+		Object value = previewField(context, "previewPitch");
+		return value instanceof Float pitch ? pitch : 0.0f;
+	}
+
+	private OverlayPackManager.ApplyResult applyDiagnosticOverlay(ClientGameTestContext context) {
+		OverlayPackManager.ApplyResult result = context.computeOnClient(client -> OverlayPackManager.applyChoices(true));
+		context.waitFor(client -> client.gui.overlay() == null);
+		context.waitTicks(20);
+		return result;
+	}
+
+	private boolean hideDiagnosticHud(ClientGameTestContext context) {
+		return context.computeOnClient(client -> {
+			boolean wasHidden = client.gui.hud.isHidden();
+			if (!wasHidden) {
+				client.gui.hud.toggle();
+			}
+			return wasHidden;
+		});
+	}
+
+	private void restoreDiagnosticHud(ClientGameTestContext context, boolean wasHidden) {
+		context.runOnClient(client -> {
+			if (client.gui.hud.isHidden() != wasHidden) {
+				client.gui.hud.toggle();
+			}
+		});
+	}
+
+	private static String diagnosticSummonNbt(String variant) {
+		StringBuilder nbt = new StringBuilder("{NoAI:1b,Rotation:[0f,0f]");
+		if (variant != null) {
+			nbt.append(",variant:\"").append(variant).append('"');
+		}
+		return nbt.append('}').toString();
+	}
+
+	private double[] diagnosticMobAnchor(TestSingleplayerContext sp, FaceDiagnosticTarget target) {
+		return sp.getServer().computeOnServer(server -> {
+			var level = server.overworld();
+			AABB box = new AABB(-1.0, 100.0, -1.0, 2.0, 104.0, 2.0);
+			List<? extends Entity> entities = level.getEntities(target.entityType(), box, entity -> true);
+			Entity nearest = null;
+			double nearestDistance = Double.MAX_VALUE;
+			for (Entity entity : entities) {
+				double distance = entity.distanceToSqr(0.5, 101.0, 0.5);
+				if (distance < nearestDistance) {
+					nearestDistance = distance;
+					nearest = entity;
+				}
+			}
+			if (nearest == null) {
+				return null;
+			}
+			var eye = nearest.getEyePosition();
+			return new double[]{eye.x(), eye.y(), eye.z(), nearest.getBoundingBox().maxY};
+		});
+	}
+
+	private void captureDiagnosticWorldViews(
+			ClientGameTestContext context,
+			TestSingleplayerContext sp,
+			List<Path> screenshots,
+			String variantId,
+			double[] anchor
+	) {
+		double x = anchor[0];
+		double y = anchor[1];
+		double z = anchor[2];
+		double topY = anchor[3] + 2.0;
+		double cameraY = y - DIAGNOSTIC_PLAYER_EYE_HEIGHT;
+		double cameraTopY = topY - DIAGNOSTIC_PLAYER_EYE_HEIGHT;
+		captureDiagnosticWorldView(context, sp, screenshots, variantId, "front", x, cameraY, z + 3.0, 180.0f, 0.0f);
+		captureDiagnosticWorldView(context, sp, screenshots, variantId, "back", x, cameraY, z - 3.0, 0.0f, 0.0f);
+		captureDiagnosticWorldView(context, sp, screenshots, variantId, "left", x + 3.0, cameraY, z, 90.0f, 0.0f);
+		captureDiagnosticWorldView(context, sp, screenshots, variantId, "right", x - 3.0, cameraY, z, 270.0f, 0.0f);
+		captureDiagnosticWorldView(context, sp, screenshots, variantId, "top", x, cameraTopY, z, 0.0f, 90.0f);
+	}
+
+	private void captureDiagnosticWorldView(
+			ClientGameTestContext context,
+			TestSingleplayerContext sp,
+			List<Path> screenshots,
+			String variantId,
+			String view,
+			double x,
+			double y,
+			double z,
+			float yaw,
+			float pitch
+	) {
+		sp.getServer().runCommand(String.format(
+				Locale.ROOT,
+				"tp @p %.3f %.3f %.3f %.1f %.1f",
+				x,
+				y,
+				z,
+				yaw,
+				pitch
+		));
+		context.waitTicks(10);
+		recordScreenshot(context, "diag_world_" + variantId + "_" + view, screenshots);
+	}
+
+	private void logDiagnosticInfo(String message) {
+		HistoricalTextures.LOGGER.info(message);
+		System.out.println(message);
+	}
+
+	private void logDiagnosticWarn(String message) {
+		HistoricalTextures.LOGGER.warn(message);
+		System.out.println(message);
 	}
 
 	private void runPreviewSteps(
