@@ -6,6 +6,7 @@ import dev.historicaltextures.catalog.CatalogResources;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.resources.Resource;
 
 import java.io.InputStream;
 import java.util.HashMap;
@@ -47,6 +48,42 @@ public final class CatalogThumbnailCache {
 			return Optional.of(preview);
 		} catch (Exception exception) {
 			HistoricalTextures.LOGGER.warn("Failed to load catalog preview for {}", variantId, exception);
+			return Optional.empty();
+		}
+	}
+
+	public static Optional<CachedPreview> getVanilla(String resourcePath) {
+		if (resourcePath == null || resourcePath.isBlank()) {
+			return Optional.empty();
+		}
+		String key = "vanilla:" + resourcePath;
+		CachedPreview cached = CACHE.get(key);
+		if (cached != null) {
+			return Optional.of(cached);
+		}
+		try {
+			Identifier resourceId = Identifier.parse(resourcePath);
+			Optional<Resource> resource = Minecraft.getInstance().getResourceManager().getResource(resourceId);
+			if (resource.isEmpty()) {
+				HistoricalTextures.LOGGER.debug("Missing vanilla preview texture {}", resourcePath);
+				return Optional.empty();
+			}
+			NativeImage image;
+			try (InputStream stream = resource.get().open()) {
+				image = NativeImage.read(stream);
+			}
+			Identifier textureId = Identifier.fromNamespaceAndPath(
+					HistoricalTextures.MOD_ID,
+					"preview/vanilla/" + sanitizeId(resourcePath)
+			);
+			DynamicTexture dynamicTexture = new DynamicTexture(textureId::toString, image);
+			Minecraft.getInstance().getTextureManager().register(textureId, dynamicTexture);
+			dynamicTexture.upload();
+			CachedPreview preview = new CachedPreview(textureId, image.getWidth(), image.getHeight());
+			CACHE.put(key, preview);
+			return Optional.of(preview);
+		} catch (Exception exception) {
+			HistoricalTextures.LOGGER.debug("Failed to load vanilla preview for {}", resourcePath, exception);
 			return Optional.empty();
 		}
 	}

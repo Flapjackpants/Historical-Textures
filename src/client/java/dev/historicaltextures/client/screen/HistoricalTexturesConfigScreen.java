@@ -16,9 +16,12 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
+import net.minecraft.util.Util;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +38,13 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private static final int PREVIEW_SIZE = 16;
 	private static final int PREVIEW_PLACEHOLDER = 0xFF404040;
 	private static final int SELECTED_ROW = 0x55335588;
+	private static final float PREVIEW_SPIN_DEGREES_PER_SECOND = 30.0f;
+	private static final float PREVIEW_DRAG_SENSITIVITY = 2.5f;
+	private static final float PREVIEW_PITCH_LIMIT = 80.0f;
+	private static final float PREVIEW_PLANE_PITCH_LIMIT = 30.0f;
+	private static final float PREVIEW_DEFAULT_YAW = 30.0f;
+	private static final float PREVIEW_DEFAULT_PITCH = -25.0f;
+	private static final long PREVIEW_RESUME_DELAY_MS = 1000L;
 
 	private final Screen parent;
 	private Tab activeTab = Tab.BLOCKS;
@@ -57,6 +67,13 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private Component emptyListHint;
 	private Component emptyVariantHint;
 
+	private float previewYaw = PREVIEW_DEFAULT_YAW;
+	private float previewPitch = PREVIEW_DEFAULT_PITCH;
+	private boolean previewDragging;
+	private long previewResumeAtMs;
+	private long previewLastFrameMs;
+	private TextureTarget previewTarget;
+
 	public HistoricalTexturesConfigScreen(Screen parent) {
 		super(Component.translatable("screen.historical_textures.config"));
 		this.parent = parent;
@@ -66,6 +83,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	protected void init() {
 		ClientCatalogLoader.reload();
 		TextureTargetRegistry.reload();
+		previewLastFrameMs = Util.getMillis();
 
 		int tabY = 8;
 		int tabX = 8;
@@ -366,49 +384,199 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		graphics.fill(boxX, boxY, boxX + boxW, boxY + boxH, 0xC0000000);
 		graphics.outline(boxX, boxY, boxW, boxH, 0xFF555555);
 
-		VariantList.Entry selected = variantList != null ? variantList.getSelected() : null;
-		TextureVariant textureVariant = (selected instanceof VariantEntry variantEntry) ? variantEntry.textureVariant : null;
+		VariantPreviewRenderer.Shape shape = previewShape();
+		resetPreviewMotion(shape);
+		updatePreviewMotion(shape);
 
-		boolean renderedPreview = false;
-		if (textureVariant != null) {
-			Optional<CatalogThumbnailCache.CachedPreview> opt =
-					CatalogThumbnailCache.get(textureVariant.id(), textureVariant.assetPath());
-			if (opt.isPresent()) {
-				CatalogThumbnailCache.CachedPreview cached = opt.get();
-				int srcW = cached.width();
-				int srcH = Math.min(cached.width(), cached.height());
-				int maxDraw = Math.min(boxW, boxH) - 16;
-				if (maxDraw > 0 && srcW > 0 && srcH > 0) {
-					float scale = Math.min((float) maxDraw / srcW, (float) maxDraw / srcH);
-					int drawW = Math.max(1, Math.round(srcW * scale));
-					int drawH = Math.max(1, Math.round(srcH * scale));
-					int drawX = boxX + (boxW - drawW) / 2;
-					int drawY = boxY + (boxH - drawH) / 2;
-					float vMax = cached.height() > 0
-							? Math.min(1.0f, (float) srcH / cached.height())
-							: 1.0f;
-					graphics.blit(
-							cached.textureId(),
-							drawX,
-							drawY,
-							drawX + drawW,
-							drawY + drawH,
-							0.0f,
-							1.0f,
-							0.0f,
-							vMax
-					);
-					renderedPreview = true;
-				}
-			}
-		}
-
-		if (!renderedPreview) {
+		PreviewTexture preview = currentPreviewTexture();
+		if (shape == VariantPreviewRenderer.Shape.NONE || preview == null) {
 			Component msg = activeTab == Tab.SOUNDS
 					? Component.literal("No preview for sounds.")
 					: Component.literal("Select a variant to preview.");
 			graphics.textWithWordWrap(font, msg, boxX + 8, boxY + 12, boxW - 16, TEXT_MUTED);
+			return;
 		}
+
+		int inset = 4;
+		int innerX0 = boxX + inset;
+		int innerY0 = boxY + inset;
+		int innerX1 = boxX + boxW - inset;
+		int innerY1 = boxY + boxH - inset;
+		switch (shape) {
+			case CUBE -> VariantPreviewRenderer.extract(
+					graphics,
+					shape,
+					VariantPreviewRenderer.cube(preview.width(), preview.height()),
+					preview.textureId(),
+					innerX0,
+					innerY0,
+					innerX1,
+					innerY1,
+					previewPitch,
+					previewYaw
+			);
+			case PLANE -> VariantPreviewRenderer.extract(
+					graphics,
+					shape,
+					VariantPreviewRenderer.plane(preview.width(), preview.height()),
+					preview.textureId(),
+					innerX0,
+					innerY0,
+					innerX1,
+					innerY1,
+					previewPitch,
+					previewYaw
+			);
+			case ENTITY -> VariantPreviewRenderer.entityModel(selectedTarget).ifPresent(part ->
+					VariantPreviewRenderer.extract(
+							graphics,
+							shape,
+							part,
+							preview.textureId(),
+							innerX0,
+							innerY0,
+							innerX1,
+							innerY1,
+							previewPitch,
+							previewYaw
+					)
+			);
+			case FLAT -> extractFlatPreview(graphics, preview, boxX, boxY, boxW, boxH);
+			default -> {
+			}
+		}
+	}
+
+	private void extractFlatPreview(GuiGraphicsExtractor graphics, PreviewTexture preview, int boxX, int boxY, int boxW, int boxH) {
+		int srcW = preview.width();
+		int srcH = Math.min(preview.width(), preview.height());
+		int maxDraw = Math.min(boxW, boxH) - 16;
+		if (maxDraw <= 0 || srcW <= 0 || srcH <= 0) {
+			return;
+		}
+		float scale = Math.min((float) maxDraw / srcW, (float) maxDraw / srcH);
+		int drawW = Math.max(1, Math.round(srcW * scale));
+		int drawH = Math.max(1, Math.round(srcH * scale));
+		int drawX = boxX + (boxW - drawW) / 2;
+		int drawY = boxY + (boxH - drawH) / 2;
+		float vMax = preview.height() > 0
+				? Math.min(1.0f, (float) srcH / preview.height())
+				: 1.0f;
+		graphics.blit(
+				preview.textureId(),
+				drawX,
+				drawY,
+				drawX + drawW,
+				drawY + drawH,
+				0.0f,
+				1.0f,
+				0.0f,
+				vMax
+		);
+	}
+
+	private VariantPreviewRenderer.Shape previewShape() {
+		if (activeTab == Tab.SOUNDS) {
+			return VariantPreviewRenderer.Shape.NONE;
+		}
+		return VariantPreviewRenderer.shapeFor(selectedTarget);
+	}
+
+	private PreviewTexture currentPreviewTexture() {
+		VariantList.Entry selected = variantList != null ? variantList.getSelected() : null;
+		if (selected instanceof VariantEntry variantEntry && variantEntry.textureVariant != null) {
+			Optional<CatalogThumbnailCache.CachedPreview> opt =
+					CatalogThumbnailCache.get(variantEntry.textureVariant.id(), variantEntry.textureVariant.assetPath());
+			return opt.map(cached -> new PreviewTexture(cached.textureId(), cached.width(), cached.height())).orElse(null);
+		}
+		if (selectedTarget != null) {
+			Optional<CatalogThumbnailCache.CachedPreview> opt =
+					CatalogThumbnailCache.getVanilla(selectedTarget.resourcePath());
+			return opt.map(cached -> new PreviewTexture(cached.textureId(), cached.width(), cached.height())).orElse(null);
+		}
+		return null;
+	}
+
+	private void resetPreviewMotion(VariantPreviewRenderer.Shape shape) {
+		if (selectedTarget == previewTarget) {
+			return;
+		}
+		previewTarget = selectedTarget;
+		previewYaw = PREVIEW_DEFAULT_YAW;
+		previewPitch = defaultPitch(shape);
+		previewLastFrameMs = Util.getMillis();
+	}
+
+	private float defaultPitch(VariantPreviewRenderer.Shape shape) {
+		return switch (shape) {
+			case CUBE, ENTITY -> PREVIEW_DEFAULT_PITCH;
+			case PLANE, FLAT, NONE -> 0.0f;
+		};
+	}
+
+	private void updatePreviewMotion(VariantPreviewRenderer.Shape shape) {
+		long now = Util.getMillis();
+		float elapsedSeconds = Mth.clamp((now - previewLastFrameMs) / 1000.0f, 0.0f, 0.1f);
+		previewLastFrameMs = now;
+		if (!isThreeDimensional(shape) || previewDragging) {
+			return;
+		}
+		if (now < previewResumeAtMs) {
+			return;
+		}
+		previewYaw += PREVIEW_SPIN_DEGREES_PER_SECOND * elapsedSeconds;
+	}
+
+	private static boolean isThreeDimensional(VariantPreviewRenderer.Shape shape) {
+		return shape == VariantPreviewRenderer.Shape.CUBE
+				|| shape == VariantPreviewRenderer.Shape.PLANE
+				|| shape == VariantPreviewRenderer.Shape.ENTITY;
+	}
+
+	private boolean isInsidePreview(double mouseX, double mouseY) {
+		int boxX = col3X;
+		int boxY = listTop;
+		int boxW = previewW;
+		int boxH = listBottom - listTop;
+		return mouseX >= boxX && mouseX < boxX + boxW && mouseY >= boxY && mouseY < boxY + boxH;
+	}
+
+	@Override
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		if (event.button() == InputConstants.MOUSE_BUTTON_LEFT
+				&& isThreeDimensional(previewShape())
+				&& isInsidePreview(event.x(), event.y())) {
+			previewDragging = true;
+			previewLastFrameMs = Util.getMillis();
+			return true;
+		}
+		return super.mouseClicked(event, doubleClick);
+	}
+
+	@Override
+	public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+		if (previewDragging) {
+			previewYaw += (float) dragX * PREVIEW_DRAG_SENSITIVITY;
+			float limit = previewShape() == VariantPreviewRenderer.Shape.PLANE
+					? PREVIEW_PLANE_PITCH_LIMIT
+					: PREVIEW_PITCH_LIMIT;
+			previewPitch = Mth.clamp(previewPitch + (float) dragY * PREVIEW_DRAG_SENSITIVITY, -limit, limit);
+			return true;
+		}
+		return super.mouseDragged(event, dragX, dragY);
+	}
+
+	@Override
+	public boolean mouseReleased(MouseButtonEvent event) {
+		if (previewDragging) {
+			previewDragging = false;
+			previewResumeAtMs = Util.getMillis() + PREVIEW_RESUME_DELAY_MS;
+			return true;
+		}
+		return super.mouseReleased(event);
+	}
+
+	private record PreviewTexture(Identifier textureId, int width, int height) {
 	}
 
 	private enum Tab {

@@ -327,6 +327,8 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 
 		recordScreenshot(context, step05b, screenshots);
 
+		runPreviewSteps(context, phase, failures, screenshots);
+
 		// 06 resize
 		String step06 = phase + "_06_resize";
 		EditBox searchBoxBeforeResize = context.computeOnClient(client -> {
@@ -436,6 +438,303 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 
 		ModConfig.get().clearAll();
 		ModConfig.get().save();
+	}
+
+	private void runPreviewSteps(
+			ClientGameTestContext context,
+			String phase,
+			List<String> failures,
+			List<Path> screenshots
+	) {
+		// 05c preview_block
+		String stepBlock = phase + "_05c_preview_block";
+		setSearch(context, "gold ore");
+		context.waitTicks(2);
+		int targetIndex = findRowIndex(context, 0, "Gold Ore", false);
+		clickTargetRow(context, failures, targetIndex, stepBlock, "preview_block_target");
+		int variantIndex = Math.min(1, Math.max(0, listSize(context, 1) - 1));
+		clickVariantRow(context, variantIndex);
+		context.waitTicks(3);
+
+		String blockShape = previewShapeName(context);
+		check(failures, stepBlock, "preview_block_shape", "CUBE".equals(blockShape), "shape=" + blockShape);
+		float yawFirst = previewYaw(context);
+		recordScreenshot(context, stepBlock + "_a", screenshots);
+		context.waitTicks(20);
+		float yawSecond = previewYaw(context);
+		boolean spun = Math.abs(yawSecond - yawFirst) > 1.0f;
+		check(failures, stepBlock, "preview_block_spin", spun,
+				"yawFirst=" + yawFirst + " yawSecond=" + yawSecond);
+		recordScreenshot(context, stepBlock + "_b", screenshots);
+
+		// 05d preview_drag
+		String stepDrag = phase + "_05d_preview_drag";
+		int[] box = previewBox(context);
+		int guiScale = context.computeOnClient(client -> client.getWindow().getGuiScale());
+		int centerX = box[0] + box[2] / 2;
+		int centerY = box[1] + box[3] / 2;
+		context.getInput().setCursorPos((double) centerX * guiScale, (double) centerY * guiScale);
+		context.waitTick();
+		context.getInput().holdMouse(InputConstants.MOUSE_BUTTON_LEFT);
+		context.waitTicks(2);
+		float yawAtPress = previewYaw(context);
+		boolean draggingAtPress = previewDragging(context);
+		for (int step = 1; step <= 4; step++) {
+			context.getInput().moveCursor(10.0 * guiScale, 0.0);
+			context.waitTicks(2);
+		}
+		float yawAtDragEnd = previewYaw(context);
+		boolean draggingAtDragEnd = previewDragging(context);
+		check(failures, stepDrag, "preview_drag_active", draggingAtPress && draggingAtDragEnd,
+				"atPress=" + draggingAtPress + " atDragEnd=" + draggingAtDragEnd);
+		boolean dragRotated = Math.abs(yawAtDragEnd - yawAtPress) > 20.0f;
+		check(failures, stepDrag, "preview_drag_rotates", dragRotated,
+				"yawAtPress=" + yawAtPress + " yawAtDragEnd=" + yawAtDragEnd);
+
+		context.getInput().releaseMouse(InputConstants.MOUSE_BUTTON_LEFT);
+		context.waitTicks(2);
+		float yawReleased = previewYaw(context);
+		boolean draggingAfterRelease = previewDragging(context);
+		check(failures, stepDrag, "preview_drag_released", !draggingAfterRelease,
+				"dragging=" + draggingAfterRelease);
+		context.waitTicks(10);
+		float yawHeld = previewYaw(context);
+		boolean pausedAfterRelease = Math.abs(yawHeld - yawReleased) <= 1.0f;
+		check(failures, stepDrag, "preview_resume_delay", pausedAfterRelease,
+				"yawReleased=" + yawReleased + " yawHeld=" + yawHeld);
+		context.waitTicks(40);
+		float yawResumed = previewYaw(context);
+		boolean resumed = Math.abs(yawResumed - yawHeld) > 2.0f;
+		check(failures, stepDrag, "preview_spin_resumed", resumed,
+				"yawHeld=" + yawHeld + " yawResumed=" + yawResumed);
+		recordScreenshot(context, stepDrag, screenshots);
+
+		// 05e preview_vanilla
+		String stepVanilla = phase + "_05e_preview_vanilla";
+		clickVariantRow(context, 0);
+		context.waitTicks(3);
+		String vanillaShape = previewShapeName(context);
+		boolean vanillaTexture = previewTextureId(context) != null;
+		check(failures, stepVanilla, "preview_vanilla_shape", "CUBE".equals(vanillaShape), "shape=" + vanillaShape);
+		check(failures, stepVanilla, "preview_vanilla_texture", vanillaTexture,
+				"texture=" + previewTextureId(context));
+		recordScreenshot(context, stepVanilla, screenshots);
+
+		// 05f preview_plant
+		String stepPlant = phase + "_05f_preview_plant";
+		setSearch(context, "dandelion");
+		context.waitTicks(2);
+		clickTargetRow(context, failures, findRowIndex(context, 0, "Dandelion", false), stepPlant, "preview_plant_target");
+		context.waitTicks(2);
+		String plantShape = previewShapeName(context);
+		check(failures, stepPlant, "preview_plant_shape", "PLANE".equals(plantShape), "shape=" + plantShape);
+		recordScreenshot(context, stepPlant, screenshots);
+
+		// 05g preview_entity
+		String stepEntity = phase + "_05g_preview_entity";
+		clickButton(context, "Entities");
+		context.waitTicks(3);
+		setSearch(context, "cow");
+		context.waitTicks(2);
+		clickTargetRow(context, failures, findRowIndex(context, 0, "Temperate", true), stepEntity, "preview_entity_target");
+		context.waitTicks(2);
+		clickVariantRow(context, Math.min(1, Math.max(0, listSize(context, 1) - 1)));
+		context.waitTicks(3);
+		String entityShape = previewShapeName(context);
+		check(failures, stepEntity, "preview_entity_shape", "ENTITY".equals(entityShape), "shape=" + entityShape);
+		recordScreenshot(context, stepEntity, screenshots);
+
+		// 05h preview_item
+		String stepItem = phase + "_05h_preview_item";
+		clickButton(context, "Items");
+		context.waitTicks(3);
+		setSearch(context, "apple");
+		context.waitTicks(2);
+		clickTargetRow(context, failures, 0, stepItem, "preview_item_target");
+		context.waitTicks(2);
+		clickVariantRow(context, Math.min(1, Math.max(0, listSize(context, 1) - 1)));
+		context.waitTicks(3);
+		String itemShape = previewShapeName(context);
+		check(failures, stepItem, "preview_item_shape", "PLANE".equals(itemShape), "shape=" + itemShape);
+		recordScreenshot(context, stepItem, screenshots);
+
+		// 05i preview_other
+		String stepOther = phase + "_05i_preview_other";
+		clickButton(context, "Other");
+		context.waitTicks(3);
+		setSearch(context, "");
+		context.waitTicks(2);
+		clickTargetRow(context, failures, 0, stepOther, "preview_other_target");
+		context.waitTicks(3);
+		String otherShape = previewShapeName(context);
+		check(failures, stepOther, "preview_other_shape", "FLAT".equals(otherShape), "shape=" + otherShape);
+		recordScreenshot(context, stepOther, screenshots);
+
+		// Restore tab and filter for the resize step
+		clickButton(context, "Blocks");
+		context.waitTicks(2);
+		setSearch(context, "");
+		context.waitTicks(2);
+	}
+
+	private void setSearch(ClientGameTestContext context, String value) {
+		EditBox box = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return null;
+			}
+			for (var child : screen.children()) {
+				if (child instanceof EditBox editBox) {
+					return editBox;
+				}
+			}
+			return null;
+		});
+		if (box == null) {
+			return;
+		}
+		context.runOnClient(client -> box.setValue(value));
+		context.waitTicks(2);
+	}
+
+	private void clickButton(ClientGameTestContext context, String label) {
+		Button button = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return null;
+			}
+			for (var child : screen.children()) {
+				if (child instanceof Button candidate && label.equals(candidate.getMessage().getString())) {
+					return candidate;
+				}
+			}
+			return null;
+		});
+		if (button == null) {
+			return;
+		}
+		int btnX = context.computeOnClient(client -> button.getX() + button.getWidth() / 2);
+		int btnY = context.computeOnClient(client -> button.getY() + button.getHeight() / 2);
+		clickGui(context, btnX, btnY);
+		context.waitTicks(4);
+	}
+
+	private int listSize(ClientGameTestContext context, int listIndex) {
+		List<AbstractSelectionList<?>> lists = getLists(context);
+		return listIndex < lists.size() ? lists.get(listIndex).children().size() : 0;
+	}
+
+	private int findRowIndex(ClientGameTestContext context, int listIndex, String needle, boolean contains) {
+		List<AbstractSelectionList<?>> lists = getLists(context);
+		if (listIndex >= lists.size()) {
+			return 0;
+		}
+		AbstractSelectionList<?> list = lists.get(listIndex);
+		String lowered = needle.toLowerCase(Locale.ROOT);
+		for (int index = 0; index < list.children().size(); index++) {
+			String narration = getRowNarration(list, index).toLowerCase(Locale.ROOT);
+			boolean match = contains ? narration.contains(lowered) : narration.equals(lowered);
+			if (match) {
+				return index;
+			}
+		}
+		return 0;
+	}
+
+	private void clickTargetRow(ClientGameTestContext context, List<String> failures, int rowIndex, String step, String checkName) {
+		List<AbstractSelectionList<?>> lists = getLists(context);
+		AbstractSelectionList<?> targets = !lists.isEmpty() ? lists.get(0) : null;
+		int size = targets != null ? targets.children().size() : 0;
+		check(failures, step, checkName, targets != null && rowIndex < size,
+				"rowIndex=" + rowIndex + " size=" + size);
+		if (targets != null && rowIndex < size) {
+			clickRow(context, targets, rowIndex);
+			context.waitTicks(3);
+		}
+	}
+
+	private void clickVariantRow(ClientGameTestContext context, int rowIndex) {
+		List<AbstractSelectionList<?>> lists = getLists(context);
+		AbstractSelectionList<?> variants = lists.size() >= 2 ? lists.get(1) : null;
+		if (variants != null && rowIndex < variants.children().size()) {
+			clickRow(context, variants, rowIndex);
+			context.waitTicks(3);
+		}
+	}
+
+	private Object previewField(ClientGameTestContext context, String name) {
+		return context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return null;
+			}
+			try {
+				var field = screen.getClass().getDeclaredField(name);
+				field.setAccessible(true);
+				return field.get(screen);
+			} catch (ReflectiveOperationException exception) {
+				return null;
+			}
+		});
+	}
+
+	private Object previewCall(ClientGameTestContext context, String name) {
+		return context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return null;
+			}
+			try {
+				var method = screen.getClass().getDeclaredMethod(name);
+				method.setAccessible(true);
+				return method.invoke(screen);
+			} catch (ReflectiveOperationException exception) {
+				return null;
+			}
+		});
+	}
+
+	private String previewShapeName(ClientGameTestContext context) {
+		Object shape = previewCall(context, "previewShape");
+		return shape instanceof Enum<?> enumValue ? enumValue.name() : "null";
+	}
+
+	private Object previewTextureId(ClientGameTestContext context) {
+		Object preview = previewCall(context, "currentPreviewTexture");
+		if (preview == null) {
+			return null;
+		}
+		try {
+			var method = preview.getClass().getDeclaredMethod("textureId");
+			method.setAccessible(true);
+			return method.invoke(preview);
+		} catch (ReflectiveOperationException exception) {
+			return null;
+		}
+	}
+
+	private float previewYaw(ClientGameTestContext context) {
+		Object value = previewField(context, "previewYaw");
+		return value instanceof Float yaw ? yaw : 0.0f;
+	}
+
+	private boolean previewDragging(ClientGameTestContext context) {
+		Object value = previewField(context, "previewDragging");
+		return value instanceof Boolean dragging && dragging;
+	}
+
+	private int[] previewBox(ClientGameTestContext context) {
+		int[] box = new int[4];
+		box[0] = intField(context, "col3X");
+		box[1] = intField(context, "listTop");
+		box[2] = intField(context, "previewW");
+		box[3] = intField(context, "listBottom") - box[1];
+		return box;
+	}
+
+	private int intField(ClientGameTestContext context, String name) {
+		Object value = previewField(context, name);
+		return value instanceof Integer number ? number : 0;
 	}
 
 	private void clickGui(ClientGameTestContext context, int guiX, int guiY) {
