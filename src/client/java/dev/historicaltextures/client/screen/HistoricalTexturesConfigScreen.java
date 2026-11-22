@@ -384,11 +384,11 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		graphics.fill(boxX, boxY, boxX + boxW, boxY + boxH, 0xC0000000);
 		graphics.outline(boxX, boxY, boxW, boxH, 0xFF555555);
 
-		VariantPreviewRenderer.Shape shape = previewShape();
+		PreviewTexture preview = currentPreviewTexture();
+		VariantPreviewRenderer.Shape shape = effectivePreviewShape(preview);
 		resetPreviewMotion(shape);
 		updatePreviewMotion(shape);
 
-		PreviewTexture preview = currentPreviewTexture();
 		if (shape == VariantPreviewRenderer.Shape.NONE || preview == null) {
 			Component msg = activeTab == Tab.SOUNDS
 					? Component.literal("No preview for sounds.")
@@ -427,7 +427,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 					previewPitch,
 					previewYaw
 			);
-			case ENTITY -> VariantPreviewRenderer.entityModel(selectedTarget).ifPresent(part ->
+			case ENTITY -> entityPreviewPart().ifPresent(part ->
 					VariantPreviewRenderer.extract(
 							graphics,
 							shape,
@@ -482,11 +482,60 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		return VariantPreviewRenderer.shapeFor(selectedTarget);
 	}
 
-	private PreviewTexture currentPreviewTexture() {
+	private VariantPreviewRenderer.Shape effectivePreviewShape(PreviewTexture preview) {
+		VariantPreviewRenderer.Shape shape = previewShape();
+		if (shape != VariantPreviewRenderer.Shape.ENTITY || preview == null || selectedTarget == null) {
+			return shape;
+		}
+		VariantEntry entry = selectedVariantEntry();
+		boolean hasLegacyModel = entry != null && entry.textureVariant != null
+				&& VariantPreviewRenderer.legacyModel(selectedTarget, entry.textureVariant).isPresent();
+		if (hasLegacyModel) {
+			return shape;
+		}
+		Optional<CatalogThumbnailCache.CachedPreview> vanilla =
+				CatalogThumbnailCache.getVanilla(selectedTarget.resourcePath());
+		if (vanilla.isPresent() && vanilla.get().height() > 0 && preview.height() > 0) {
+			float previewAspect = (float) preview.width() / preview.height();
+			float vanillaAspect = (float) vanilla.get().width() / vanilla.get().height();
+			if (Math.abs(previewAspect - vanillaAspect) > 0.02f) {
+				return VariantPreviewRenderer.Shape.FLAT;
+			}
+		}
+		return shape;
+	}
+
+	private Optional<net.minecraft.client.model.geom.ModelPart> entityPreviewPart() {
+		VariantEntry entry = selectedVariantEntry();
+		if (entry != null && entry.textureVariant != null && selectedTarget != null) {
+			Optional<net.minecraft.client.model.geom.ModelPart> legacy =
+					VariantPreviewRenderer.legacyModel(selectedTarget, entry.textureVariant);
+			if (legacy.isPresent()) {
+				return legacy;
+			}
+		}
+		return VariantPreviewRenderer.entityModel(selectedTarget);
+	}
+
+	private VariantEntry selectedVariantEntry() {
 		VariantList.Entry selected = variantList != null ? variantList.getSelected() : null;
-		if (selected instanceof VariantEntry variantEntry && variantEntry.textureVariant != null) {
-			Optional<CatalogThumbnailCache.CachedPreview> opt =
-					CatalogThumbnailCache.get(variantEntry.textureVariant.id(), variantEntry.textureVariant.assetPath());
+		return selected instanceof VariantEntry variantEntry ? variantEntry : null;
+	}
+
+	private PreviewTexture currentPreviewTexture() {
+		VariantEntry variantEntry = selectedVariantEntry();
+		if (variantEntry != null && variantEntry.textureVariant != null) {
+			Optional<CatalogThumbnailCache.CachedPreview> opt = Optional.empty();
+			if (selectedTarget != null) {
+				Optional<String> legacySource =
+						VariantPreviewRenderer.legacyTextureSource(selectedTarget, variantEntry.textureVariant);
+				if (legacySource.isPresent()) {
+					opt = CatalogThumbnailCache.getLegacy(legacySource.get());
+				}
+			}
+			if (opt.isEmpty()) {
+				opt = CatalogThumbnailCache.get(variantEntry.textureVariant.id(), variantEntry.textureVariant.assetPath());
+			}
 			return opt.map(cached -> new PreviewTexture(cached.textureId(), cached.width(), cached.height())).orElse(null);
 		}
 		if (selectedTarget != null) {

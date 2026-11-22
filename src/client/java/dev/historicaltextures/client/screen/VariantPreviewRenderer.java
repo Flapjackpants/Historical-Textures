@@ -1,7 +1,14 @@
 package dev.historicaltextures.client.screen;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.blaze3d.vertex.PoseStack;
+import dev.historicaltextures.HistoricalTextures;
+import dev.historicaltextures.catalog.LegacyModels;
 import dev.historicaltextures.catalog.TextureTarget;
+import dev.historicaltextures.catalog.TextureVariant;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.model.Model;
@@ -9,9 +16,11 @@ import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -21,10 +30,15 @@ import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -49,6 +63,7 @@ final class VariantPreviewRenderer {
 	private static final Map<String, ModelPart> CUBE_GEOMETRY = new HashMap<>();
 	private static final Map<String, ModelPart> PLANE_GEOMETRY = new HashMap<>();
 	private static final Map<ModelPart, Bounds> BOUNDS = new IdentityHashMap<>();
+	private static final Map<String, Optional<ModelPart>> LEGACY_MODELS = new HashMap<>();
 	private static boolean layersScanned;
 
 	private VariantPreviewRenderer() {
@@ -127,6 +142,144 @@ final class VariantPreviewRenderer {
 			}
 		}
 		return Optional.empty();
+	}
+
+	static Optional<String> legacyTextureSource(TextureTarget target, TextureVariant variant) {
+		if (target == null || variant == null || target.resourcePath() == null) {
+			return Optional.empty();
+		}
+		String path = target.resourcePath();
+		int colon = path.indexOf(':');
+		String noNamespace = colon >= 0 ? path.substring(colon + 1) : path;
+		for (Map.Entry<String, String> file : LegacyModels.filesFor(target.configKey(), variant.id()).entrySet()) {
+			String dest = file.getKey();
+			if (dest != null && dest.endsWith(".png") && dest.equals(noNamespace)) {
+				return Optional.ofNullable(file.getValue());
+			}
+		}
+		return Optional.empty();
+	}
+
+	static Optional<ModelPart> legacyModel(TextureTarget target, TextureVariant variant) {
+		if (target == null || variant == null) {
+			return Optional.empty();
+		}
+		for (Map.Entry<String, String> file : LegacyModels.filesFor(target.configKey(), variant.id()).entrySet()) {
+			String dest = file.getKey();
+			if (dest == null || !dest.endsWith(".jem")) {
+				continue;
+			}
+			String source = file.getValue();
+			Optional<ModelPart> cached = LEGACY_MODELS.get(source);
+			if (cached != null) {
+				return cached;
+			}
+			Optional<ModelPart> parsed = Optional.empty();
+			try (InputStream stream = LegacyModels.open(source)) {
+				if (stream != null) {
+					parsed = Optional.of(parseLegacyModel(stream));
+				}
+			} catch (Exception exception) {
+				HistoricalTextures.LOGGER.warn("Failed to parse legacy model {}", source, exception);
+			}
+			LEGACY_MODELS.put(source, parsed);
+			return parsed;
+		}
+		return Optional.empty();
+	}
+
+	private static ModelPart parseLegacyModel(InputStream stream) throws IOException {
+		JsonObject root = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8))
+				.getAsJsonObject();
+		JsonArray textureSize = root.getAsJsonArray("textureSize");
+		int texW = textureSize != null && textureSize.size() > 0 ? textureSize.get(0).getAsInt() : 64;
+		int texH = textureSize != null && textureSize.size() > 1 ? textureSize.get(1).getAsInt() : 32;
+		MeshDefinition mesh = new MeshDefinition();
+		PartDefinition rootPart = mesh.getRoot();
+		Set<String> usedNames = new HashSet<>();
+		JsonArray models = root.getAsJsonArray("models");
+		if (models == null) {
+			return LayerDefinition.create(mesh, texW, texH).bakeRoot();
+		}
+		for (JsonElement element : models) {
+			JsonObject model = element.getAsJsonObject();
+			String rawName = model.has("id") && !model.get("id").getAsString().isEmpty()
+					? model.get("id").getAsString()
+					: model.has("part") ? model.get("part").getAsString() : "part";
+			String name = uniquePartName(rawName, usedNames);
+			float[] translate = floats(model.getAsJsonArray("translate"), 3);
+			float[] rotate = floats(model.getAsJsonArray("rotate"), 3);
+			float pivotX = translate[0];
+			float pivotY = 24.0f + translate[1];
+			float pivotZ = -translate[2];
+
+			CubeListBuilder cubes = CubeListBuilder.create();
+			if (model.has("mirrorTexture") && "u".equals(model.get("mirrorTexture").getAsString())) {
+				cubes.mirror();
+			}
+			JsonArray boxes = model.getAsJsonArray("boxes");
+			if (boxes != null) {
+				for (JsonElement boxElement : boxes) {
+					JsonObject box = boxElement.getAsJsonObject();
+					float[] coordinates = floats(box.getAsJsonArray("coordinates"), 6);
+					JsonArray textureOffset = box.getAsJsonArray("textureOffset");
+					int u = textureOffset != null && textureOffset.size() > 0 ? textureOffset.get(0).getAsInt() : 0;
+					int v = textureOffset != null && textureOffset.size() > 1 ? textureOffset.get(1).getAsInt() : 0;
+					float sizeAdd = box.has("sizeAdd") ? box.get("sizeAdd").getAsFloat() : 0.0f;
+					float x = coordinates[0];
+					float y = coordinates[1];
+					float z = coordinates[2];
+					float w = coordinates[3];
+					float h = coordinates[4];
+					float d = coordinates[5];
+					float absMinX = -(x + w);
+					float absMinY = 24.0f - (y + h);
+					float absMinZ = z;
+					cubes.texOffs(u, v).addBox(
+							absMinX - pivotX,
+							absMinY - pivotY,
+							absMinZ - pivotZ,
+							w,
+							h,
+							d,
+							new CubeDeformation(sizeAdd)
+					);
+				}
+			}
+			rootPart.addOrReplaceChild(
+					name,
+					cubes,
+					PartPose.offsetAndRotation(
+							pivotX,
+							pivotY,
+							pivotZ,
+							(float) Math.toRadians(-rotate[0]),
+							(float) Math.toRadians(-rotate[1]),
+							(float) Math.toRadians(rotate[2])
+					)
+			);
+		}
+		return LayerDefinition.create(mesh, texW, texH).bakeRoot();
+	}
+
+	private static float[] floats(JsonArray array, int count) {
+		float[] result = new float[count];
+		if (array != null) {
+			for (int index = 0; index < Math.min(count, array.size()); index++) {
+				result[index] = array.get(index).getAsFloat();
+			}
+		}
+		return result;
+	}
+
+	private static String uniquePartName(String base, Set<String> used) {
+		String name = base;
+		int suffix = 2;
+		while (!used.add(name)) {
+			name = base + "_" + suffix;
+			suffix++;
+		}
+		return name;
 	}
 
 	private static Map<String, ModelLayerLocation> layerIndex() {

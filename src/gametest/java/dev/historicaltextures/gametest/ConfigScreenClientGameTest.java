@@ -3,9 +3,11 @@ package dev.historicaltextures.gametest;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.historicaltextures.HistoricalTextures;
 import dev.historicaltextures.catalog.HistoricalCatalog;
+import dev.historicaltextures.catalog.LegacyModels;
 import dev.historicaltextures.catalog.TextureTarget;
 import dev.historicaltextures.catalog.TextureTargetRegistry;
 import dev.historicaltextures.catalog.TextureVariant;
+import dev.historicaltextures.client.CatalogThumbnailCache;
 import dev.historicaltextures.client.screen.HistoricalTexturesConfigScreen;
 import dev.historicaltextures.config.ModConfig;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -24,6 +26,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public class ConfigScreenClientGameTest implements FabricClientGameTest {
@@ -544,18 +547,97 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		check(failures, stepEntity, "preview_entity_shape", "ENTITY".equals(entityShape), "shape=" + entityShape);
 		recordScreenshot(context, stepEntity, screenshots);
 
+		// 05g2 preview_entity_legacy
+		String stepLegacy = phase + "_05g2_preview_entity_legacy";
+		int legacyVariantIndex = findVariantRowIndex(context, 1, "Prerelease 3");
+		if (legacyVariantIndex < 0) {
+			legacyVariantIndex = Math.min(1, Math.max(0, listSize(context, 1) - 1));
+		}
+		clickVariantRow(context, legacyVariantIndex);
+		context.waitTicks(3);
+		boolean legacyModelUsed = legacyModelSelected(context);
+		check(failures, stepLegacy, "preview_entity_legacy_model", legacyModelUsed,
+				"variantIndex=" + legacyVariantIndex + " legacyModel=" + legacyModelUsed);
+		recordScreenshot(context, stepLegacy, screenshots);
+
+		// 05g3 preview_entity_modern
+		String stepModern = phase + "_05g3_preview_entity_modern";
+		clickVariantRow(context, 0);
+		context.waitTicks(3);
+		String modernShape = previewShapeName(context);
+		Object modernTexture = previewTextureId(context);
+		boolean modernTextureOk = modernTexture != null && modernTexture.toString().contains("preview/vanilla/");
+		boolean modernModel = modernEntityModelPresent(context);
+		check(failures, stepModern, "preview_entity_modern_shape", "ENTITY".equals(modernShape), "shape=" + modernShape);
+		check(failures, stepModern, "preview_entity_modern_model", modernModel && modernTextureOk,
+				"model=" + modernModel + " texture=" + modernTexture);
+		recordScreenshot(context, stepModern, screenshots);
+
+		// 05g4 preview_steve
+		String stepSteve = phase + "_05g4_preview_steve";
+		setSearch(context, "steve");
+		context.waitTicks(2);
+		clickTargetRow(context, failures, findRowIndex(context, 0, "steve", true), stepSteve, "preview_steve_target");
+		context.waitTicks(2);
+		int steveVariantIndex = findVariantRowById(context, "steve_texture_je1_png");
+		if (steveVariantIndex < 0) {
+			steveVariantIndex = Math.min(1, Math.max(0, listSize(context, 1) - 1));
+		}
+		clickVariantRow(context, steveVariantIndex);
+		context.waitTicks(3);
+		Object steveTexture = previewTextureId(context);
+		boolean steveLegacyTexture = steveTexture != null && steveTexture.toString().contains("preview/legacy/");
+		check(failures, stepSteve, "preview_steve_legacy_texture", steveLegacyTexture,
+				"variantIndex=" + steveVariantIndex + " texture=" + steveTexture);
+		recordScreenshot(context, stepSteve, screenshots);
+
+		// 05g5 preview_mismatch_flat
+		String stepMismatch = phase + "_05g5_preview_mismatch_flat";
+		String[] mismatchCandidate = findMismatchCandidate(context);
+		if (mismatchCandidate == null) {
+			String skipLine = "[HT-GAMETEST] " + stepMismatch + " preview_mismatch_flat SKIP no candidate";
+			HistoricalTextures.LOGGER.info(skipLine);
+			System.out.println(skipLine);
+			check(failures, stepMismatch, "preview_mismatch_flat", true, "skipped: no candidate");
+		} else {
+			setSearch(context, mismatchCandidate[0]);
+			context.waitTicks(2);
+			int mismatchTargetIndex = findRowIndex(context, 0, mismatchCandidate[0], false);
+			clickTargetRow(context, failures, mismatchTargetIndex, stepMismatch, "preview_mismatch_target");
+			context.waitTicks(2);
+			int mismatchVariantIndex = findVariantRowById(context, mismatchCandidate[2]);
+			if (mismatchVariantIndex < 0) {
+				check(failures, stepMismatch, "preview_mismatch_variant_found", false,
+						"variantId=" + mismatchCandidate[2]);
+			} else {
+				clickVariantRow(context, mismatchVariantIndex);
+				context.waitTicks(3);
+				String mismatchShape = previewShapeName(context);
+				check(failures, stepMismatch, "preview_mismatch_flat", "FLAT".equals(mismatchShape),
+						"target=" + mismatchCandidate[1] + " variant=" + mismatchCandidate[2] + " shape=" + mismatchShape);
+				recordScreenshot(context, stepMismatch, screenshots);
+			}
+		}
+		setSearch(context, "");
+		context.waitTicks(2);
+
 		// 05h preview_item
 		String stepItem = phase + "_05h_preview_item";
 		clickButton(context, "Items");
 		context.waitTicks(3);
 		setSearch(context, "apple");
 		context.waitTicks(2);
+		String itemGeo = targetListGeometry(context, 0);
+		String itemGeoLine = "[HT-GAMETEST] " + stepItem + " target_row_geometry INFO " + itemGeo;
+		HistoricalTextures.LOGGER.info(itemGeoLine);
+		System.out.println(itemGeoLine);
 		clickTargetRow(context, failures, 0, stepItem, "preview_item_target");
 		context.waitTicks(2);
 		clickVariantRow(context, Math.min(1, Math.max(0, listSize(context, 1) - 1)));
 		context.waitTicks(3);
 		String itemShape = previewShapeName(context);
-		check(failures, stepItem, "preview_item_shape", "PLANE".equals(itemShape), "shape=" + itemShape);
+		check(failures, stepItem, "preview_item_shape", "PLANE".equals(itemShape),
+				"shape=" + itemShape + " state=" + previewState(context));
 		recordScreenshot(context, stepItem, screenshots);
 
 		// 05i preview_other
@@ -567,7 +649,8 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		clickTargetRow(context, failures, 0, stepOther, "preview_other_target");
 		context.waitTicks(3);
 		String otherShape = previewShapeName(context);
-		check(failures, stepOther, "preview_other_shape", "FLAT".equals(otherShape), "shape=" + otherShape);
+		check(failures, stepOther, "preview_other_shape", "FLAT".equals(otherShape),
+				"shape=" + otherShape + " state=" + previewState(context));
 		recordScreenshot(context, stepOther, screenshots);
 
 		// Restore tab and filter for the resize step
@@ -641,6 +724,268 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		return 0;
 	}
 
+	private int findVariantRowIndex(ClientGameTestContext context, int listIndex, String needle) {
+		List<AbstractSelectionList<?>> lists = getLists(context);
+		if (listIndex >= lists.size()) {
+			return -1;
+		}
+		AbstractSelectionList<?> list = lists.get(listIndex);
+		String lowered = needle.toLowerCase(Locale.ROOT);
+		for (int index = 0; index < list.children().size(); index++) {
+			if (getRowNarration(list, index).toLowerCase(Locale.ROOT).contains(lowered)) {
+				return index;
+			}
+		}
+		return -1;
+	}
+
+	private void ensureRowVisible(ClientGameTestContext context, int listIndex, int rowIndex) {
+		context.runOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return;
+			}
+			List<AbstractSelectionList<?>> lists = new ArrayList<>();
+			for (var child : screen.children()) {
+				if (child instanceof AbstractSelectionList<?> candidate) {
+					lists.add(candidate);
+				}
+			}
+			lists.sort(Comparator.comparingInt(AbstractSelectionList::getX));
+			if (listIndex >= lists.size()) {
+				return;
+			}
+			AbstractSelectionList<?> list = lists.get(listIndex);
+			if (list.children().isEmpty() || rowIndex < 0 || rowIndex >= list.children().size()) {
+				return;
+			}
+			int itemHeight = list.getRowBottom(0) - list.getRowTop(0);
+			if (itemHeight <= 0) {
+				return;
+			}
+			int rowTop = list.getRowTop(rowIndex);
+			int rowBottom = list.getRowBottom(rowIndex);
+			int viewTop = list.getY();
+			int viewBottom = list.getY() + list.getHeight();
+			double scroll = -1;
+			if (rowBottom > viewBottom + 1) {
+				scroll = (rowIndex + 1) * (double) itemHeight - list.getHeight() + 2;
+			} else if (rowTop < viewTop - 1) {
+				scroll = Math.max(0, rowIndex * (double) itemHeight - 2);
+			}
+			if (scroll >= 0) {
+				list.setScrollAmount(scroll);
+			}
+		});
+		context.waitTicks(2);
+	}
+
+	private String targetListGeometry(ClientGameTestContext context, int rowIndex) {
+		Object result = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return "no-screen";
+			}
+			AbstractSelectionList<?> list = null;
+			for (var child : screen.children()) {
+				if (child instanceof AbstractSelectionList<?> candidate) {
+					if (list == null || candidate.getX() < list.getX()) {
+						list = candidate;
+					}
+				}
+			}
+			if (list == null) {
+				return "no-list";
+			}
+			String scroll = "?";
+			try {
+				var field = AbstractSelectionList.class.getDeclaredField("scrollAmount");
+				field.setAccessible(true);
+				scroll = String.valueOf(field.get(list));
+			} catch (ReflectiveOperationException ignored) {
+			}
+			return "x=" + list.getX() + " y=" + list.getY() + " w=" + list.getWidth() + " h=" + list.getHeight()
+					+ " children=" + list.children().size()
+					+ " rowLeft=" + list.getRowLeft() + " rowRight=" + list.getRowRight()
+					+ " top" + rowIndex + "=" + (rowIndex < list.children().size() ? list.getRowTop(rowIndex) : -1)
+					+ " bottom" + rowIndex + "=" + (rowIndex < list.children().size() ? list.getRowBottom(rowIndex) : -1)
+					+ " scroll=" + scroll;
+		});
+		return String.valueOf(result);
+	}
+
+	private String previewState(ClientGameTestContext context) {
+		Object state = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return "no-screen";
+			}
+			try {
+				Object tab = screenFieldValue(screen, "activeTab");
+				Object target = screenFieldValue(screen, "selectedTarget");
+				Object sound = screenFieldValue(screen, "selectedSoundEvent");
+				return "tab=" + tab + " target=" + (target == null ? "null" : "set") + " sound=" + sound;
+			} catch (ReflectiveOperationException exception) {
+				return "err";
+			}
+		});
+		return String.valueOf(state);
+	}
+
+	private int findVariantRowById(ClientGameTestContext context, String variantId) {
+		Object result = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return -1;
+			}
+			try {
+				var field = screen.getClass().getDeclaredField("variantList");
+				field.setAccessible(true);
+				Object list = field.get(screen);
+				if (!(list instanceof AbstractSelectionList<?> selection)) {
+					return -1;
+				}
+				for (int index = 0; index < selection.children().size(); index++) {
+					Object entry = selection.children().get(index);
+					var variantField = entry.getClass().getDeclaredField("textureVariant");
+					variantField.setAccessible(true);
+					Object variant = variantField.get(entry);
+					if (variant instanceof TextureVariant textureVariant && variantId.equals(textureVariant.id())) {
+						return index;
+					}
+				}
+				return -1;
+			} catch (ReflectiveOperationException exception) {
+				return -1;
+			}
+		});
+		return result instanceof Integer index ? index : -1;
+	}
+
+	private boolean legacyModelSelected(ClientGameTestContext context) {
+		Object result = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return false;
+			}
+			try {
+				Object target = screenFieldValue(screen, "selectedTarget");
+				Object list = screenFieldValue(screen, "variantList");
+				if (target == null || !(list instanceof AbstractSelectionList<?> selection)) {
+					return false;
+				}
+				Object selected = selection.getSelected();
+				if (selected == null) {
+					return false;
+				}
+				Object variant = screenFieldValue(selected, "textureVariant");
+				if (variant == null) {
+					return false;
+				}
+				Class<?> renderer = Class.forName("dev.historicaltextures.client.screen.VariantPreviewRenderer");
+				var method = renderer.getDeclaredMethod(
+						"legacyModel",
+						TextureTarget.class,
+						TextureVariant.class
+				);
+				method.setAccessible(true);
+				Object optional = method.invoke(null, target, variant);
+				return optional instanceof Optional<?> opt && opt.isPresent();
+			} catch (ReflectiveOperationException exception) {
+				return false;
+			}
+		});
+		return Boolean.TRUE.equals(result);
+	}
+
+	private boolean modernEntityModelPresent(ClientGameTestContext context) {
+		Object result = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return false;
+			}
+			try {
+				Object target = screenFieldValue(screen, "selectedTarget");
+				if (target == null) {
+					return false;
+				}
+				Class<?> renderer = Class.forName("dev.historicaltextures.client.screen.VariantPreviewRenderer");
+				var method = renderer.getDeclaredMethod("entityModel", TextureTarget.class);
+				method.setAccessible(true);
+				Object optional = method.invoke(null, target);
+				return optional instanceof Optional<?> opt && opt.isPresent();
+			} catch (ReflectiveOperationException exception) {
+				return false;
+			}
+		});
+		return Boolean.TRUE.equals(result);
+	}
+
+	private static Object screenFieldValue(Object instance, String name) throws ReflectiveOperationException {
+		var field = instance.getClass().getDeclaredField(name);
+		field.setAccessible(true);
+		return field.get(instance);
+	}
+
+	private String[] findMismatchCandidate(ClientGameTestContext context) {
+		Object result = context.computeOnClient(client -> {
+			int targetsScanned = 0;
+			int variantsScanned = 0;
+			int previewsResolved = 0;
+			String firstAspectPair = null;
+			for (TextureTarget target : TextureTargetRegistry.entityTargets()) {
+				Optional<CatalogThumbnailCache.CachedPreview> vanilla =
+						CatalogThumbnailCache.getVanilla(target.resourcePath());
+				if (vanilla.isEmpty() || vanilla.get().height() <= 0) {
+					continue;
+				}
+				targetsScanned++;
+				float vanillaAspect = (float) vanilla.get().width() / vanilla.get().height();
+				for (TextureVariant variant : HistoricalCatalog.get().textureVariantsForTarget(target.configKey())) {
+					variantsScanned++;
+					Map<String, String> files = LegacyModels.filesFor(target.configKey(), variant.id());
+					boolean hasJem = files.keySet().stream().anyMatch(dest -> dest != null && dest.endsWith(".jem"));
+					if (hasJem) {
+						continue;
+					}
+					Optional<CatalogThumbnailCache.CachedPreview> preview =
+							resolvePreviewAspect(target, variant);
+					if (preview.isEmpty() || preview.get().height() <= 0) {
+						continue;
+					}
+					previewsResolved++;
+					float aspect = (float) preview.get().width() / preview.get().height();
+					if (firstAspectPair == null) {
+						firstAspectPair = target.configKey() + " variant=" + variant.id()
+								+ " preview=" + preview.get().width() + "x" + preview.get().height()
+								+ " vanilla=" + vanilla.get().width() + "x" + vanilla.get().height();
+					}
+					if (Math.abs(aspect - vanillaAspect) > 0.02f) {
+						return new String[]{target.displayName(), target.configKey(), variant.id()};
+					}
+				}
+			}
+			String stats = "targets=" + targetsScanned + " variants=" + variantsScanned
+					+ " resolved=" + previewsResolved + " first=" + firstAspectPair;
+			HistoricalTextures.LOGGER.info("[HT-GAMETEST] mismatch_scan_stats INFO " + stats);
+			System.out.println("[HT-GAMETEST] mismatch_scan_stats INFO " + stats);
+			return null;
+		});
+		return result instanceof String[] candidate ? candidate : null;
+	}
+
+	private static Optional<CatalogThumbnailCache.CachedPreview> resolvePreviewAspect(TextureTarget target, TextureVariant variant) {
+		String path = target.resourcePath();
+		int colon = path.indexOf(':');
+		String noNamespace = colon >= 0 ? path.substring(colon + 1) : path;
+		for (Map.Entry<String, String> file : LegacyModels.filesFor(target.configKey(), variant.id()).entrySet()) {
+			if (file.getKey() != null && file.getKey().endsWith(".png") && file.getKey().equals(noNamespace)) {
+				return CatalogThumbnailCache.getLegacy(file.getValue());
+			}
+		}
+		return CatalogThumbnailCache.get(variant.id(), variant.assetPath());
+	}
+
 	private void clickTargetRow(ClientGameTestContext context, List<String> failures, int rowIndex, String step, String checkName) {
 		List<AbstractSelectionList<?>> lists = getLists(context);
 		AbstractSelectionList<?> targets = !lists.isEmpty() ? lists.get(0) : null;
@@ -648,6 +993,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		check(failures, step, checkName, targets != null && rowIndex < size,
 				"rowIndex=" + rowIndex + " size=" + size);
 		if (targets != null && rowIndex < size) {
+			ensureRowVisible(context, 0, rowIndex);
 			clickRow(context, targets, rowIndex);
 			context.waitTicks(3);
 		}
@@ -657,6 +1003,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		List<AbstractSelectionList<?>> lists = getLists(context);
 		AbstractSelectionList<?> variants = lists.size() >= 2 ? lists.get(1) : null;
 		if (variants != null && rowIndex < variants.children().size()) {
+			ensureRowVisible(context, 1, rowIndex);
 			clickRow(context, variants, rowIndex);
 			context.waitTicks(3);
 		}

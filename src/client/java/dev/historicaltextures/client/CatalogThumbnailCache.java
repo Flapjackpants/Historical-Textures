@@ -3,6 +3,7 @@ package dev.historicaltextures.client;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.historicaltextures.HistoricalTextures;
 import dev.historicaltextures.catalog.CatalogResources;
+import dev.historicaltextures.catalog.LegacyModels;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
@@ -84,6 +85,37 @@ public final class CatalogThumbnailCache {
 			return Optional.of(preview);
 		} catch (Exception exception) {
 			HistoricalTextures.LOGGER.debug("Failed to load vanilla preview for {}", resourcePath, exception);
+			return Optional.empty();
+		}
+	}
+
+	public static Optional<CachedPreview> getLegacy(String source) {
+		if (source == null || source.isBlank()) {
+			return Optional.empty();
+		}
+		String key = "legacy:" + source;
+		CachedPreview cached = CACHE.get(key);
+		if (cached != null) {
+			return Optional.of(cached);
+		}
+		try (InputStream stream = LegacyModels.open(source)) {
+			if (stream == null) {
+				HistoricalTextures.LOGGER.debug("Missing legacy preview asset {}", source);
+				return Optional.empty();
+			}
+			NativeImage image = NativeImage.read(stream);
+			Identifier textureId = Identifier.fromNamespaceAndPath(
+					HistoricalTextures.MOD_ID,
+					"preview/legacy/" + sanitizeId(source)
+			);
+			DynamicTexture dynamicTexture = new DynamicTexture(textureId::toString, image);
+			Minecraft.getInstance().getTextureManager().register(textureId, dynamicTexture);
+			dynamicTexture.upload();
+			CachedPreview preview = new CachedPreview(textureId, image.getWidth(), image.getHeight());
+			CACHE.put(key, preview);
+			return Optional.of(preview);
+		} catch (Exception exception) {
+			HistoricalTextures.LOGGER.debug("Failed to load legacy preview for {}", source, exception);
 			return Optional.empty();
 		}
 	}
