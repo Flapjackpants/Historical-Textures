@@ -1082,6 +1082,9 @@ public final class WikiIndexer {
 								Files.copy(body, part, StandardCopyOption.REPLACE_EXISTING);
 							}
 							moveIntoPlace(part, destination);
+							if (fileName.toLowerCase(Locale.ROOT).endsWith(".png")) {
+								UpscaleNormalizer.normalizeFile(destination);
+							}
 							shaToAssetPath.put(sha1, assetPath);
 							return assetPath;
 						}
