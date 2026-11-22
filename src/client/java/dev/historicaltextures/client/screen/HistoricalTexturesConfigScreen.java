@@ -43,7 +43,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private static final float PREVIEW_PITCH_LIMIT = 80.0f;
 	private static final float PREVIEW_PLANE_PITCH_LIMIT = 30.0f;
 	private static final float PREVIEW_DEFAULT_YAW = 30.0f;
-	private static final float PREVIEW_DEFAULT_PITCH = -25.0f;
+	private static final float PREVIEW_DEFAULT_PITCH = 25.0f;
 	private static final long PREVIEW_RESUME_DELAY_MS = 1000L;
 
 	private final Screen parent;

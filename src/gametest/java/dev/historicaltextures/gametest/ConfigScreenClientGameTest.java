@@ -41,8 +41,8 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 			new FaceDiagnosticView("right", 90.0f, 0.0f),
 			new FaceDiagnosticView("back", 180.0f, 0.0f),
 			new FaceDiagnosticView("left", 270.0f, 0.0f),
-			new FaceDiagnosticView("top", 0.0f, -80.0f),
-			new FaceDiagnosticView("bottom", 0.0f, 80.0f)
+			new FaceDiagnosticView("top", 0.0f, 80.0f),
+			new FaceDiagnosticView("bottom", 0.0f, -80.0f)
 	);
 
 	private static final List<FaceDiagnosticTarget> FACE_DIAGNOSTIC_TARGETS = List.of(
@@ -851,6 +851,8 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 
 		String blockShape = previewShapeName(context);
 		check(failures, stepBlock, "preview_block_shape", "CUBE".equals(blockShape), "shape=" + blockShape);
+		float defaultPitch = previewPitch(context);
+		check(failures, stepBlock, "preview_default_from_above", defaultPitch > 0.0f, "pitch=" + defaultPitch);
 		float yawFirst = previewYaw(context);
 		recordScreenshot(context, stepBlock + "_a", screenshots);
 		context.waitTicks(20);
