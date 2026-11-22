@@ -30,7 +30,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private static final int TEXT_MUTED = 0xFFA0A0A0;
 	private static final int TEXT_ACCENT = 0xFF55FF55;
 	private static final int TEXT_ERROR = 0xFFFF5555;
-	private static final int TARGET_ENTRY_HEIGHT = 24;
+	private static final int TARGET_ENTRY_HEIGHT = 26;
 	private static final int VARIANT_ENTRY_HEIGHT = 32;
 	private static final int PREVIEW_SIZE = 16;
 	private static final int PREVIEW_PLACEHOLDER = 0xFF404040;
@@ -209,8 +209,10 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		if (selectedTarget != null) {
 			variantEntries.addAll(buildTextureVariantEntries(selectedTarget));
-		} else {
+		} else if (targetList.children().isEmpty()) {
 			emptyVariantHint = null;
+		} else {
+			emptyVariantHint = Component.literal("Select a target on the left to see its variants.");
 		}
 
 		String configKey = selectedTarget != null ? selectedTarget.configKey() : null;
@@ -440,15 +442,15 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			if (variantCount > 0) {
 				line += " (" + variantCount + ")";
 			}
-			graphics.text(font, fit(line, maxW), getContentX() + 4, getContentY() + 4, TEXT_WHITE);
+			graphics.text(font, fit(line, maxW), getContentX() + 4, getContentY() + 2, TEXT_WHITE);
 			String choice = ModConfig.get().getTextureChoice(target.configKey());
 			if (choice != null) {
 				String subtitle = HistoricalCatalog.get().textureVariant(choice)
 						.map(TextureVariant::versionLabel)
 						.orElse(choice);
-				graphics.text(font, fit(subtitle, maxW), getContentX() + 4, getContentY() + 14, TEXT_MUTED);
+				graphics.text(font, fit(subtitle, maxW), getContentX() + 4, getContentY() + 12, TEXT_MUTED);
 			} else if (variantCount == 0) {
-				graphics.text(font, fit("no catalog variants", maxW), getContentX() + 4, getContentY() + 14, TEXT_MUTED);
+				graphics.text(font, fit("no catalog variants", maxW), getContentX() + 4, getContentY() + 12, TEXT_MUTED);
 			}
 		}
 
@@ -488,15 +490,15 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			if (variantCount > 0) {
 				line += " (" + variantCount + ")";
 			}
-			graphics.text(font, fit(line, maxW), getContentX() + 4, getContentY() + 4, TEXT_WHITE);
+			graphics.text(font, fit(line, maxW), getContentX() + 4, getContentY() + 2, TEXT_WHITE);
 			String choice = ModConfig.get().getSoundChoice(soundEvent);
 			if (choice != null) {
 				String choiceSub = HistoricalCatalog.get().soundVariant(choice)
 						.map(SoundVariant::versionLabel)
 						.orElse(choice);
-				graphics.text(font, fit(choiceSub, maxW), getContentX() + 4, getContentY() + 14, TEXT_MUTED);
+				graphics.text(font, fit(choiceSub, maxW), getContentX() + 4, getContentY() + 12, TEXT_MUTED);
 			} else if (variantCount == 0) {
-				graphics.text(font, fit("no catalog variants", maxW), getContentX() + 4, getContentY() + 14, TEXT_MUTED);
+				graphics.text(font, fit("no catalog variants", maxW), getContentX() + 4, getContentY() + 12, TEXT_MUTED);
 			}
 		}
 
@@ -607,7 +609,17 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		@Override
 		public int getRowWidth() {
-			return width - 8;
+			return width - 14;
+		}
+
+		@Override
+		protected int scrollBarX() {
+			return getX() + width - scrollbarWidth();
+		}
+
+		@Override
+		public int getRowLeft() {
+			return getX() + 2;
 		}
 
 		abstract static class Entry extends ObjectSelectionList.Entry<Entry> {
@@ -621,7 +633,17 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		@Override
 		public int getRowWidth() {
-			return width - 8;
+			return width - 14;
+		}
+
+		@Override
+		protected int scrollBarX() {
+			return getX() + width - scrollbarWidth();
+		}
+
+		@Override
+		public int getRowLeft() {
+			return getX() + 2;
 		}
 
 		abstract static class Entry extends ObjectSelectionList.Entry<Entry> {

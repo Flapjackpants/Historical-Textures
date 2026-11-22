@@ -16,13 +16,16 @@ import net.minecraft.world.level.block.Block;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public final class TextureTargetRegistry {
-	private static final int ENTRY_HEIGHT = 24;
+	private static final int ENTRY_HEIGHT = 26;
 	private static List<TextureTarget> blockTargets;
 	private static List<TextureTarget> itemTargets;
 	private static List<TextureTarget> entityTargets;
@@ -213,7 +216,8 @@ public final class TextureTargetRegistry {
 				}
 				String folder = id.getPath();
 				String resourcePath = "minecraft:textures/entity/" + folder + "/" + folder + ".png";
-				byPath.putIfAbsent(resourcePath, new TextureTarget(resourcePath, id, TextureTargetKind.ENTITY, type.getDescription().getString()));
+				String label = entityLabel(resourcePath, id, type.getDescription().getString());
+				byPath.putIfAbsent(resourcePath, new TextureTarget(resourcePath, id, TextureTargetKind.ENTITY, label));
 				added++;
 			} catch (Exception exception) {
 				failed++;
@@ -279,9 +283,12 @@ public final class TextureTargetRegistry {
 									: humanize(target);
 						})
 						.orElseGet(() -> humanize(target));
-				case ENTITY -> BuiltInRegistries.ENTITY_TYPE.getOptional(registryId)
-						.map(type -> type.getDescription().getString())
-						.orElseGet(() -> humanize(target));
+				case ENTITY -> {
+					String baseName = BuiltInRegistries.ENTITY_TYPE.getOptional(registryId)
+							.map(type -> type.getDescription().getString())
+							.orElseGet(() -> humanize(target));
+					yield entityLabel(target, registryId, baseName);
+				}
 				case OTHER -> otherLabel(target);
 			};
 		}
@@ -312,8 +319,101 @@ public final class TextureTargetRegistry {
 		return List.copyOf(events);
 	}
 
+	private static String extractStem(String target) {
+		String s = target;
+		int lastSlash = s.lastIndexOf('/');
+		if (lastSlash >= 0) {
+			s = s.substring(lastSlash + 1);
+		}
+		if (s.endsWith(".png")) {
+			s = s.substring(0, s.length() - ".png".length());
+		}
+		int colon = s.indexOf(':');
+		if (colon >= 0) {
+			s = s.substring(colon + 1);
+		}
+		return s;
+	}
+
+	private static String entityLabel(String target, Identifier registryId, String baseName) {
+		if (registryId == null) {
+			return humanize(target);
+		}
+		String stem = extractStem(target);
+		String idPath = registryId.getPath();
+		if (stem.equalsIgnoreCase(idPath)) {
+			return baseName;
+		}
+		String[] idParts = idPath.toLowerCase(Locale.ROOT).split("_");
+		Set<String> idTokens = new HashSet<>();
+		for (String part : idParts) {
+			if (!part.isEmpty()) {
+				idTokens.add(part);
+			}
+		}
+		String[] stemParts = stem.split("_");
+		List<String> remaining = new ArrayList<>();
+		for (String part : stemParts) {
+			if (!part.isEmpty() && !idTokens.contains(part.toLowerCase(Locale.ROOT))) {
+				remaining.add(part);
+			}
+		}
+		String qualifier;
+		if (remaining.isEmpty()) {
+			qualifier = humanize(stem);
+		} else {
+			qualifier = humanize(String.join("_", remaining));
+		}
+		return baseName + " (" + qualifier + ")";
+	}
+
 	private static List<TextureTarget> sorted(Map<String, TextureTarget> map) {
-		List<TextureTarget> list = new ArrayList<>(map.values());
+		Map<String, Integer> counts = new HashMap<>();
+		for (TextureTarget target : map.values()) {
+			counts.merge(target.displayName().toLowerCase(Locale.ROOT), 1, Integer::sum);
+		}
+
+		List<TextureTarget> list = new ArrayList<>();
+		for (TextureTarget target : map.values()) {
+			if (counts.get(target.displayName().toLowerCase(Locale.ROOT)) > 1) {
+				String extra = humanize(target.resourcePath());
+				if (!extra.isEmpty()) {
+					String newName = target.displayName() + " (" + extra + ")";
+					if (!newName.equalsIgnoreCase(target.displayName())) {
+						target = new TextureTarget(target.resourcePath(), target.registryId(), target.kind(), newName);
+					}
+				}
+			}
+			list.add(target);
+		}
+
+		Map<String, Integer> secondCounts = new HashMap<>();
+		for (TextureTarget target : list) {
+			secondCounts.merge(target.displayName().toLowerCase(Locale.ROOT), 1, Integer::sum);
+		}
+		if (secondCounts.values().stream().anyMatch(c -> c > 1)) {
+			List<TextureTarget> resolved = new ArrayList<>();
+			for (TextureTarget target : list) {
+				if (secondCounts.get(target.displayName().toLowerCase(Locale.ROOT)) > 1) {
+					String path = target.resourcePath();
+					if (path.startsWith("minecraft:")) {
+						path = path.substring("minecraft:".length());
+					}
+					if (path.startsWith("textures/")) {
+						path = path.substring("textures/".length());
+					}
+					if (path.endsWith(".png")) {
+						path = path.substring(0, path.length() - 4);
+					}
+					String extra = humanize(path.replace('/', '_'));
+					String newName = target.displayName() + " (" + extra + ")";
+					target = new TextureTarget(target.resourcePath(), target.registryId(), target.kind(), newName);
+				}
+				resolved.add(target);
+			}
+			list = resolved;
+		}
+
 		list.sort(Comparator
 				.comparingInt((TextureTarget target) -> HistoricalCatalog.get().variantCountForTarget(target.configKey()))
 				.reversed()

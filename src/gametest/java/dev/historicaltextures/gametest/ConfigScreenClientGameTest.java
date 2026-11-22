@@ -112,6 +112,58 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		}
 		check(failures, step01, "names_clean", firstOffender == null, firstOffender == null ? "all clean" : "offender: " + firstOffender);
 
+		// names_unique check
+		String duplicateName = null;
+		for (List<TextureTarget> list : allTargetLists) {
+			Set<String> seen = new java.util.HashSet<>();
+			for (TextureTarget target : list) {
+				String lower = target.displayName().toLowerCase(Locale.ROOT);
+				if (!seen.add(lower)) {
+					duplicateName = target.configKey() + " -> " + target.displayName();
+					break;
+				}
+			}
+			if (duplicateName != null) {
+				break;
+			}
+		}
+		check(failures, step01, "names_unique", duplicateName == null, duplicateName == null ? "all unique" : "duplicate: " + duplicateName);
+
+		// entity_qualifiers check
+		List<String> entityNames = context.computeOnClient(client ->
+				TextureTargetRegistry.entityTargets().stream().map(TextureTarget::displayName).toList()
+		);
+		boolean hasCowCold = entityNames.contains("Cow (Cold)");
+		boolean hasCowWarm = entityNames.contains("Cow (Warm)");
+		boolean hasPigCold = entityNames.contains("Pig (Cold)");
+		boolean allQualifiersPresent = hasCowCold && hasCowWarm && hasPigCold;
+		check(failures, step01, "entity_qualifiers", allQualifiersPresent,
+				"Cow(Cold)=" + hasCowCold + " Cow(Warm)=" + hasCowWarm + " Pig(Cold)=" + hasPigCold);
+
+		// scrollbar_inside check
+		boolean scrollbarsInside = true;
+		StringBuilder sbDetails = new StringBuilder();
+		for (int i = 0; i < Math.min(2, lists01.size()); i++) {
+			AbstractSelectionList<?> list = lists01.get(i);
+			int rowLeft = list.getRowLeft();
+			int rowRight = list.getRowRight();
+			int listX = list.getX();
+			int listW = list.getWidth();
+			boolean inside = rowLeft >= listX && rowRight <= listX + listW;
+			if (!inside) {
+				scrollbarsInside = false;
+				sbDetails.append("list[").append(i).append("]: rowLeft=").append(rowLeft)
+						.append(" listX=").append(listX).append(" rowRight=").append(rowRight)
+						.append(" listRight=").append(listX + listW).append("; ");
+			}
+		}
+		if (lists01.size() < 2) {
+			scrollbarsInside = false;
+			sbDetails.append("expected at least 2 lists, found ").append(lists01.size());
+		}
+		check(failures, step01, "scrollbar_inside", scrollbarsInside,
+				scrollbarsInside ? "both lists inside" : sbDetails.toString().trim());
+
 		recordScreenshot(context, step01, screenshots);
 
 		// 02 click_target
