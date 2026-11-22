@@ -225,13 +225,15 @@ final class VariantPreviewRenderer {
 		// pipeline sinks every model by SKIN_Y_OFFSET_BLOCKS, so shift the model
 		// back up by that offset and center it in the box.
 		float liftPixels = boxH * 8.0f / scale;
-		ModelPart pivot = new ModelPart(List.of(), Map.of("model", part));
-		pivot.x = -bounds.centerX() * 16.0f;
-		pivot.y = -bounds.centerY() * 16.0f;
-		pivot.z = -bounds.centerZ() * 16.0f;
-		pivot.yRot = (float) Math.toRadians(rotY);
-		pivot.xRot = (float) Math.toRadians(rotX);
-		ModelPart root = new ModelPart(List.of(), Map.of("pivot", pivot));
+		ModelPart offset = new ModelPart(List.of(), Map.of("model", part));
+		offset.x = -bounds.centerX() * 16.0f;
+		offset.y = -bounds.centerY() * 16.0f;
+		offset.z = -bounds.centerZ() * 16.0f;
+		ModelPart yaw = new ModelPart(List.of(), Map.of("offset", offset));
+		yaw.yRot = (float) Math.toRadians(rotY);
+		ModelPart pitch = new ModelPart(List.of(), Map.of("yaw", yaw));
+		pitch.xRot = (float) Math.toRadians(rotX);
+		ModelPart root = new ModelPart(List.of(), Map.of("pitch", pitch));
 		root.y = SKIN_Y_OFFSET_BLOCKS * 16.0f - liftPixels;
 
 		Model.Simple model = new Model.Simple(root, RenderTypes::entityCutout);
