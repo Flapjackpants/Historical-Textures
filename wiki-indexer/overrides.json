@@ -24,6 +24,7 @@
     "Oak_Log_(top_texture)_JE2_BE1.png": ["minecraft:textures/block/oak_log_top.png"],
     "Oak_Leaves_(texture)_JE1.png": ["minecraft:textures/block/oak_leaves.png"],
     "Oak_Leaves_(texture)_JE2.png": ["minecraft:textures/block/oak_leaves.png"],
+    "Oak_Leaves_(texture)_JE3_BE1.png": ["minecraft:textures/block/oak_leaves.png", "minecraft:textures/block/birch_leaves.png"],
     "Diamond_Sword_(texture)_JE1.png": ["minecraft:textures/item/diamond_sword.png"],
     "Diamond_Sword_(texture)_JE2.png": ["minecraft:textures/item/diamond_sword.png"],
     "Iron_Sword_(texture)_JE1.png": ["minecraft:textures/item/iron_sword.png"],
