@@ -139,6 +139,9 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		addRenderableWidget(Button.builder(Component.translatable("historical_textures.credits"), b ->
 						minecraft.setScreenAndShow(new CreditsScreen(this)))
 				.bounds(8, height - 28, 120, 20).build());
+		addRenderableWidget(Button.builder(Component.literal("Presets…"), b ->
+						minecraft.setScreenAndShow(new PresetsScreen(this)))
+				.bounds(width / 2 - 50, height - 28, 100, 20).build());
 		addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, b -> onClose())
 				.bounds(width - 108, height - 28, 100, 20).build());
 

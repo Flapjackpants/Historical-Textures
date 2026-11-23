@@ -12,6 +12,8 @@ import dev.historicaltextures.catalog.TextureVariant;
 import dev.historicaltextures.client.CatalogThumbnailCache;
 import dev.historicaltextures.client.screen.HistoricalTexturesConfigScreen;
 import dev.historicaltextures.config.ModConfig;
+import dev.historicaltextures.config.Preset;
+import dev.historicaltextures.config.PresetStore;
 import dev.historicaltextures.pack.OverlayPackManager;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -430,6 +432,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		runPreviewSteps(context, phase, failures, screenshots);
 		runHoodSteps(context, phase, failures, screenshots);
 		runCurrentVariantSteps(context, phase, failures, screenshots);
+		runPresetSteps(context, phase, failures, screenshots);
 
 		// 05j search_scroll_top
 		String stepScroll = phase + "_05j_search_scroll_top";
@@ -1537,6 +1540,253 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 			}
 		});
 		return result instanceof byte[] bytes ? bytes : null;
+	}
+
+	private void runPresetSteps(
+			ClientGameTestContext context,
+			String phase,
+			List<String> failures,
+			List<Path> screenshots
+	) {
+		String step = phase + "_presets";
+		String stoneKey = "minecraft:textures/block/stone.png";
+
+		// setup: stone target + first catalog variant
+		ModConfig.get().clearAll();
+		ModConfig.get().save();
+		boolean stoneSelected = selectDiagnosticTarget(context, stoneKey);
+		context.waitTicks(2);
+		int variantRow = firstCatalogVariantRow(context);
+		if (variantRow >= 0) {
+			clickVariantRow(context, variantRow);
+		}
+		context.waitTicks(2);
+		String savedVariant = context.computeOnClient(client -> ModConfig.get().getTextureChoice(stoneKey));
+		check(failures, step, "preset_setup_choice",
+				stoneSelected && savedVariant != null && !savedVariant.isEmpty(),
+				"selected=" + stoneSelected + " variant=" + savedVariant);
+
+		// open the Presets screen
+		clickButton(context, "Presets…");
+		context.waitTicks(5);
+		int[] info = presetScreenInfo(context);
+		check(failures, step, "presets_screen_open", info[0] == 1, "info=" + Arrays.toString(info));
+		check(failures, step, "presets_builtin_rows", info[1] >= 8,
+				"builtins=" + info[1] + " total=" + info[2]);
+		recordScreenshot(context, step + "_list", screenshots);
+
+		// Save current… -> name -> confirm summary -> Save
+		clickButton(context, "Save current…");
+		context.waitTicks(4);
+		EditBox nameBox = findEditBox(context);
+		if (nameBox != null) {
+			int ex = context.computeOnClient(client -> nameBox.getX() + nameBox.getWidth() / 2);
+			int ey = context.computeOnClient(client -> nameBox.getY() + nameBox.getHeight() / 2);
+			clickGui(context, ex, ey);
+			context.waitTicks(2);
+			context.getInput().typeChars("HT Test");
+			context.waitTicks(2);
+		}
+		String typed = context.computeOnClient(client -> nameBox == null ? "" : nameBox.getValue());
+		check(failures, step, "preset_name_entered", "HT Test".equals(typed), "value=" + typed);
+		clickButton(context, "Next");
+		context.waitTicks(4);
+		String confirmTitle = screenTitle(context);
+		check(failures, step, "confirm_save_title",
+				confirmTitle.contains("Are you sure"), "title=" + confirmTitle);
+		boolean summaryStone = summaryRowsContain(context, "stone");
+		check(failures, step, "confirm_summary_stone", summaryStone, "found=" + summaryStone);
+		recordScreenshot(context, step + "_confirm_save", screenshots);
+		clickButton(context, "Save");
+		context.waitTicks(4);
+		check(failures, step, "preset_saved", PresetStore.get().exists("HT Test"),
+				"exists=" + PresetStore.get().exists("HT Test"));
+
+		// clear choices, then load HT Test -> restores the stone choice
+		ModConfig.get().clearAll();
+		ModConfig.get().save();
+		clickSelectionRow(context, 0, presetRowIndex(context, "HT Test"));
+		context.waitTicks(2);
+		clickButton(context, "Load");
+		context.waitTicks(5);
+		String restored = context.computeOnClient(client -> ModConfig.get().getTextureChoice(stoneKey));
+		check(failures, step, "preset_load_restores",
+				savedVariant != null && savedVariant.equals(restored),
+				"expected=" + savedVariant + " actual=" + restored);
+
+		// load the built-in Beta 1.7.3 preset (confirm because choices exist)
+		clickButton(context, "Presets…");
+		context.waitTicks(5);
+		clickSelectionRow(context, 0, presetRowIndex(context, "Beta 1.7.3"));
+		context.waitTicks(2);
+		clickButton(context, "Load");
+		context.waitTicks(4);
+		String loadTitle = screenTitle(context);
+		boolean loadConfirm = loadTitle.contains("Load preset");
+		check(failures, step, "builtin_load_confirm", loadConfirm, "title=" + loadTitle);
+		if (loadConfirm) {
+			clickButton(context, "Yes");
+			context.waitTicks(5);
+		}
+		int choiceCount = ModConfig.get().textureChoices().size();
+		check(failures, step, "builtin_load_choices", choiceCount > 100, "count=" + choiceCount);
+
+		// delete HT Test via the UI
+		clickButton(context, "Presets…");
+		context.waitTicks(5);
+		clickSelectionRow(context, 0, presetRowIndex(context, "HT Test"));
+		context.waitTicks(2);
+		clickButton(context, "Delete");
+		context.waitTicks(4);
+		String deleteTitle = screenTitle(context);
+		boolean deleteConfirm = deleteTitle.contains("Delete preset");
+		check(failures, step, "delete_confirm", deleteConfirm, "title=" + deleteTitle);
+		if (deleteConfirm) {
+			clickButton(context, "Yes");
+			context.waitTicks(4);
+		}
+		check(failures, step, "preset_deleted", !PresetStore.get().exists("HT Test"),
+				"exists=" + PresetStore.get().exists("HT Test"));
+
+		// back to the config screen and restore state
+		clickButton(context, "Back");
+		context.waitTicks(4);
+		ModConfig.get().clearAll();
+		ModConfig.get().save();
+		PresetStore.get().delete("HT Test");
+		setSearch(context, "");
+		context.waitTicks(2);
+	}
+
+	private int firstCatalogVariantRow(ClientGameTestContext context) {
+		Object result = context.computeOnClient(client -> {
+			List<AbstractSelectionList<?>> lists = selectionLists(client);
+			if (lists.size() < 2) {
+				return -1;
+			}
+			AbstractSelectionList<?> variants = lists.get(1);
+			for (int index = 0; index < variants.children().size(); index++) {
+				String narration = getRowNarration(variants, index).toLowerCase(Locale.ROOT);
+				if (!narration.startsWith("vanilla") && !narration.startsWith("current")) {
+					return index;
+				}
+			}
+			return -1;
+		});
+		return result instanceof Integer index ? index : -1;
+	}
+
+	private int[] presetScreenInfo(ClientGameTestContext context) {
+		Object result = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null || !"Presets".equals(screen.getTitle().getString())) {
+				return new int[]{0, 0, 0};
+			}
+			List<AbstractSelectionList<?>> lists = selectionLists(client);
+			int builtIns = 0;
+			int total = 0;
+			if (!lists.isEmpty()) {
+				AbstractSelectionList<?> list = lists.get(0);
+				total = list.children().size();
+				for (Object child : list.children()) {
+					try {
+						var field = child.getClass().getDeclaredField("preset");
+						field.setAccessible(true);
+						if (field.get(child) instanceof Preset preset && preset.builtIn()) {
+							builtIns++;
+						}
+					} catch (ReflectiveOperationException ignored) {
+					}
+				}
+			}
+			return new int[]{1, builtIns, total};
+		});
+		return result instanceof int[] info ? info : new int[]{0, 0, 0};
+	}
+
+	private int presetRowIndex(ClientGameTestContext context, String name) {
+		Object result = context.computeOnClient(client -> {
+			List<AbstractSelectionList<?>> lists = selectionLists(client);
+			if (lists.isEmpty()) {
+				return -1;
+			}
+			AbstractSelectionList<?> list = lists.get(0);
+			for (int index = 0; index < list.children().size(); index++) {
+				if (getRowNarration(list, index).equalsIgnoreCase(name)) {
+					return index;
+				}
+			}
+			return -1;
+		});
+		return result instanceof Integer index ? index : -1;
+	}
+
+	private void clickSelectionRow(ClientGameTestContext context, int listIndex, int rowIndex) {
+		if (rowIndex < 0) {
+			return;
+		}
+		ensureRowVisible(context, listIndex, rowIndex);
+		List<AbstractSelectionList<?>> lists = getLists(context);
+		if (listIndex < lists.size()) {
+			AbstractSelectionList<?> list = lists.get(listIndex);
+			if (rowIndex < list.children().size()) {
+				clickRow(context, list, rowIndex);
+				context.waitTicks(2);
+			}
+		}
+	}
+
+	private String screenTitle(ClientGameTestContext context) {
+		Object result = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			return screen == null ? "" : screen.getTitle().getString();
+		});
+		return String.valueOf(result);
+	}
+
+	private boolean summaryRowsContain(ClientGameTestContext context, String needle) {
+		Object result = context.computeOnClient(client -> {
+			String lowered = needle.toLowerCase(Locale.ROOT);
+			for (AbstractSelectionList<?> list : selectionLists(client)) {
+				for (int index = 0; index < list.children().size(); index++) {
+					if (getRowNarration(list, index).toLowerCase(Locale.ROOT).contains(lowered)) {
+						return true;
+					}
+				}
+			}
+			return false;
+		});
+		return Boolean.TRUE.equals(result);
+	}
+
+	private EditBox findEditBox(ClientGameTestContext context) {
+		return context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return null;
+			}
+			for (var child : screen.children()) {
+				if (child instanceof EditBox editBox) {
+					return editBox;
+				}
+			}
+			return null;
+		});
+	}
+
+	private static List<AbstractSelectionList<?>> selectionLists(Minecraft client) {
+		Screen screen = client.gui.screen();
+		List<AbstractSelectionList<?>> lists = new ArrayList<>();
+		if (screen == null) {
+			return lists;
+		}
+		for (var child : screen.children()) {
+			if (child instanceof AbstractSelectionList<?> candidate) {
+				lists.add(candidate);
+			}
+		}
+		lists.sort(Comparator.comparingInt(AbstractSelectionList::getX));
+		return lists;
 	}
 
 	private void setSearch(ClientGameTestContext context, String value) {

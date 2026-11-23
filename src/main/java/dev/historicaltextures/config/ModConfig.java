@@ -126,6 +126,21 @@ public final class ModConfig {
 		soundChoices.clear();
 	}
 
+	public boolean hasChoices() {
+		return !textureChoices.isEmpty() || !soundChoices.isEmpty();
+	}
+
+	public void applyPreset(Preset preset) {
+		clearAll();
+		preset.textureChoices().forEach(this::setTextureChoice);
+		preset.soundChoices().forEach(this::setSoundChoice);
+		setHideVillagerHood(preset.hideVillagerHood());
+	}
+
+	public Preset snapshot(String name) {
+		return new Preset(name, textureChoices(), soundChoices(), hideVillagerHood, false);
+	}
+
 	private static final class ConfigData {
 		Map<String, String> textureChoices;
 		Map<String, String> soundChoices;
