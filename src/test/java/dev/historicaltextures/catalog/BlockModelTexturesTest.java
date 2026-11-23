@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BlockModelTexturesTest {
@@ -169,5 +170,61 @@ class BlockModelTexturesTest {
 		Set<String> textures = BlockModelTextures.collect("gen", loader(files));
 
 		assertEquals(Set.of("minecraft:textures/block/gen_tex.png"), textures);
+	}
+
+	@Test
+	void crossModelDetectedThroughBlockstateAndParent() {
+		Map<String, String> files = files(
+				"blockstates/poppy.json", """
+						{"variants":{"":{"model":"minecraft:block/poppy"}}}""",
+				"models/block/poppy.json", """
+						{"parent":"minecraft:block/cross"}"""
+		);
+
+		assertTrue(BlockModelTextures.usesCrossModel("poppy", loader(files)));
+	}
+
+	@Test
+	void tintedCrossModelDetectedThroughFirstVariant() {
+		Map<String, String> files = files(
+				"blockstates/tall_grass.json", """
+						{"variants":{
+							"half=lower":{"model":"minecraft:block/tall_grass_bottom"},
+							"half=upper":{"model":"minecraft:block/tall_grass_top"}
+						}}""",
+				"models/block/tall_grass_bottom.json", """
+						{"parent":"minecraft:block/tinted_cross"}""",
+				"models/block/tall_grass_top.json", """
+						{"parent":"minecraft:block/tinted_cross"}"""
+		);
+
+		assertTrue(BlockModelTextures.usesCrossModel("tall_grass", loader(files)));
+	}
+
+	@Test
+	void fullCubeModelIsNotCross() {
+		Map<String, String> files = files(
+				"blockstates/stone.json", """
+						{"variants":{"":{"model":"minecraft:block/stone"}}}""",
+				"models/block/stone.json", """
+						{"parent":"minecraft:block/cube_all"}"""
+		);
+
+		assertFalse(BlockModelTextures.usesCrossModel("stone", loader(files)));
+	}
+
+	@Test
+	void crossModelDetectedWithoutBlockstate() {
+		Map<String, String> files = files(
+				"models/block/tall_grass_top.json", """
+						{"parent":"minecraft:block/tinted_cross"}"""
+		);
+
+		assertTrue(BlockModelTextures.usesCrossModel("tall_grass_top", loader(files)));
+	}
+
+	@Test
+	void crossModelFalseWhenNothingExists() {
+		assertFalse(BlockModelTextures.usesCrossModel("missing", loader(Map.of())));
 	}
 }

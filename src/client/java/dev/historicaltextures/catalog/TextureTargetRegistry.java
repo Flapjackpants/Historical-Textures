@@ -179,7 +179,7 @@ public final class TextureTargetRegistry {
 		HistoricalTextures.LOGGER.info("Config UI: {} block groups", groups);
 	}
 
-	private static Optional<JsonObject> loadJsonResource(String path) {
+	public static Optional<JsonObject> loadJsonResource(String path) {
 		try {
 			Minecraft minecraft = Minecraft.getInstance();
 			if (minecraft == null || minecraft.getResourceManager() == null) {

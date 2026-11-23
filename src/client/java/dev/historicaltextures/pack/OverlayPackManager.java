@@ -220,9 +220,7 @@ public final class OverlayPackManager {
 			HistoricalTextures.LOGGER.debug("Wrote overlay texture {}", destination.toAbsolutePath());
 			writeLegacyFiles(root, variant, targetPath);
 			writeVillagerHoodMcmeta(destination, relative);
-			if (ModConfig.get().hideVillagerHood()
-					&& (relative.startsWith(VILLAGER_PROFESSION_PREFIX)
-							|| relative.equals("textures/entity/villager/villager.png"))) {
+			if (ModConfig.get().hideVillagerHood() && isVillagerHoodTarget(relative)) {
 				clearVillagerHoodPixels(destination);
 			}
 			if (LegacyTextureFixes.isCakeSideTarget(relative)) {
@@ -278,18 +276,31 @@ public final class OverlayPackManager {
 		return true;
 	}
 
+	public static boolean isVillagerHoodTarget(String relative) {
+		return relative != null
+				&& (relative.startsWith(VILLAGER_PROFESSION_PREFIX)
+						|| relative.equals("textures/entity/villager/villager.png"));
+	}
+
+	public static boolean clearVillagerHood(NativeImage image) {
+		if (image.getWidth() != 64 || image.getHeight() != 64) {
+			return false;
+		}
+		image.fillRect(32, 0, 32, 18, 0);
+		image.fillRect(30, 47, 34, 17, 0);
+		return true;
+	}
+
 	private static void clearVillagerHoodPixels(Path png) throws IOException {
 		try (InputStream input = Files.newInputStream(png);
 				NativeImage image = NativeImage.read(input)) {
-			if (image.getWidth() != 64 || image.getHeight() != 64) {
+			if (!clearVillagerHood(image)) {
 				HistoricalTextures.LOGGER.debug(
 						"Skipping villager hood pixel cleanup for non-64x64 texture {}",
 						png.toAbsolutePath()
 				);
 				return;
 			}
-			image.fillRect(32, 0, 32, 18, 0);
-			image.fillRect(30, 47, 34, 17, 0);
 			image.writeToFile(png);
 			HistoricalTextures.LOGGER.debug("Cleared villager hood pixels {}", png.toAbsolutePath());
 		}

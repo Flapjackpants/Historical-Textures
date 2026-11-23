@@ -12,6 +12,11 @@ import java.util.function.Function;
 
 public final class BlockModelTextures {
 	private static final int MAX_PARENT_DEPTH = 16;
+	private static final Set<String> CROSS_MODEL_IDS = Set.of(
+			"block/cross",
+			"block/tinted_cross",
+			"block/cross_emissive"
+	);
 
 	private BlockModelTextures() {
 	}
@@ -113,6 +118,89 @@ public final class BlockModelTextures {
 		if (parent != null && parent.isJsonPrimitive() && parent.getAsJsonPrimitive().isString()) {
 			collectModelTextures(parent.getAsString(), loader, textures, visited, depth + 1);
 		}
+	}
+
+	public static boolean usesCrossModel(String blockPath, Function<String, Optional<JsonObject>> loader) {
+		String modelId = firstBlockModelId(blockPath, loader);
+		if (modelId == null) {
+			modelId = "minecraft:block/" + blockPath;
+		}
+		Set<String> visited = new TreeSet<>();
+		int depth = 0;
+		while (modelId != null && depth < MAX_PARENT_DEPTH) {
+			String normalized = modelId.startsWith("minecraft:")
+					? modelId.substring("minecraft:".length())
+					: modelId;
+			if (CROSS_MODEL_IDS.contains(normalized)) {
+				return true;
+			}
+			String resourcePath = modelResourcePath(modelId);
+			if (resourcePath == null || !visited.add(resourcePath)) {
+				return false;
+			}
+			Optional<JsonObject> model = loader.apply(resourcePath);
+			if (model.isEmpty()) {
+				return false;
+			}
+			JsonElement parent = model.get().get("parent");
+			modelId = parent != null && parent.isJsonPrimitive() && parent.getAsJsonPrimitive().isString()
+					? parent.getAsString()
+					: null;
+			depth++;
+		}
+		return false;
+	}
+
+	private static String firstBlockModelId(String blockPath, Function<String, Optional<JsonObject>> loader) {
+		Optional<JsonObject> blockstate = loader.apply("blockstates/" + blockPath + ".json");
+		if (blockstate.isEmpty()) {
+			return null;
+		}
+		JsonObject root = blockstate.get();
+		JsonElement variants = root.get("variants");
+		if (variants != null && variants.isJsonObject()) {
+			for (JsonElement value : variants.getAsJsonObject().asMap().values()) {
+				String modelId = firstModelId(value);
+				if (modelId != null) {
+					return modelId;
+				}
+			}
+		}
+		JsonElement multipart = root.get("multipart");
+		if (multipart != null && multipart.isJsonArray()) {
+			for (JsonElement entry : multipart.getAsJsonArray()) {
+				if (entry == null || !entry.isJsonObject()) {
+					continue;
+				}
+				String modelId = firstModelId(entry.getAsJsonObject().get("apply"));
+				if (modelId != null) {
+					return modelId;
+				}
+			}
+		}
+		return null;
+	}
+
+	private static String firstModelId(JsonElement value) {
+		if (value == null) {
+			return null;
+		}
+		if (value.isJsonArray()) {
+			for (JsonElement element : value.getAsJsonArray()) {
+				String modelId = firstModelId(element);
+				if (modelId != null) {
+					return modelId;
+				}
+			}
+			return null;
+		}
+		if (!value.isJsonObject()) {
+			return null;
+		}
+		JsonElement model = value.getAsJsonObject().get("model");
+		return model != null && model.isJsonPrimitive() && model.getAsJsonPrimitive().isString()
+				? model.getAsString()
+				: null;
 	}
 
 	private static String modelResourcePath(String modelId) {

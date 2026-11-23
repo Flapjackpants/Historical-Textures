@@ -6,8 +6,10 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.historicaltextures.HistoricalTextures;
+import dev.historicaltextures.catalog.BlockModelTextures;
 import dev.historicaltextures.catalog.LegacyModels;
 import dev.historicaltextures.catalog.TextureTarget;
+import dev.historicaltextures.catalog.TextureTargetRegistry;
 import dev.historicaltextures.catalog.TextureVariant;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -62,6 +64,8 @@ final class VariantPreviewRenderer {
 	private static final Map<String, Optional<ModelPart>> BAKED_MODELS = new HashMap<>();
 	private static final Map<String, ModelPart> CUBE_GEOMETRY = new HashMap<>();
 	private static final Map<String, ModelPart> PLANE_GEOMETRY = new HashMap<>();
+	private static final Map<String, ModelPart> CROSS_GEOMETRY = new HashMap<>();
+	private static final Map<String, Shape> BLOCK_SHAPES = new HashMap<>();
 	private static final Map<ModelPart, Bounds> BOUNDS = new IdentityHashMap<>();
 	private static final Map<String, Optional<ModelPart>> LEGACY_MODELS = new HashMap<>();
 	private static boolean layersScanned;
@@ -72,6 +76,7 @@ final class VariantPreviewRenderer {
 	enum Shape {
 		CUBE,
 		PLANE,
+		CROSS,
 		ENTITY,
 		FLAT,
 		NONE
@@ -90,14 +95,35 @@ final class VariantPreviewRenderer {
 	}
 
 	private static Shape blockShape(TextureTarget target) {
-		if (target.registryId() == null) {
+		Shape cached = BLOCK_SHAPES.get(target.configKey());
+		if (cached != null) {
+			return cached;
+		}
+		Shape shape = computeBlockShape(target);
+		BLOCK_SHAPES.put(target.configKey(), shape);
+		return shape;
+	}
+
+	private static Shape computeBlockShape(TextureTarget target) {
+		Block block = null;
+		String blockPath = null;
+		if (target.registryId() != null) {
+			block = BuiltInRegistries.BLOCK.getOptional(target.registryId()).orElse(null);
+			if (block != null) {
+				blockPath = target.registryId().getPath();
+			}
+		}
+		if (blockPath == null || blockPath.isEmpty()) {
+			blockPath = stem(target.resourcePath());
+		}
+		if (!blockPath.isEmpty()
+				&& BlockModelTextures.usesCrossModel(blockPath, TextureTargetRegistry::loadJsonResource)) {
+			return Shape.CROSS;
+		}
+		if (block == null) {
 			return Shape.CUBE;
 		}
 		try {
-			Block block = BuiltInRegistries.BLOCK.getOptional(target.registryId()).orElse(null);
-			if (block == null) {
-				return Shape.CUBE;
-			}
 			VoxelShape shape = block.defaultBlockState().getShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
 			return Block.isShapeFullBlock(shape) ? Shape.CUBE : Shape.PLANE;
 		} catch (Exception exception) {
@@ -387,6 +413,22 @@ final class VariantPreviewRenderer {
 			cubes.addBox(-8.0f, -8.0f, 0.0f, 16.0f, 16.0f, 0.0f, Set.of(Direction.NORTH, Direction.SOUTH));
 			MeshDefinition mesh = new MeshDefinition();
 			mesh.getRoot().addOrReplaceChild("body", cubes, PartPose.ZERO);
+			return LayerDefinition.create(mesh, 16, layerHeight(width, height)).bakeRoot();
+		});
+	}
+
+	static ModelPart cross(int texW, int texH) {
+		int width = Math.max(1, texW);
+		int height = Math.max(1, texH);
+		return CROSS_GEOMETRY.computeIfAbsent(width + "x" + height, key -> {
+			MeshDefinition mesh = new MeshDefinition();
+			PartDefinition root = mesh.getRoot();
+			CubeListBuilder first = CubeListBuilder.create();
+			first.addBox(-8.0f, -8.0f, 0.0f, 16.0f, 16.0f, 0.0f, Set.of(Direction.NORTH, Direction.SOUTH));
+			root.addOrReplaceChild("cross_a", first, PartPose.rotation(0.0f, (float) Math.PI / 4.0f, 0.0f));
+			CubeListBuilder second = CubeListBuilder.create();
+			second.addBox(-8.0f, -8.0f, 0.0f, 16.0f, 16.0f, 0.0f, Set.of(Direction.NORTH, Direction.SOUTH));
+			root.addOrReplaceChild("cross_b", second, PartPose.rotation(0.0f, -(float) Math.PI / 4.0f, 0.0f));
 			return LayerDefinition.create(mesh, 16, layerHeight(width, height)).bakeRoot();
 		});
 	}

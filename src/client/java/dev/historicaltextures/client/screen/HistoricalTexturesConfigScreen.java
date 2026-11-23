@@ -156,7 +156,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				.build();
 		hoodButton.visible = false;
 		hoodButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-				Component.literal("Old villagers had no hood. Applies on Apply & Reload.")));
+				Component.literal("Old villagers had no hood. Applies to the preview and overlay textures.")));
 		addRenderableWidget(hoodButton);
 
 		soundPlayButton = Button.builder(Component.literal("Play"), b -> SoundPreviewPlayer.toggle())
@@ -587,6 +587,18 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 					previewPitch,
 					previewYaw
 			);
+			case CROSS -> VariantPreviewRenderer.extract(
+					graphics,
+					shape,
+					VariantPreviewRenderer.cross(preview.width(), preview.height()),
+					preview.textureId(),
+					innerX0,
+					innerY0,
+					innerX1,
+					innerY1,
+					previewPitch,
+					previewYaw
+			);
 			case ENTITY -> entityPreviewPart().ifPresent(part ->
 					VariantPreviewRenderer.extract(
 							graphics,
@@ -762,7 +774,16 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				}
 			}
 			if (opt.isEmpty()) {
-				opt = CatalogThumbnailCache.get(variantEntry.textureVariant.id(), variantEntry.textureVariant.assetPath());
+				boolean stripHood = ModConfig.get().hideVillagerHood()
+						&& selectedTarget != null
+						&& selectedTarget.resourcePath() != null
+						&& OverlayPackManager.isVillagerHoodTarget(
+								selectedTarget.resourcePath().replaceFirst("^minecraft:", ""));
+				opt = CatalogThumbnailCache.get(
+						variantEntry.textureVariant.id(),
+						variantEntry.textureVariant.assetPath(),
+						stripHood
+				);
 			}
 			return opt.map(cached -> new PreviewTexture(cached.textureId(), cached.width(), cached.height())).orElse(null);
 		}
@@ -793,7 +814,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 	private float defaultPitch(VariantPreviewRenderer.Shape shape) {
 		return switch (shape) {
-			case CUBE, ENTITY -> PREVIEW_DEFAULT_PITCH;
+			case CUBE, CROSS, ENTITY -> PREVIEW_DEFAULT_PITCH;
 			case PLANE, FLAT, NONE -> 0.0f;
 		};
 	}
@@ -814,13 +835,16 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private static boolean isThreeDimensional(VariantPreviewRenderer.Shape shape) {
 		return shape == VariantPreviewRenderer.Shape.CUBE
 				|| shape == VariantPreviewRenderer.Shape.PLANE
+				|| shape == VariantPreviewRenderer.Shape.CROSS
 				|| shape == VariantPreviewRenderer.Shape.ENTITY;
 	}
 
 	private boolean hoodApplies() {
-		return activeTab == Tab.ENTITIES
-				&& selectedTarget != null
-				&& selectedTarget.configKey().contains("/entity/villager/profession/");
+		if (activeTab != Tab.ENTITIES || selectedTarget == null || selectedTarget.resourcePath() == null) {
+			return false;
+		}
+		return OverlayPackManager.isVillagerHoodTarget(
+				selectedTarget.resourcePath().replaceFirst("^minecraft:", ""));
 	}
 
 	private void updateHoodButton() {

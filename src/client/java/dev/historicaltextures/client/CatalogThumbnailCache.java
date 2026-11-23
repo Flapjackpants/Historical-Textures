@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import dev.historicaltextures.HistoricalTextures;
 import dev.historicaltextures.catalog.CatalogResources;
 import dev.historicaltextures.catalog.LegacyModels;
+import dev.historicaltextures.pack.OverlayPackManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
@@ -25,10 +26,15 @@ public final class CatalogThumbnailCache {
 	}
 
 	public static Optional<CachedPreview> get(String variantId, String assetPath) {
+		return get(variantId, assetPath, false);
+	}
+
+	public static Optional<CachedPreview> get(String variantId, String assetPath, boolean stripVillagerHood) {
 		if (variantId == null || assetPath == null || assetPath.isBlank()) {
 			return Optional.empty();
 		}
-		CachedPreview cached = CACHE.get(variantId);
+		String cacheKey = stripVillagerHood ? "nohood:" + variantId : variantId;
+		CachedPreview cached = CACHE.get(cacheKey);
 		if (cached != null) {
 			return Optional.of(cached);
 		}
@@ -38,15 +44,21 @@ public final class CatalogThumbnailCache {
 				return Optional.empty();
 			}
 			NativeImage image = NativeImage.read(stream);
+			if (stripVillagerHood) {
+				OverlayPackManager.clearVillagerHood(image);
+			}
+			String idPath = stripVillagerHood
+					? "preview/nohood/" + sanitizeId(variantId)
+					: "preview/" + sanitizeId(variantId);
 			Identifier textureId = Identifier.fromNamespaceAndPath(
 					HistoricalTextures.MOD_ID,
-					"preview/" + sanitizeId(variantId)
+					idPath
 			);
 			DynamicTexture dynamicTexture = new DynamicTexture(textureId::toString, image);
 			Minecraft.getInstance().getTextureManager().register(textureId, dynamicTexture);
 			dynamicTexture.upload();
 			CachedPreview preview = new CachedPreview(textureId, image.getWidth(), image.getHeight());
-			CACHE.put(variantId, preview);
+			CACHE.put(cacheKey, preview);
 			return Optional.of(preview);
 		} catch (Exception exception) {
 			HistoricalTextures.LOGGER.warn("Failed to load catalog preview for {}", variantId, exception);
