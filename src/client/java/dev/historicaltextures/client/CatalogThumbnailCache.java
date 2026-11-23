@@ -7,6 +7,7 @@ import dev.historicaltextures.catalog.LegacyModels;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.Resource;
 
 import java.io.InputStream;
@@ -86,6 +87,58 @@ public final class CatalogThumbnailCache {
 		} catch (Exception exception) {
 			HistoricalTextures.LOGGER.debug("Failed to load vanilla preview for {}", resourcePath, exception);
 			return Optional.empty();
+		}
+	}
+
+	public static Optional<CachedPreview> getBuiltIn(String resourcePath) {
+		if (resourcePath == null || resourcePath.isBlank()) {
+			return Optional.empty();
+		}
+		String key = "builtin:" + resourcePath;
+		CachedPreview cached = CACHE.get(key);
+		if (cached != null) {
+			return Optional.of(cached);
+		}
+		try {
+			Identifier resourceId = Identifier.parse(resourcePath);
+			var supplier = Minecraft.getInstance().getVanillaPackResources().fullResources()
+					.getResource(PackType.CLIENT_RESOURCES, resourceId);
+			if (supplier == null) {
+				return Optional.empty();
+			}
+			NativeImage image;
+			try (InputStream stream = supplier.get()) {
+				if (stream == null) {
+					return Optional.empty();
+				}
+				image = NativeImage.read(stream);
+			}
+			Identifier textureId = Identifier.fromNamespaceAndPath(
+					HistoricalTextures.MOD_ID,
+					"preview/builtin/" + sanitizeId(resourcePath)
+			);
+			DynamicTexture dynamicTexture = new DynamicTexture(textureId::toString, image);
+			Minecraft.getInstance().getTextureManager().register(textureId, dynamicTexture);
+			dynamicTexture.upload();
+			CachedPreview preview = new CachedPreview(textureId, image.getWidth(), image.getHeight());
+			CACHE.put(key, preview);
+			return Optional.of(preview);
+		} catch (Exception exception) {
+			HistoricalTextures.LOGGER.debug("Failed to load built-in preview for {}", resourcePath, exception);
+			return Optional.empty();
+		}
+	}
+
+	public static boolean hasBuiltIn(String resourcePath) {
+		if (resourcePath == null || resourcePath.isBlank()) {
+			return false;
+		}
+		try {
+			Identifier resourceId = Identifier.parse(resourcePath);
+			return Minecraft.getInstance().getVanillaPackResources().fullResources()
+					.getResource(PackType.CLIENT_RESOURCES, resourceId) != null;
+		} catch (Exception exception) {
+			return false;
 		}
 	}
 

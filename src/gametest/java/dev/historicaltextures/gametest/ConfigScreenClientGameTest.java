@@ -24,6 +24,7 @@ import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.level.entity.EntityTypeTest;
@@ -318,7 +319,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 				String val = entry.getValue();
 				List<String> validIds = HistoricalCatalog.get().textureVariantsForTarget(key)
 						.stream().map(TextureVariant::id).toList();
-				if (validIds.contains(val)) {
+				if (validIds.contains(val) || HistoricalCatalog.CURRENT_VARIANT_ID.equals(val)) {
 					choiceSaved = true;
 					choiceDetails = "key=" + key + " value=" + val;
 					break;
@@ -428,6 +429,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 
 		runPreviewSteps(context, phase, failures, screenshots);
 		runHoodSteps(context, phase, failures, screenshots);
+		runCurrentVariantSteps(context, phase, failures, screenshots);
 
 		// 05j search_scroll_top
 		String stepScroll = phase + "_05j_search_scroll_top";
@@ -1433,6 +1435,108 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		context.waitTicks(2);
 		setSearch(context, "");
 		context.waitTicks(2);
+	}
+
+	private void runCurrentVariantSteps(
+			ClientGameTestContext context,
+			String phase,
+			List<String> failures,
+			List<Path> screenshots
+	) {
+		String stoneKey = "minecraft:textures/block/stone.png";
+
+		// current_entry_present: Blocks tab, stone target -> variant row 1 is "Current (...)"
+		String stepEntry = phase + "_current_entry_present";
+		boolean stoneSelected = selectDiagnosticTarget(context, stoneKey);
+		context.waitTicks(2);
+		List<AbstractSelectionList<?>> lists = getLists(context);
+		AbstractSelectionList<?> variants = lists.size() >= 2 ? lists.get(1) : null;
+		String row1 = variants != null && variants.children().size() > 1
+				? getRowNarration(variants, 1)
+				: "";
+		check(failures, stepEntry, "current_entry_present",
+				stoneSelected && row1.toLowerCase(Locale.ROOT).startsWith("current ("),
+				"selected=" + stoneSelected + " row1=" + row1);
+		recordScreenshot(context, stepEntry, screenshots);
+
+		// current_choice_saved: click the Current row -> choice "current", preview uses builtin texture
+		String stepSaved = phase + "_current_choice_saved";
+		int currentRow = findVariantRowIndex(context, 1, "current (");
+		if (currentRow < 0) {
+			currentRow = 1;
+		}
+		clickVariantRow(context, currentRow);
+		context.waitTicks(3);
+		String saved = context.computeOnClient(client -> ModConfig.get().getTextureChoice(stoneKey));
+		Object textureId = previewTextureId(context);
+		String textureIdString = String.valueOf(textureId);
+		check(failures, stepSaved, "current_choice_saved",
+				HistoricalCatalog.CURRENT_VARIANT_ID.equals(saved) && textureIdString.contains("builtin"),
+				"choice=" + saved + " texture=" + textureIdString);
+		recordScreenshot(context, stepSaved, screenshots);
+
+		// current_overlay_written: overlay stone.png equals the built-in resource bytes
+		String stepOverlay = phase + "_current_overlay";
+		Path overlayPng = OverlayPackManager.overlayDirectory()
+				.resolve("assets/minecraft/textures/block/stone.png");
+		try {
+			ModConfig.get().clearAll();
+			ModConfig.get().setTextureChoice(stoneKey, HistoricalCatalog.CURRENT_VARIANT_ID);
+			ModConfig.get().save();
+			generateOverlay(context);
+			byte[] expected = builtinResourceBytes(context, stoneKey);
+			byte[] actual = Files.isRegularFile(overlayPng) ? Files.readAllBytes(overlayPng) : null;
+			check(failures, stepOverlay, "current_overlay_written",
+					expected != null && actual != null && Arrays.equals(actual, expected),
+					"expected=" + (expected == null ? "null" : expected.length)
+							+ " actual=" + (actual == null ? "missing" : actual.length));
+		} catch (Exception exception) {
+			check(failures, stepOverlay, "current_overlay_written", false, "error=" + exception);
+		}
+
+		// current_mcmeta_copied: farmer profession -> current copies the vanilla .mcmeta too
+		String stepMcmeta = phase + "_current_mcmeta";
+		Path mcmeta = OverlayPackManager.overlayDirectory().resolve(
+				"assets/minecraft/textures/entity/villager/profession/farmer.png.mcmeta");
+		try {
+			ModConfig.get().clearAll();
+			ModConfig.get().setTextureChoice(VILLAGER_PROFESSION_KEY, HistoricalCatalog.CURRENT_VARIANT_ID);
+			ModConfig.get().save();
+			generateOverlay(context);
+			String content = Files.exists(mcmeta) ? Files.readString(mcmeta) : "";
+			check(failures, stepMcmeta, "current_mcmeta_copied",
+					content.contains("full"),
+					"exists=" + Files.exists(mcmeta) + " content=" + content.replace('\n', ' '));
+		} catch (Exception exception) {
+			check(failures, stepMcmeta, "current_mcmeta_copied", false, "error=" + exception);
+		}
+
+		// Restore config, overlay and filter for the resize step
+		ModConfig.get().clearAll();
+		ModConfig.get().setHideVillagerHood(true);
+		ModConfig.get().save();
+		generateOverlay(context);
+		setSearch(context, "");
+		context.waitTicks(2);
+	}
+
+	private byte[] builtinResourceBytes(ClientGameTestContext context, String resourcePath) {
+		Object result = context.computeOnClient(client -> {
+			try {
+				Identifier id = Identifier.parse(resourcePath);
+				var supplier = client.getVanillaPackResources().fullResources()
+						.getResource(PackType.CLIENT_RESOURCES, id);
+				if (supplier == null) {
+					return null;
+				}
+				try (InputStream input = supplier.get()) {
+					return input == null ? null : input.readAllBytes();
+				}
+			} catch (Exception exception) {
+				return null;
+			}
+		});
+		return result instanceof byte[] bytes ? bytes : null;
 	}
 
 	private void setSearch(ClientGameTestContext context, String value) {

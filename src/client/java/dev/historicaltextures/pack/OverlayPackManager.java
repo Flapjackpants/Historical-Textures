@@ -13,6 +13,8 @@ import dev.historicaltextures.catalog.SoundVariant;
 import dev.historicaltextures.catalog.TextureVariant;
 import dev.historicaltextures.config.ModConfig;
 import net.minecraft.client.Minecraft;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -142,6 +144,14 @@ public final class OverlayPackManager {
 		for (Map.Entry<String, String> entry : config.textureChoices().entrySet()) {
 			String target = entry.getKey();
 			String variantId = entry.getValue();
+			if (HistoricalCatalog.CURRENT_VARIANT_ID.equals(variantId)) {
+				if (copyBuiltInTexture(root, target)) {
+					texturesWritten++;
+				} else {
+					skipped++;
+				}
+				continue;
+			}
 			var optionalVariant = catalog.textureVariant(variantId);
 			if (optionalVariant.isEmpty()) {
 				HistoricalTextures.LOGGER.warn("Unknown texture variant id {} for target {}", variantId, target);
@@ -216,6 +226,52 @@ public final class OverlayPackManager {
 			}
 			return true;
 		}
+	}
+
+	private static boolean copyBuiltInTexture(Path root, String targetPath) throws IOException {
+		String relative = normalizeTargetPath(targetPath);
+		if (relative.isEmpty()) {
+			HistoricalTextures.LOGGER.warn("Invalid texture target path: {}", targetPath);
+			return false;
+		}
+		Identifier resourceId;
+		try {
+			resourceId = Identifier.parse(targetPath);
+		} catch (RuntimeException exception) {
+			HistoricalTextures.LOGGER.warn("Invalid built-in texture id {}", targetPath);
+			return false;
+		}
+		var resources = Minecraft.getInstance().getVanillaPackResources().fullResources();
+		var supplier = resources.getResource(PackType.CLIENT_RESOURCES, resourceId);
+		if (supplier == null) {
+			HistoricalTextures.LOGGER.warn("Missing built-in texture {} for target {}", resourceId, targetPath);
+			return false;
+		}
+		Path destination = root.resolve("assets/minecraft").resolve(relative);
+		Files.createDirectories(destination.getParent());
+		try (InputStream input = supplier.get()) {
+			if (input == null) {
+				HistoricalTextures.LOGGER.warn("Missing built-in texture stream {} for target {}", resourceId, targetPath);
+				return false;
+			}
+			Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING);
+		}
+		HistoricalTextures.LOGGER.debug("Wrote built-in overlay texture {}", destination.toAbsolutePath());
+		Identifier mcmetaId = Identifier.fromNamespaceAndPath(
+				resourceId.getNamespace(),
+				resourceId.getPath() + ".mcmeta"
+		);
+		var mcmetaSupplier = resources.getResource(PackType.CLIENT_RESOURCES, mcmetaId);
+		if (mcmetaSupplier != null) {
+			try (InputStream input = mcmetaSupplier.get()) {
+				if (input != null) {
+					Path mcmeta = destination.resolveSibling(destination.getFileName() + ".mcmeta");
+					Files.copy(input, mcmeta, StandardCopyOption.REPLACE_EXISTING);
+					HistoricalTextures.LOGGER.debug("Wrote built-in overlay mcmeta {}", mcmeta.toAbsolutePath());
+				}
+			}
+		}
+		return true;
 	}
 
 	private static void clearVillagerHoodPixels(Path png) throws IOException {

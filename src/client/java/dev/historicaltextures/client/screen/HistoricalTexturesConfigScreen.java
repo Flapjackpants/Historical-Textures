@@ -16,6 +16,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.SharedConstants;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -266,6 +267,15 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		List<VariantList.Entry> entries = new ArrayList<>();
 		List<TextureVariant> variants = HistoricalCatalog.get().textureVariantsForTarget(target.configKey());
 		entries.add(new VariantEntry(Component.literal("Vanilla (default)"), null, null, null, target.configKey()));
+		if (CatalogThumbnailCache.hasBuiltIn(target.resourcePath())) {
+			entries.add(new VariantEntry(
+					Component.literal("Current (" + SharedConstants.getCurrentVersion().name() + ")"),
+					Component.literal("Built-in texture"),
+					HistoricalCatalog.CURRENT_VARIANT_ID,
+					null,
+					target.configKey()
+			));
+		}
 		for (TextureVariant variant : variants) {
 			CatalogThumbnailCache.preload(variant.id(), variant.assetPath());
 			Component label = Component.literal(variant.versionLabel());
@@ -548,6 +558,13 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			}
 			return opt.map(cached -> new PreviewTexture(cached.textureId(), cached.width(), cached.height())).orElse(null);
 		}
+		if (variantEntry != null
+				&& HistoricalCatalog.CURRENT_VARIANT_ID.equals(variantEntry.variantId)
+				&& selectedTarget != null) {
+			Optional<CatalogThumbnailCache.CachedPreview> opt =
+					CatalogThumbnailCache.getBuiltIn(selectedTarget.resourcePath());
+			return opt.map(cached -> new PreviewTexture(cached.textureId(), cached.width(), cached.height())).orElse(null);
+		}
 		if (selectedTarget != null) {
 			Optional<CatalogThumbnailCache.CachedPreview> opt =
 					CatalogThumbnailCache.getVanilla(selectedTarget.resourcePath());
@@ -801,10 +818,11 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			int previewY = getContentYMiddle() - PREVIEW_SIZE / 2;
 			int textX = previewX;
 
-			if (textureVariant != null) {
+			if (textureVariant != null || HistoricalCatalog.CURRENT_VARIANT_ID.equals(variantId)) {
 				textX = previewX + PREVIEW_SIZE + 4;
-				Optional<CatalogThumbnailCache.CachedPreview> preview =
-						CatalogThumbnailCache.get(textureVariant.id(), textureVariant.assetPath());
+				Optional<CatalogThumbnailCache.CachedPreview> preview = textureVariant != null
+						? CatalogThumbnailCache.get(textureVariant.id(), textureVariant.assetPath())
+						: CatalogThumbnailCache.getBuiltIn(configKey);
 				if (preview.isPresent()) {
 					CatalogThumbnailCache.CachedPreview cached = preview.get();
 					float vMax = cached.height() > 0

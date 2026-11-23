@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class HistoricalCatalog {
+	public static final String CURRENT_VARIANT_ID = "current";
 	private static final Gson GSON = new GsonBuilder().create();
 	private static HistoricalCatalog instance;
 
