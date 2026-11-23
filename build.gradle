@@ -11,6 +11,7 @@ base {
 }
 
 repositories {
+	mavenCentral()
 	maven {
 		name = 'Terraformers'
 		url = 'https://maven.terraformersmc.com/'
@@ -42,6 +43,27 @@ dependencies {
 	compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 	runtimeOnly "maven.modrinth:entity-model-features:${project.emf_version}"
 	runtimeOnly "maven.modrinth:entitytexturefeatures:${project.etf_version}"
+
+	testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "historical_textures_gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+	}
+}
+
+tasks.named('check').configure {
+	dependsOn 'gametestClasses'
 }
 
 def catalogDir = layout.projectDirectory.dir('src/main/resources/assets/historical_textures/catalog')

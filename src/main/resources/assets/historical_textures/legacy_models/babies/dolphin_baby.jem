@@ -1,0 +1,265 @@
+{
+  "textureSize": [
+    64,
+    64
+  ],
+  "models": [
+    {
+      "part": "root",
+      "id": "root",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": [],
+      "submodels": [
+        {
+          "id": "legacy_body",
+          "invertAxis": "xy",
+          "translate": [
+            0.0,
+            -22.0,
+            -5.0
+          ],
+          "boxes": [
+            {
+              "coordinates": [
+                -4.0,
+                0.0,
+                0.0,
+                8.0,
+                7.0,
+                13.0
+              ],
+              "textureOffset": [
+                22,
+                0
+              ]
+            }
+          ],
+          "submodels": [
+            {
+              "id": "legacy_head",
+              "invertAxis": "xy",
+              "translate": [
+                0.0,
+                4.0,
+                -3.0
+              ],
+              "boxes": [
+                {
+                  "coordinates": [
+                    -4.0,
+                    -4.0,
+                    -3.0,
+                    8.0,
+                    7.0,
+                    6.0
+                  ],
+                  "textureOffset": [
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "submodels": [
+                {
+                  "id": "legacy_nose",
+                  "invertAxis": "xy",
+                  "translate": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "boxes": [
+                    {
+                      "coordinates": [
+                        -1.0,
+                        -4.0,
+                        -7.0,
+                        2.0,
+                        2.0,
+                        4.0
+                      ],
+                      "textureOffset": [
+                        0,
+                        13
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "legacy_left_fin",
+              "invertAxis": "xy",
+              "translate": [
+                -2.0,
+                2.0,
+                4.0
+              ],
+              "rotate": [
+                -60.000001669652114,
+                0.0,
+                120.00000333930423
+              ],
+              "mirrorTexture": "u",
+              "boxes": [
+                {
+                  "coordinates": [
+                    -0.5,
+                    0.0,
+                    0.0,
+                    1.0,
+                    4.0,
+                    7.0
+                  ],
+                  "textureOffset": [
+                    48,
+                    20
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "legacy_right_fin",
+              "invertAxis": "xy",
+              "translate": [
+                2.0,
+                2.0,
+                4.0
+              ],
+              "rotate": [
+                -60.000001669652114,
+                0.0,
+                -120.00000333930423
+              ],
+              "boxes": [
+                {
+                  "coordinates": [
+                    -0.5,
+                    0.0,
+                    0.0,
+                    1.0,
+                    4.0,
+                    7.0
+                  ],
+                  "textureOffset": [
+                    48,
+                    20
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "legacy_tail",
+              "invertAxis": "xy",
+              "translate": [
+                0.0,
+                2.5,
+                11.0
+              ],
+              "rotate": [
+                6.000000166965211,
+                0.0,
+                0.0
+              ],
+              "boxes": [
+                {
+                  "coordinates": [
+                    -2.0,
+                    -2.5,
+                    0.0,
+                    4.0,
+                    5.0,
+                    11.0
+                  ],
+                  "textureOffset": [
+                    0,
+                    19
+                  ]
+                }
+              ],
+              "submodels": [
+                {
+                  "id": "legacy_tail_fin",
+                  "invertAxis": "xy",
+                  "translate": [
+                    0.0,
+                    0.0,
+                    9.0
+                  ],
+                  "boxes": [
+                    {
+                      "coordinates": [
+                        -5.0,
+                        -0.5,
+                        0.0,
+                        10.0,
+                        1.0,
+                        6.0
+                      ],
+                      "textureOffset": [
+                        19,
+                        20
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "legacy_back_fin",
+              "invertAxis": "xy",
+              "translate": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotate": [
+                -60.000001669652114,
+                0.0,
+                0.0
+              ],
+              "boxes": [
+                {
+                  "coordinates": [
+                    -0.5,
+                    -4.0,
+                    8.0,
+                    1.0,
+                    4.0,
+                    5.0
+                  ],
+                  "textureOffset": [
+                    51,
+                    0
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "animations": [
+        {
+          "legacy_head.rx": "torad(head_pitch)",
+          "legacy_head.ry": "torad(head_yaw)"
+        }
+      ]
+    },
+    {
+      "part": "body",
+      "id": "body",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    }
+  ]
+}

@@ -1,0 +1,381 @@
+{
+  "textureSize": [
+    64,
+    32
+  ],
+  "models": [
+    {
+      "part": "root",
+      "id": "root",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": [],
+      "submodels": [
+        {
+          "id": "legacy_tentacle0",
+          "invertAxis": "xy",
+          "translate": [
+            -5.0,
+            -15.0,
+            0.0
+          ],
+          "rotate": [
+            0.0,
+            -90.00000250447816,
+            0.0
+          ],
+          "boxes": [
+            {
+              "coordinates": [
+                -1.0,
+                -18.0,
+                -1.0,
+                2.0,
+                18.0,
+                2.0
+              ],
+              "textureOffset": [
+                48,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy_tentacle1",
+          "invertAxis": "xy",
+          "translate": [
+            -3.535533905029297,
+            -15.0,
+            3.535533905029297
+          ],
+          "rotate": [
+            0.0,
+            -45.00000125223908,
+            0.0
+          ],
+          "boxes": [
+            {
+              "coordinates": [
+                -1.0,
+                -18.0,
+                -1.0,
+                2.0,
+                18.0,
+                2.0
+              ],
+              "textureOffset": [
+                48,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy_tentacle6",
+          "invertAxis": "xy",
+          "translate": [
+            9.184850467946473E-16,
+            -15.0,
+            -5.0
+          ],
+          "rotate": [
+            0.0,
+            180.00000500895632,
+            0.0
+          ],
+          "boxes": [
+            {
+              "coordinates": [
+                -1.0,
+                -18.0,
+                -1.0,
+                2.0,
+                18.0,
+                2.0
+              ],
+              "textureOffset": [
+                48,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy_tentacle7",
+          "invertAxis": "xy",
+          "translate": [
+            -3.535533905029297,
+            -15.0,
+            -3.535533905029297
+          ],
+          "rotate": [
+            0.0,
+            224.99999601591165,
+            0.0
+          ],
+          "boxes": [
+            {
+              "coordinates": [
+                -1.0,
+                -18.0,
+                -1.0,
+                2.0,
+                18.0,
+                2.0
+              ],
+              "textureOffset": [
+                48,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy_body",
+          "invertAxis": "xy",
+          "translate": [
+            0.0,
+            -8.0,
+            0.0
+          ],
+          "boxes": [
+            {
+              "coordinates": [
+                -6.0,
+                -8.0,
+                -6.0,
+                12.0,
+                16.0,
+                12.0
+              ],
+              "textureOffset": [
+                0,
+                0
+              ],
+              "sizeAdd": 0.02
+            }
+          ]
+        },
+        {
+          "id": "legacy_tentacle4",
+          "invertAxis": "xy",
+          "translate": [
+            5.0,
+            -15.0,
+            6.123233998228043E-16
+          ],
+          "rotate": [
+            0.0,
+            90.00000250447816,
+            0.0
+          ],
+          "boxes": [
+            {
+              "coordinates": [
+                -1.0,
+                -18.0,
+                -1.0,
+                2.0,
+                18.0,
+                2.0
+              ],
+              "textureOffset": [
+                48,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy_tentacle5",
+          "invertAxis": "xy",
+          "translate": [
+            3.535533905029297,
+            -15.0,
+            -3.535533905029297
+          ],
+          "rotate": [
+            0.0,
+            135.00000034162267,
+            0.0
+          ],
+          "boxes": [
+            {
+              "coordinates": [
+                -1.0,
+                -18.0,
+                -1.0,
+                2.0,
+                18.0,
+                2.0
+              ],
+              "textureOffset": [
+                48,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy_tentacle2",
+          "invertAxis": "xy",
+          "translate": [
+            -3.0616169991140216E-16,
+            -15.0,
+            5.0
+          ],
+          "boxes": [
+            {
+              "coordinates": [
+                -1.0,
+                -18.0,
+                -1.0,
+                2.0,
+                18.0,
+                2.0
+              ],
+              "textureOffset": [
+                48,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy_tentacle3",
+          "invertAxis": "xy",
+          "translate": [
+            3.535533905029297,
+            -15.0,
+            3.535533905029297
+          ],
+          "rotate": [
+            0.0,
+            45.00000125223908,
+            0.0
+          ],
+          "boxes": [
+            {
+              "coordinates": [
+                -1.0,
+                -18.0,
+                -1.0,
+                2.0,
+                18.0,
+                2.0
+              ],
+              "textureOffset": [
+                48,
+                0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "part": "body",
+      "id": "body",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    },
+    {
+      "part": "tentacle0",
+      "id": "tentacle0",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    },
+    {
+      "part": "tentacle1",
+      "id": "tentacle1",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    },
+    {
+      "part": "tentacle2",
+      "id": "tentacle2",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    },
+    {
+      "part": "tentacle3",
+      "id": "tentacle3",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    },
+    {
+      "part": "tentacle4",
+      "id": "tentacle4",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    },
+    {
+      "part": "tentacle5",
+      "id": "tentacle5",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    },
+    {
+      "part": "tentacle6",
+      "id": "tentacle6",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    },
+    {
+      "part": "tentacle7",
+      "id": "tentacle7",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    }
+  ]
+}

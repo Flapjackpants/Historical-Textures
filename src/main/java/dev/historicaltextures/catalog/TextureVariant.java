@@ -17,21 +17,7 @@ public record TextureVariant(
 		String displayVersion
 ) {
 	public String versionLabel() {
-		if (javaVersion != null && !javaVersion.isBlank()) {
-			if (bedrockVersion != null && !bedrockVersion.isBlank()) {
-				return javaVersion + " / " + bedrockVersion;
-			}
-			return javaVersion;
-		}
-		if (bedrockVersion != null && !bedrockVersion.isBlank()) {
-			return bedrockVersion;
-		}
-		if (displayVersion != null && !displayVersion.isBlank()) {
-			return displayVersion;
-		}
-		if (textureTags != null && !textureTags.isEmpty()) {
-			return String.join(" / ", textureTags);
-		}
-		return label;
+		return SoundVariant.versionLabel(javaVersion, bedrockVersion, displayVersion,
+				textureTags != null && !textureTags.isEmpty() ? String.join(" / ", textureTags) : label);
 	}
 }

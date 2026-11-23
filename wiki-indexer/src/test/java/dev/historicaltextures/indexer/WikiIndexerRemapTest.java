@@ -47,7 +47,7 @@ class WikiIndexerRemapTest {
 		existing.add("soundVariants", new JsonArray());
 		Files.writeString(outputRoot.resolve("catalog.json"), existing.toString());
 
-		new WikiIndexer(outputRoot, false, false, true, cacheDir, "26.3").run();
+		new WikiIndexer(outputRoot, false, false, true, false, cacheDir, "26.3").run();
 
 		JsonObject written = JsonParser
 				.parseString(Files.readString(outputRoot.resolve("catalog.json")))
@@ -87,7 +87,7 @@ class WikiIndexerRemapTest {
 		existing.add("soundVariants", new JsonArray());
 		Files.writeString(outputRoot.resolve("catalog.json"), existing.toString());
 
-		new WikiIndexer(outputRoot, false, false, true, cacheDir, "26.3").run();
+		new WikiIndexer(outputRoot, false, false, true, false, cacheDir, "26.3").run();
 
 		JsonObject written = JsonParser
 				.parseString(Files.readString(outputRoot.resolve("catalog.json")))

@@ -12,6 +12,10 @@ public final class GamePaths {
 		return FabricLoader.getInstance().getConfigDir().resolve("historical_textures.json");
 	}
 
+	public static Path presetsFile() {
+		return FabricLoader.getInstance().getConfigDir().resolve("historical_textures_presets.json");
+	}
+
 	public static Path overlayDirectory() {
 		return FabricLoader.getInstance().getConfigDir().resolve("historical_textures").resolve("overlay");
 	}
