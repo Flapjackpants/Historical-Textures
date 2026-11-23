@@ -1,9 +1,14 @@
 package dev.historicaltextures.gametest;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.historicaltextures.HistoricalTextures;
 import dev.historicaltextures.catalog.HistoricalCatalog;
+import dev.historicaltextures.catalog.LegacyBabies;
 import dev.historicaltextures.catalog.LegacyModels;
 import dev.historicaltextures.catalog.TextureTarget;
 import dev.historicaltextures.catalog.TextureTargetKind;
@@ -16,6 +21,7 @@ import dev.historicaltextures.client.screen.HistoricalTexturesConfigScreen;
 import dev.historicaltextures.config.ModConfig;
 import dev.historicaltextures.config.Preset;
 import dev.historicaltextures.config.PresetStore;
+import dev.historicaltextures.pack.LegacyBabyResolver;
 import dev.historicaltextures.pack.OverlayPackManager;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -436,6 +442,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		runCurrentVariantSteps(context, phase, failures, screenshots);
 		runPresetSteps(context, phase, failures, screenshots);
 		runAutoApplySteps(context, phase, failures, screenshots);
+		runBabySteps(context, phase, failures, screenshots);
 		runCakeGroupSteps(context, phase, failures, screenshots);
 		runSoundSteps(context, phase, failures, screenshots);
 
@@ -1786,6 +1793,229 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		generateOverlay(context);
 		setSearch(context, "");
 		context.waitTicks(2);
+	}
+
+	private void runBabySteps(
+			ClientGameTestContext context,
+			String phase,
+			List<String> failures,
+			List<Path> screenshots
+	) {
+		String step = phase + "_baby";
+		String cowAdultKey = "minecraft:textures/entity/cow/cow_temperate.png";
+		String cowAdultVariant = "cow_texture_je1_png";
+
+		clickButton(context, "Entities");
+		context.waitTicks(3);
+		setSearch(context, "baby cow");
+		context.waitTicks(2);
+
+		int babyListedRow = context.computeOnClient(client -> {
+			List<AbstractSelectionList<?>> lists = selectionLists(client);
+			if (lists.isEmpty()) {
+				return -1;
+			}
+			AbstractSelectionList<?> targets = lists.get(0);
+			for (int index = 0; index < targets.children().size(); index++) {
+				if (getRowNarration(targets, index).toLowerCase(Locale.ROOT).startsWith("baby cow")) {
+					return index;
+				}
+			}
+			return -1;
+		});
+		check(failures, step, "baby_target_listed", babyListedRow >= 0, "row=" + babyListedRow);
+
+		setSearch(context, "baby cow (temperate)");
+		context.waitTicks(2);
+		int babyRow = context.computeOnClient(client -> {
+			List<AbstractSelectionList<?>> lists = selectionLists(client);
+			if (lists.isEmpty()) {
+				return -1;
+			}
+			AbstractSelectionList<?> targets = lists.get(0);
+			for (int index = 0; index < targets.children().size(); index++) {
+				if ("Baby Cow (Temperate)".equalsIgnoreCase(getRowNarration(targets, index))) {
+					return index;
+				}
+			}
+			return -1;
+		});
+		check(failures, step, "baby_cow_target", babyRow >= 0, "row=" + babyRow);
+		if (babyRow < 0) {
+			clickButton(context, "Blocks");
+			setSearch(context, "");
+			return;
+		}
+		clickTargetRow(context, failures, babyRow, step, "baby_target_click");
+		context.waitTicks(2);
+
+		List<AbstractSelectionList<?>> variantLists = getLists(context);
+		AbstractSelectionList<?> babyVariants = variantLists.size() >= 2 ? variantLists.get(1) : null;
+		int babyVariantCount = babyVariants != null ? babyVariants.children().size() : 0;
+		String babyVariant0 = babyVariantCount > 0 ? getRowNarration(babyVariants, 0) : "";
+		String babyVariant1 = babyVariantCount > 1 ? getRowNarration(babyVariants, 1) : "";
+		check(failures, step, "baby_variants",
+				babyVariantCount == 2
+						&& "Vanilla (default)".equals(babyVariant0)
+						&& "Before baby update".equals(babyVariant1),
+				"count=" + babyVariantCount + " v0=" + babyVariant0 + " v1=" + babyVariant1);
+
+		clickVariantRow(context, 1);
+		context.waitTicks(3);
+		String babyShape = effectivePreviewShapeName(context);
+		boolean babyModelResolves = babyLegacyModelPresent(context);
+		check(failures, step, "baby_preview_entity",
+				"ENTITY".equals(babyShape) && babyModelResolves,
+				"shape=" + babyShape + " model=" + babyModelResolves);
+		recordScreenshot(context, step + "_preview", screenshots);
+
+		clickButton(context, "Done");
+		waitForPresetApply(context);
+		Path babyPng = OverlayPackManager.overlayDirectory()
+				.resolve("assets/minecraft/textures/entity/cow/cow_temperate_baby.png");
+		Path babyJemPath = OverlayPackManager.overlayDirectory()
+				.resolve("assets/minecraft/optifine/cem/cow_baby.jem");
+		boolean staticOverlay = context.computeOnClient(client -> {
+			try {
+				if (!Files.exists(babyPng) || !Files.exists(babyJemPath)) {
+					return false;
+				}
+				JsonObject root = JsonParser.parseString(Files.readString(babyJemPath)).getAsJsonObject();
+				JsonArray models = root.getAsJsonArray("models");
+				if (models == null) {
+					return false;
+				}
+				for (JsonElement element : models) {
+					JsonObject model = element.getAsJsonObject();
+					if (model.has("part") && "root".equals(model.get("part").getAsString())) {
+						return true;
+					}
+				}
+				return false;
+			} catch (Exception exception) {
+				return false;
+			}
+		});
+		check(failures, step, "baby_overlay_static", staticOverlay,
+				"png=" + Files.exists(babyPng) + " jem=" + Files.exists(babyJemPath));
+
+		// reopen, pick a legacy adult cow variant, apply again
+		context.runOnClient(client -> client.setScreenAndShow(new HistoricalTexturesConfigScreen(null)));
+		context.waitTicks(5);
+		context.runOnClient(client -> {
+			ModConfig.get().setTextureChoice(cowAdultKey, cowAdultVariant);
+			ModConfig.get().save();
+		});
+		clickButton(context, "Done");
+		waitForPresetApply(context);
+
+		boolean followsAdult = context.computeOnClient(client -> {
+			try {
+				JsonObject root = JsonParser.parseString(Files.readString(babyJemPath)).getAsJsonObject();
+				JsonArray models = root.getAsJsonArray("models");
+				if (models == null) {
+					return false;
+				}
+				JsonArray headTranslate = null;
+				for (JsonElement element : models) {
+					JsonObject model = element.getAsJsonObject();
+					if (model.has("part") && "root".equals(model.get("part").getAsString())) {
+						return false;
+					}
+					String id = model.has("id") ? model.get("id").getAsString()
+							: model.has("part") ? model.get("part").getAsString() : "";
+					if ("head".equals(id) && model.has("translate")) {
+						headTranslate = model.getAsJsonArray("translate");
+					}
+				}
+				if (headTranslate == null || headTranslate.size() < 3) {
+					return false;
+				}
+				return Math.abs(headTranslate.get(0).getAsFloat()) < 0.001f
+						&& Math.abs(headTranslate.get(1).getAsFloat() + 12.0f) < 0.001f
+						&& Math.abs(headTranslate.get(2).getAsFloat() - 2.0f) < 0.001f;
+			} catch (Exception exception) {
+				return false;
+			}
+		});
+		boolean pngMatches = context.computeOnClient(client -> {
+			try {
+				TextureVariant variant = HistoricalCatalog.get().textureVariant(cowAdultVariant).orElse(null);
+				if (variant == null || !Files.exists(babyPng)) {
+					return false;
+				}
+				byte[] expected;
+				try (InputStream input = HistoricalCatalog.get().openAsset(variant.assetPath())) {
+					if (input == null) {
+						return false;
+					}
+					expected = input.readAllBytes();
+				}
+				return Arrays.equals(expected, Files.readAllBytes(babyPng));
+			} catch (Exception exception) {
+				return false;
+			}
+		});
+		check(failures, step, "baby_overlay_follows_legacy_adult",
+				followsAdult && pngMatches,
+				"jem=" + followsAdult + " png=" + pngMatches);
+
+		// restore clean state for the remaining steps
+		context.runOnClient(client -> client.setScreenAndShow(new HistoricalTexturesConfigScreen(null)));
+		context.waitTicks(5);
+		context.runOnClient(client -> {
+			ModConfig.get().clearAll();
+			ModConfig.get().save();
+		});
+		generateOverlay(context);
+		setSearch(context, "");
+		context.waitTicks(2);
+	}
+
+	private boolean babyLegacyModelPresent(ClientGameTestContext context) {
+		Object result = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return false;
+			}
+			try {
+				Object target = screenFieldValue(screen, "selectedTarget");
+				Object list = screenFieldValue(screen, "variantList");
+				if (target == null || !(list instanceof AbstractSelectionList<?> selection)) {
+					return false;
+				}
+				Object selected = selection.getSelected();
+				if (selected == null) {
+					return false;
+				}
+				Object variantId = screenFieldValue(selected, "variantId");
+				if (!LegacyBabies.VARIANT_ID.equals(variantId)) {
+					return false;
+				}
+				Object resourcePath = screenFieldValue(target, "resourcePath");
+				if (!(resourcePath instanceof String babyTexture)) {
+					return false;
+				}
+				Optional<LegacyBabies.Entry> entry = LegacyBabies.forBabyTexture(babyTexture);
+				if (entry.isEmpty()) {
+					return false;
+				}
+				Optional<JsonObject> jem =
+						LegacyBabyResolver.babyJem(entry.get(), ModConfig.get());
+				if (jem.isEmpty()) {
+					return false;
+				}
+				String cacheKey = entry.get().emfModel() + "|vanilla";
+				Class<?> renderer = Class.forName("dev.historicaltextures.client.screen.VariantPreviewRenderer");
+				var method = renderer.getDeclaredMethod("legacyBabyModel", String.class, JsonObject.class);
+				method.setAccessible(true);
+				Object optional = method.invoke(null, cacheKey, jem.get());
+				return optional instanceof Optional<?> opt && opt.isPresent();
+			} catch (ReflectiveOperationException exception) {
+				return false;
+			}
+		});
+		return Boolean.TRUE.equals(result);
 	}
 
 	private void runCakeGroupSteps(

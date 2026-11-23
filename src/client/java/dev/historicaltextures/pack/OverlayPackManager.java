@@ -8,6 +8,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import dev.historicaltextures.GamePaths;
 import dev.historicaltextures.HistoricalTextures;
 import dev.historicaltextures.catalog.HistoricalCatalog;
+import dev.historicaltextures.catalog.LegacyBabies;
 import dev.historicaltextures.catalog.LegacyModels;
 import dev.historicaltextures.catalog.LegacyTextureFixes;
 import dev.historicaltextures.catalog.SoundVariant;
@@ -147,6 +148,17 @@ public final class OverlayPackManager {
 			String variantId = entry.getValue();
 			if (HistoricalCatalog.CURRENT_VARIANT_ID.equals(variantId)) {
 				if (copyBuiltInTexture(root, target)) {
+					texturesWritten++;
+				} else {
+					skipped++;
+				}
+				continue;
+			}
+			if (LegacyBabies.VARIANT_ID.equals(variantId)) {
+				boolean written = LegacyBabies.forBabyTexture(target)
+						.map(baby -> LegacyBabyResolver.write(root, baby))
+						.orElse(false);
+				if (written) {
 					texturesWritten++;
 				} else {
 					skipped++;

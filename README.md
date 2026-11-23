@@ -19,6 +19,8 @@ Fabric mod for **Minecraft 26.3+** that lets you pick historical textures and so
 3. Choose a tab (Blocks, Items, Entities, Sounds), pick a target, then select a historical variant.
 4. Close the screen (Done or Esc); changes apply and resources reload automatically.
 
+Baby mobs appear on the Entities tab as targets like **Baby Cow (Temperate)**. Their **Before baby update** variant restores the pre-26.1 baby model and reuses whichever texture you picked for the adult mob.
+
 Selections are stored in `config/historical_textures.json`. Generated pack files live in `config/historical_textures/overlay/`.
 
 ## Building

@@ -1,8 +1,10 @@
 package dev.historicaltextures.client.screen;
 
+import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.historicaltextures.catalog.ClientCatalogLoader;
 import dev.historicaltextures.catalog.HistoricalCatalog;
+import dev.historicaltextures.catalog.LegacyBabies;
 import dev.historicaltextures.catalog.SoundVariant;
 import dev.historicaltextures.catalog.TextureTarget;
 import dev.historicaltextures.catalog.TextureTargetRegistry;
@@ -12,6 +14,7 @@ import dev.historicaltextures.client.SoundPreviewPlayer;
 import dev.historicaltextures.config.ModConfig;
 import dev.historicaltextures.config.Preset;
 import dev.historicaltextures.config.TextureGroups;
+import dev.historicaltextures.pack.LegacyBabyResolver;
 import dev.historicaltextures.pack.OverlayPackManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -29,6 +32,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -285,6 +289,9 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 	private List<VariantList.Entry> buildTextureVariantEntries(TextureTarget target) {
 		List<VariantList.Entry> entries = new ArrayList<>();
+		if (TextureTargetRegistry.isBabyTarget(target)) {
+			return buildBabyVariantEntries(target);
+		}
 		if (target.isGroup()) {
 			return buildGroupVariantEntries(target);
 		}
@@ -310,6 +317,34 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		} else {
 			emptyVariantHint = null;
 		}
+		return entries;
+	}
+
+	private List<VariantList.Entry> buildBabyVariantEntries(TextureTarget target) {
+		List<VariantList.Entry> entries = new ArrayList<>();
+		entries.add(new VariantEntry(
+				Component.literal("Vanilla (default)"),
+				null,
+				null,
+				null,
+				target.configKey(),
+				Map.of(),
+				target.members()
+		));
+		Map<String, String> legacyChoices = new LinkedHashMap<>();
+		for (String member : target.members()) {
+			legacyChoices.put(member, LegacyBabies.VARIANT_ID);
+		}
+		entries.add(new VariantEntry(
+				Component.literal("Before baby update"),
+				Component.literal("Pre-26.1 model, uses the adult texture"),
+				LegacyBabies.VARIANT_ID,
+				null,
+				target.configKey(),
+				legacyChoices,
+				target.members()
+		));
+		emptyVariantHint = null;
 		return entries;
 	}
 
@@ -733,11 +768,17 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		if (activeTab == Tab.SOUNDS) {
 			return VariantPreviewRenderer.Shape.NONE;
 		}
+		if (selectedBabyEntry().isPresent()) {
+			return VariantPreviewRenderer.Shape.ENTITY;
+		}
 		return VariantPreviewRenderer.shapeFor(selectedTarget);
 	}
 
 	private VariantPreviewRenderer.Shape effectivePreviewShape(PreviewTexture preview) {
 		VariantPreviewRenderer.Shape shape = previewShape();
+		if (selectedBabyEntry().isPresent()) {
+			return shape;
+		}
 		if (shape != VariantPreviewRenderer.Shape.ENTITY || preview == null || selectedTarget == null) {
 			return shape;
 		}
@@ -760,6 +801,16 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private Optional<net.minecraft.client.model.geom.ModelPart> entityPreviewPart() {
+		Optional<LegacyBabies.Entry> babyEntry = selectedBabyEntry();
+		if (babyEntry.isPresent()) {
+			String cacheKey = babyCacheKey(babyEntry.get());
+			Optional<JsonObject> jem = LegacyBabyResolver.babyJem(babyEntry.get(), ModConfig.get());
+			Optional<net.minecraft.client.model.geom.ModelPart> babyModel =
+					jem.flatMap(jemJson -> VariantPreviewRenderer.legacyBabyModel(cacheKey, jemJson));
+			if (babyModel.isPresent()) {
+				return babyModel;
+			}
+		}
 		VariantEntry entry = selectedVariantEntry();
 		if (entry != null && entry.textureVariant != null && selectedTarget != null) {
 			Optional<net.minecraft.client.model.geom.ModelPart> legacy =
@@ -774,6 +825,22 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private VariantEntry selectedVariantEntry() {
 		VariantList.Entry selected = variantList != null ? variantList.getSelected() : null;
 		return selected instanceof VariantEntry variantEntry ? variantEntry : null;
+	}
+
+	private Optional<LegacyBabies.Entry> selectedBabyEntry() {
+		if (selectedTarget == null || !TextureTargetRegistry.isBabyTarget(selectedTarget)) {
+			return Optional.empty();
+		}
+		VariantEntry entry = selectedVariantEntry();
+		if (entry == null || !LegacyBabies.VARIANT_ID.equals(entry.variantId)) {
+			return Optional.empty();
+		}
+		return LegacyBabies.forBabyTexture(selectedTarget.resourcePath());
+	}
+
+	private static String babyCacheKey(LegacyBabies.Entry entry) {
+		String choice = ModConfig.get().getTextureChoice(entry.adultTexture());
+		return entry.emfModel() + "|" + (choice != null ? choice : "vanilla");
 	}
 
 	private PreviewTexture currentPreviewTexture() {
@@ -806,6 +873,14 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				&& selectedTarget != null) {
 			Optional<CatalogThumbnailCache.CachedPreview> opt =
 					CatalogThumbnailCache.getBuiltIn(selectedTarget.resourcePath());
+			return opt.map(cached -> new PreviewTexture(cached.textureId(), cached.width(), cached.height())).orElse(null);
+		}
+		Optional<LegacyBabies.Entry> babyEntry = selectedBabyEntry();
+		if (babyEntry.isPresent()) {
+			String cacheKey = babyCacheKey(babyEntry.get());
+			Optional<CatalogThumbnailCache.CachedPreview> opt = LegacyBabyResolver
+					.adultTextureBytes(babyEntry.get(), ModConfig.get())
+					.flatMap(bytes -> CatalogThumbnailCache.getBytes(cacheKey, bytes));
 			return opt.map(cached -> new PreviewTexture(cached.textureId(), cached.width(), cached.height())).orElse(null);
 		}
 		if (selectedTarget != null) {

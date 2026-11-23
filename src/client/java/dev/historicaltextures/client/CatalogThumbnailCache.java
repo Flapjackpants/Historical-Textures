@@ -11,6 +11,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.Resource;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -181,6 +182,32 @@ public final class CatalogThumbnailCache {
 			return Optional.of(preview);
 		} catch (Exception exception) {
 			HistoricalTextures.LOGGER.debug("Failed to load legacy preview for {}", source, exception);
+			return Optional.empty();
+		}
+	}
+
+	public static Optional<CachedPreview> getBytes(String key, byte[] png) {
+		if (key == null || png == null || png.length == 0) {
+			return Optional.empty();
+		}
+		CachedPreview cached = CACHE.get(key);
+		if (cached != null) {
+			return Optional.of(cached);
+		}
+		try {
+			NativeImage image = NativeImage.read(new ByteArrayInputStream(png));
+			Identifier textureId = Identifier.fromNamespaceAndPath(
+					HistoricalTextures.MOD_ID,
+					"preview/bytes/" + sanitizeId(key)
+			);
+			DynamicTexture dynamicTexture = new DynamicTexture(textureId::toString, image);
+			Minecraft.getInstance().getTextureManager().register(textureId, dynamicTexture);
+			dynamicTexture.upload();
+			CachedPreview preview = new CachedPreview(textureId, image.getWidth(), image.getHeight());
+			CACHE.put(key, preview);
+			return Optional.of(preview);
+		} catch (Exception exception) {
+			HistoricalTextures.LOGGER.warn("Failed to load byte preview for {}", key, exception);
 			return Optional.empty();
 		}
 	}

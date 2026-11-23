@@ -218,7 +218,48 @@ public final class TextureTargetRegistry {
 		Map<String, TextureTarget> byPath = new LinkedHashMap<>();
 		addCatalogTargets(byPath, TextureTargetKind.ENTITY, "textures/entity/");
 		enumerateEntities(byPath);
+		addBabyTargets(byPath);
 		return sorted(byPath);
+	}
+
+	private static void addBabyTargets(Map<String, TextureTarget> byPath) {
+		Map<String, List<LegacyBabies.Entry>> byModel = new LinkedHashMap<>();
+		for (LegacyBabies.Entry entry : LegacyBabies.entries()) {
+			byModel.computeIfAbsent(entry.emfModel(), key -> new ArrayList<>()).add(entry);
+		}
+		for (Map.Entry<String, List<LegacyBabies.Entry>> group : byModel.entrySet()) {
+			List<LegacyBabies.Entry> members = group.getValue();
+			List<String> paths = new ArrayList<>(members.size());
+			for (LegacyBabies.Entry entry : members) {
+				paths.add(entry.babyTexture());
+			}
+			String firstLabel = members.get(0).label();
+			String label = members.size() == 1 || !firstLabel.contains(" (")
+					? firstLabel
+					: firstLabel.substring(0, firstLabel.indexOf(" ("));
+			TextureTarget target = new TextureTarget(
+					paths.get(0),
+					Identifier.fromNamespaceAndPath(HistoricalTextures.MOD_ID, "baby/" + group.getKey()),
+					TextureTargetKind.ENTITY,
+					label,
+					paths
+			);
+			byPath.put(target.configKey(), target);
+		}
+	}
+
+	public static boolean isBabyTarget(TextureTarget target) {
+		Identifier registryId = target == null ? null : target.registryId();
+		return registryId != null
+				&& HistoricalTextures.MOD_ID.equals(registryId.getNamespace())
+				&& registryId.getPath().startsWith("baby/");
+	}
+
+	public static String babyModel(TextureTarget target) {
+		if (!isBabyTarget(target)) {
+			return null;
+		}
+		return target.registryId().getPath().substring("baby/".length());
 	}
 
 	private static List<TextureTarget> buildOtherTargets() {

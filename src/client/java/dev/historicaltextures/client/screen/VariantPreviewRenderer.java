@@ -68,6 +68,7 @@ final class VariantPreviewRenderer {
 	private static final Map<String, Shape> BLOCK_SHAPES = new HashMap<>();
 	private static final Map<ModelPart, Bounds> BOUNDS = new IdentityHashMap<>();
 	private static final Map<String, Optional<ModelPart>> LEGACY_MODELS = new HashMap<>();
+	private static final Map<String, Optional<ModelPart>> LEGACY_BABY_MODELS = new HashMap<>();
 	private static boolean layersScanned;
 
 	private VariantPreviewRenderer() {
@@ -214,9 +215,32 @@ final class VariantPreviewRenderer {
 		return Optional.empty();
 	}
 
+	static Optional<ModelPart> legacyBabyModel(String cacheKey, JsonObject jem) {
+		if (cacheKey == null || jem == null) {
+			return Optional.empty();
+		}
+		Optional<ModelPart> cached = LEGACY_BABY_MODELS.get(cacheKey);
+		if (cached != null) {
+			return cached;
+		}
+		Optional<ModelPart> parsed;
+		try {
+			parsed = Optional.of(parseLegacyModel(jem));
+		} catch (Exception exception) {
+			HistoricalTextures.LOGGER.warn("Failed to parse legacy baby model {}", cacheKey, exception);
+			parsed = Optional.empty();
+		}
+		LEGACY_BABY_MODELS.put(cacheKey, parsed);
+		return parsed;
+	}
+
 	private static ModelPart parseLegacyModel(InputStream stream) throws IOException {
 		JsonObject root = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8))
 				.getAsJsonObject();
+		return parseLegacyModel(root);
+	}
+
+	static ModelPart parseLegacyModel(JsonObject root) {
 		JsonArray textureSize = root.getAsJsonArray("textureSize");
 		int texW = textureSize != null && textureSize.size() > 0 ? textureSize.get(0).getAsInt() : 64;
 		int texH = textureSize != null && textureSize.size() > 1 ? textureSize.get(1).getAsInt() : 32;
@@ -331,7 +355,9 @@ final class VariantPreviewRenderer {
 			JsonArray textureOffset = box.getAsJsonArray("textureOffset");
 			int u = textureOffset != null && textureOffset.size() > 0 ? textureOffset.get(0).getAsInt() : 0;
 			int v = textureOffset != null && textureOffset.size() > 1 ? textureOffset.get(1).getAsInt() : 0;
-			float sizeAdd = box.has("sizeAdd") ? box.get("sizeAdd").getAsFloat() : 0.0f;
+			float sizeAddX = box.has("sizeAddX") ? box.get("sizeAddX").getAsFloat() : sizeAdd(box, "sizeAdd");
+			float sizeAddY = box.has("sizeAddY") ? box.get("sizeAddY").getAsFloat() : sizeAdd(box, "sizeAdd");
+			float sizeAddZ = box.has("sizeAddZ") ? box.get("sizeAddZ").getAsFloat() : sizeAdd(box, "sizeAdd");
 			float w = coordinates[3];
 			float h = coordinates[4];
 			float d = coordinates[5];
@@ -342,10 +368,14 @@ final class VariantPreviewRenderer {
 					w,
 					h,
 					d,
-					new CubeDeformation(sizeAdd)
+					new CubeDeformation(sizeAddX, sizeAddY, sizeAddZ)
 			);
 		}
 		return cubes;
+	}
+
+	private static float sizeAdd(JsonObject box, String key) {
+		return box.has(key) ? box.get(key).getAsFloat() : 0.0f;
 	}
 
 	private static float[] floats(JsonArray array, int count) {
