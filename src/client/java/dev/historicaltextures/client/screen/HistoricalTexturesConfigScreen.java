@@ -438,6 +438,10 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 	private void applyChanges() {
 		ModConfig.get().save();
+		applyAndReport(minecraft);
+	}
+
+	static void applyAndReport(Minecraft minecraft) {
 		OverlayPackManager.ApplyResult result = OverlayPackManager.applyChoices(true);
 		if (minecraft.player != null) {
 			if (result.hadChoices() && result.texturesWritten() == 0 && result.soundsWritten() == 0) {

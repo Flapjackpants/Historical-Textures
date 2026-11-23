@@ -17,6 +17,7 @@ import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public final class PresetsScreen extends Screen {
 	private static final int TEXT_WHITE = 0xFFFFFFFF;
@@ -27,8 +28,11 @@ public final class PresetsScreen extends Screen {
 	private final Screen parent;
 	private List<Preset> builtIns = List.of();
 	private PresetList presetList;
-	private Button loadButton;
+	private PresetContentsList contentsList;
+	private Button applyButton;
+	private Button overwriteButton;
 	private Button deleteButton;
+	private String selectedPresetName;
 
 	public PresetsScreen(Screen parent) {
 		super(Component.literal("Presets"));
@@ -40,21 +44,71 @@ public final class PresetsScreen extends Screen {
 		builtIns = BuiltInPresets.create(HistoricalCatalog.get());
 
 		int listTop = 28;
-		int listBottom = height - 64;
-		presetList = new PresetList(minecraft, width - 16, listBottom - listTop, listTop, ENTRY_HEIGHT);
+		int listBottom = height - 40;
+		int listHeight = listBottom - listTop;
+		int listWidth = (width - 24) * 2 / 5;
+		presetList = new PresetList(minecraft, listWidth, listHeight, listTop, ENTRY_HEIGHT);
 		presetList.setX(8);
-		rebuildEntries();
-		addRenderableWidget(presetList);
 
-		loadButton = addRenderableWidget(Button.builder(Component.literal("Load"), b -> loadSelected())
-				.bounds(8, height - 28, 80, 20).build());
+		int contentsX = 8 + listWidth + 8;
+		int contentsWidth = width - 8 - contentsX;
+		contentsList = new PresetContentsList(minecraft, contentsWidth, listHeight, listTop);
+		contentsList.setX(contentsX);
+		contentsList.setY(listTop);
+
+		addRenderableWidget(presetList);
+		addRenderableWidget(contentsList);
+		rebuildEntries();
+
+		int[] widths = buttonWidths();
+		int buttonY = height - 28;
+		int x = 8;
+		applyButton = addRenderableWidget(Button.builder(Component.literal("Apply"), b -> applySelected())
+				.bounds(x, buttonY, widths[0], 20).build());
+		x += widths[0] + 4;
+		overwriteButton = addRenderableWidget(Button.builder(Component.literal("Overwrite"), b -> overwriteSelected())
+				.bounds(x, buttonY, widths[1], 20).build());
+		x += widths[1] + 4;
 		deleteButton = addRenderableWidget(Button.builder(Component.literal("Delete"), b -> deleteSelected())
-				.bounds(96, height - 28, 80, 20).build());
+				.bounds(x, buttonY, widths[2], 20).build());
+		x += widths[2] + 4;
 		addRenderableWidget(Button.builder(Component.literal("Save current…"), b ->
 						minecraft.setScreenAndShow(new SavePresetScreen(this)))
-				.bounds(184, height - 28, 120, 20).build());
+				.bounds(x, buttonY, widths[3], 20).build());
 		addRenderableWidget(Button.builder(Component.literal("Back"), b -> onClose())
-				.bounds(width - 88, height - 28, 80, 20).build());
+				.bounds(width - 8 - widths[4], buttonY, widths[4], 20).build());
+	}
+
+	private int[] buttonWidths() {
+		int[] widths = {50, 64, 46, 78, 50};
+		int available = width - 32;
+		int total = 0;
+		for (int buttonWidth : widths) {
+			total += buttonWidth;
+		}
+		if (total <= available) {
+			return widths;
+		}
+		double scale = (double) available / total;
+		total = 0;
+		for (int i = 0; i < widths.length; i++) {
+			widths[i] = Math.max(32, (int) Math.round(widths[i] * scale));
+			total += widths[i];
+		}
+		while (total > available) {
+			int largest = 0;
+			for (int i = 1; i < widths.length; i++) {
+				if (widths[i] > widths[largest]) {
+					largest = i;
+				}
+			}
+			if (widths[largest] <= 32) {
+				break;
+			}
+			widths[largest]--;
+			total--;
+		}
+		return widths;
 	}
 
 	private void rebuildEntries() {
@@ -67,6 +121,25 @@ public final class PresetsScreen extends Screen {
 		}
 		presetList.replaceEntries(entries);
 		presetList.setScrollAmount(0);
+
+		PresetEntry selectedEntry = null;
+		for (PresetList.Entry entry : entries) {
+			if (entry instanceof PresetEntry presetEntry
+					&& presetEntry.preset.name().equalsIgnoreCase(selectedPresetName)) {
+				selectedEntry = presetEntry;
+				break;
+			}
+		}
+		if (selectedEntry == null && !entries.isEmpty()) {
+			selectedEntry = (PresetEntry) entries.get(0);
+		}
+		if (selectedEntry != null) {
+			presetList.setSelected(selectedEntry);
+			selectedPresetName = selectedEntry.preset.name();
+			showPreset(selectedEntry.preset);
+		} else {
+			contentsList.show(Map.of(), Map.of(), ModConfig.get().hideVillagerHood());
+		}
 	}
 
 	List<String> builtInNames() {
@@ -80,13 +153,18 @@ public final class PresetsScreen extends Screen {
 		return presetList.getSelected() instanceof PresetEntry entry ? entry.preset : null;
 	}
 
+	private void showPreset(Preset preset) {
+		contentsList.show(preset.textureChoices(), preset.soundChoices(), preset.hideVillagerHood());
+	}
+
 	private void updateButtons() {
 		Preset selected = selectedPreset();
-		loadButton.active = selected != null;
+		applyButton.active = selected != null;
+		overwriteButton.active = selected != null && !selected.builtIn();
 		deleteButton.active = selected != null && !selected.builtIn();
 	}
 
-	private void loadSelected() {
+	private void applySelected() {
 		Preset preset = selectedPreset();
 		if (preset == null) {
 			return;
@@ -99,7 +177,7 @@ public final class PresetsScreen extends Screen {
 					minecraft.setScreenAndShow(this);
 				}
 			}, Component.literal("Load preset \"" + preset.name() + "\"?"),
-					Component.literal("This replaces your current selections. Click Apply & Reload afterwards to see them in game.")));
+					Component.literal("This replaces your current selections.")));
 		} else {
 			applyPreset(preset);
 		}
@@ -109,6 +187,15 @@ public final class PresetsScreen extends Screen {
 		ModConfig.get().applyPreset(preset);
 		ModConfig.get().save();
 		minecraft.setScreenAndShow(parent);
+		HistoricalTexturesConfigScreen.applyAndReport(minecraft);
+	}
+
+	private void overwriteSelected() {
+		Preset preset = selectedPreset();
+		if (preset == null || preset.builtIn()) {
+			return;
+		}
+		minecraft.setScreenAndShow(new ConfirmSavePresetScreen(this, this, preset.name()));
 	}
 
 	private void deleteSelected() {
@@ -131,8 +218,8 @@ public final class PresetsScreen extends Screen {
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 		graphics.centeredText(font, title, width / 2, 12, TEXT_WHITE);
 		graphics.centeredText(font,
-				Component.literal("Loaded presets take effect after Apply & Reload."),
-				width / 2, height - 48, TEXT_MUTED);
+				Component.literal("Apply loads the preset and reloads resources."),
+				width / 2, height - 38, TEXT_MUTED);
 	}
 
 	@Override
@@ -182,6 +269,11 @@ public final class PresetsScreen extends Screen {
 				return false;
 			}
 			presetList.setSelected(this);
+			selectedPresetName = preset.name();
+			showPreset(preset);
+			if (doubleClick) {
+				applySelected();
+			}
 			return true;
 		}
 	}

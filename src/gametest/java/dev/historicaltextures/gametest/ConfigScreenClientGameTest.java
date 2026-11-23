@@ -1603,38 +1603,78 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		check(failures, step, "preset_saved", PresetStore.get().exists("HT Test"),
 				"exists=" + PresetStore.get().exists("HT Test"));
 
-		// clear choices, then load HT Test -> restores the stone choice
+		// clear choices, then apply HT Test -> restores the stone choice
 		ModConfig.get().clearAll();
 		ModConfig.get().save();
 		clickSelectionRow(context, 0, presetRowIndex(context, "HT Test"));
 		context.waitTicks(2);
-		clickButton(context, "Load");
-		context.waitTicks(5);
+		clickButton(context, "Apply");
+		waitForPresetApply(context);
 		String restored = context.computeOnClient(client -> ModConfig.get().getTextureChoice(stoneKey));
 		check(failures, step, "preset_load_restores",
 				savedVariant != null && savedVariant.equals(restored),
 				"expected=" + savedVariant + " actual=" + restored);
+		String afterApplyTitle = screenTitle(context);
+		check(failures, step, "preset_apply_returns_config",
+				!"Presets".equals(afterApplyTitle), "title=" + afterApplyTitle);
 
-		// load the built-in Beta 1.7.3 preset (confirm because choices exist)
+		// apply the built-in Beta 1.7.3 preset (confirm because choices exist)
 		clickButton(context, "Presets…");
-		context.waitTicks(5);
+		waitForScreenTitle(context, "Presets", 120);
+		context.waitTicks(2);
 		clickSelectionRow(context, 0, presetRowIndex(context, "Beta 1.7.3"));
 		context.waitTicks(2);
-		clickButton(context, "Load");
+		boolean blocksHeader = selectionRowNarrationStartsWith(context, "Blocks (");
+		check(failures, step, "preset_contents_panel", blocksHeader, "found=" + blocksHeader);
+		recordScreenshot(context, step + "_contents", screenshots);
+		clickButton(context, "Apply");
 		context.waitTicks(4);
 		String loadTitle = screenTitle(context);
 		boolean loadConfirm = loadTitle.contains("Load preset");
 		check(failures, step, "builtin_load_confirm", loadConfirm, "title=" + loadTitle);
 		if (loadConfirm) {
 			clickButton(context, "Yes");
-			context.waitTicks(5);
 		}
+		waitForPresetApply(context);
 		int choiceCount = ModConfig.get().textureChoices().size();
 		check(failures, step, "builtin_load_choices", choiceCount > 100, "count=" + choiceCount);
+		String afterBuiltinTitle = screenTitle(context);
+		check(failures, step, "builtin_load_screen",
+				!"Presets".equals(afterBuiltinTitle), "title=" + afterBuiltinTitle);
+
+		// overwrite HT Test with the current selections before deleting it
+		String overwriteStone = context.computeOnClient(client -> HistoricalCatalog.get()
+				.textureVariantsForTarget(stoneKey)
+				.stream()
+				.map(TextureVariant::id)
+				.filter(id -> !id.equals(savedVariant))
+				.findFirst()
+				.orElse(null));
+		ModConfig.get().setTextureChoice(stoneKey, overwriteStone);
+		ModConfig.get().save();
+		clickButton(context, "Presets…");
+		waitForScreenTitle(context, "Presets", 120);
+		context.waitTicks(2);
+		clickSelectionRow(context, 0, presetRowIndex(context, "HT Test"));
+		context.waitTicks(2);
+		clickButton(context, "Overwrite");
+		context.waitTicks(4);
+		String overwriteTitle = screenTitle(context);
+		check(failures, step, "preset_overwrite_confirm",
+				overwriteTitle.contains("Are you sure"), "title=" + overwriteTitle);
+		clickButton(context, "Save");
+		context.waitTicks(4);
+		Preset overwritten = PresetStore.get().userPresets().stream()
+				.filter(preset -> preset.name().equalsIgnoreCase("HT Test"))
+				.findFirst()
+				.orElse(null);
+		String storedStone = overwritten == null ? null : overwritten.textureChoices().get(stoneKey);
+		boolean stoneMatches = overwritten != null
+				&& (overwriteStone == null ? storedStone == null : overwriteStone.equals(storedStone));
+		check(failures, step, "preset_overwritten", stoneMatches,
+				"expected=" + overwriteStone + " actual=" + storedStone);
 
 		// delete HT Test via the UI
-		clickButton(context, "Presets…");
-		context.waitTicks(5);
 		clickSelectionRow(context, 0, presetRowIndex(context, "HT Test"));
 		context.waitTicks(2);
 		clickButton(context, "Delete");
@@ -1850,12 +1890,38 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		return String.valueOf(result);
 	}
 
+	private void waitForPresetApply(ClientGameTestContext context) {
+		context.waitTicks(5);
+		context.waitFor(client -> client.gui.overlay() == null);
+		context.waitTicks(20);
+	}
+
+	private void waitForScreenTitle(ClientGameTestContext context, String title, int maxTicks) {
+		for (int tick = 0; tick < maxTicks && !title.equals(screenTitle(context)); tick++) {
+			context.waitTicks(1);
+		}
+	}
+
 	private boolean summaryRowsContain(ClientGameTestContext context, String needle) {
 		Object result = context.computeOnClient(client -> {
 			String lowered = needle.toLowerCase(Locale.ROOT);
 			for (AbstractSelectionList<?> list : selectionLists(client)) {
 				for (int index = 0; index < list.children().size(); index++) {
 					if (getRowNarration(list, index).toLowerCase(Locale.ROOT).contains(lowered)) {
+						return true;
+					}
+				}
+			}
+			return false;
+		});
+		return Boolean.TRUE.equals(result);
+	}
+
+	private boolean selectionRowNarrationStartsWith(ClientGameTestContext context, String prefix) {
+		Object result = context.computeOnClient(client -> {
+			for (AbstractSelectionList<?> list : selectionLists(client)) {
+				for (int index = 0; index < list.children().size(); index++) {
+					if (getRowNarration(list, index).startsWith(prefix)) {
 						return true;
 					}
 				}
