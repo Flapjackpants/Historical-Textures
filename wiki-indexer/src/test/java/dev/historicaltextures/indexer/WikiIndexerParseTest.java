@@ -64,6 +64,18 @@ class WikiIndexerParseTest {
 	}
 
 	@Test
+	void keepsBetaPrefixFromPipedJavaEditionLink() {
+		WikiTableParser.VersionInfo info = WikiTableParser.parseVersionsFromWikitext(
+				"{| class=\"wikitable\"\n"
+						+ "|-\n"
+						+ "| [[Java Edition Beta 1.7|1.7]] || [[File:Cobblestone (texture) JE3 BE2.png|thumb]]\n"
+						+ "|}"
+		).get("cobblestone_(texture)_je3_be2.png");
+		assertEquals("Beta 1.7", info.javaVersion());
+		assertEquals("Beta 1.7", info.displayVersion());
+	}
+
+	@Test
 	void parsesVersionFromHistoryLineSnapshot() {
 		WikiTableParser.VersionInfo info = WikiTableParser.parseHistoryLinesFromWikitext(
 				"{{HistoryLine||1.14|dev=18w43a|[[File:Stone (texture) JE4.png|32px]] Changed stone.}}",

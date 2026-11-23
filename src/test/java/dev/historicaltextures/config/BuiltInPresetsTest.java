@@ -128,6 +128,41 @@ class BuiltInPresetsTest {
 	}
 
 	@Test
+	void skipsNonJavaTextureVariants() {
+		TextureVariant tu = texture("t_tu", "T", "1.0.0", "TU1");
+		TextureVariant je = texture("t_je", "T", "0.0.14a", "JE2");
+		List<Preset> presets = BuiltInPresets.create(List.of(tu, je), List.of());
+
+		assertEquals("t_je", presetNamed(presets, "1.2.5").textureChoices().get("T"));
+		for (Preset preset : presets) {
+			assertFalse(preset.textureChoices().containsValue("t_tu"), preset.name());
+		}
+	}
+
+	@Test
+	void neverPicksBedrockOnlyVariantsAndKeepsUntaggedEligible() {
+		TextureVariant be = texture("t_be", "T", "1.2.5", "BE1");
+		TextureVariant untagged = texture("t_untagged", "U", "1.0");
+		List<Preset> presets = BuiltInPresets.create(List.of(be, untagged), List.of());
+
+		for (Preset preset : presets) {
+			assertFalse(preset.textureChoices().containsValue("t_be"), preset.name());
+		}
+		assertEquals("t_untagged", presetNamed(presets, "1.2.5").textureChoices().get("U"));
+	}
+
+	@Test
+	void betaJavaVersionBeatsClassicForBetaAndLaterCutoffs() {
+		TextureVariant beta = texture("t_beta", "T", "Beta 1.7", "JE3");
+		TextureVariant classic = texture("t_classic", "T", "0.0.14a", "JE2");
+		List<Preset> presets = BuiltInPresets.create(List.of(beta, classic), List.of());
+
+		assertEquals("t_beta", presetNamed(presets, "1.2.5").textureChoices().get("T"));
+		assertEquals("t_beta", presetNamed(presets, "Beta 1.7.3").textureChoices().get("T"));
+		assertEquals("t_classic", presetNamed(presets, "Alpha 1.2.6").textureChoices().get("T"));
+	}
+
+	@Test
 	void presetRecordCopiesMaps() {
 		Map<String, String> mutable = new java.util.HashMap<>();
 		mutable.put("T", "v1");

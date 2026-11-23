@@ -100,6 +100,9 @@ public final class BuiltInPresets {
 		int bestKey = -1;
 		int bestJe = -1;
 		for (TextureVariant variant : candidates) {
+			if (!isJavaVariant(variant)) {
+				continue;
+			}
 			int key = ReleaseTimeline.releaseKey(variant.javaVersion());
 			if (key < 0 || key > cutoffKey) {
 				continue;
@@ -115,6 +118,19 @@ public final class BuiltInPresets {
 			}
 		}
 		return best;
+	}
+
+	public static boolean isJavaVariant(TextureVariant variant) {
+		List<String> tags = variant.textureTags();
+		if (tags == null || tags.isEmpty()) {
+			return true;
+		}
+		for (String tag : tags) {
+			if (tag != null && JE_TAG.matcher(tag).matches()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static int maxJeTag(List<String> textureTags) {

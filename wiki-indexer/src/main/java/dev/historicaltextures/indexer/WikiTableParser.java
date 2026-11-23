@@ -11,7 +11,8 @@ import java.util.regex.Pattern;
 public final class WikiTableParser {
 	private static final Pattern WIKI_FILE_LINK = Pattern.compile("\\[\\[(?:File:|Image:)?([^\\]|#]+?)(?:\\|[^\\]]*)?\\]\\]", Pattern.CASE_INSENSITIVE);
 	private static final Pattern PLAIN_FILE = Pattern.compile("(?:File:|Image:)([^\\]|#\\s]+)", Pattern.CASE_INSENSITIVE);
-	private static final Pattern VERSION_LINK = Pattern.compile("\\[\\[[^\\]|#\\|]*\\|([^\\]]+)\\]\\]|\\[\\[([^\\]]+)\\]\\]");
+	private static final Pattern VERSION_LINK = Pattern.compile("\\[\\[([^\\]|#]*)\\|([^\\]]+)\\]\\]|\\[\\[([^\\]]+)\\]\\]");
+	private static final Pattern JAVA_EDITION_ERA_TARGET = Pattern.compile("^Java Edition (Beta|Alpha|Classic|Indev|Infdev) .*", Pattern.CASE_INSENSITIVE);
 	private static final Pattern SNAPSHOT = Pattern.compile("\\b(\\d{2}w\\d{2}[a-z]?)\\b", Pattern.CASE_INSENSITIVE);
 	private static final Pattern RELEASE = Pattern.compile("\\b((?:Java Edition )?(?:Beta )?(?:Alpha )?(?:Indev )?(?:Infdev )?(?:Classic )?\\d+(?:\\.\\d+)*)\\b", Pattern.CASE_INSENSITIVE);
 	private static final Pattern BEDROCK = Pattern.compile("\\b(?:Bedrock Edition )?(\\d+\\.\\d+(?:\\.\\d+)?)\\b", Pattern.CASE_INSENSITIVE);
@@ -304,7 +305,13 @@ public final class WikiTableParser {
 
 		Matcher versionLink = VERSION_LINK.matcher(cell);
 		while (versionLink.find()) {
-			String value = versionLink.group(1) != null ? versionLink.group(1) : versionLink.group(2);
+			String target = versionLink.group(1);
+			String value;
+			if (target != null && JAVA_EDITION_ERA_TARGET.matcher(target).find()) {
+				value = target;
+			} else {
+				value = target != null ? versionLink.group(2) : versionLink.group(3);
+			}
 			if (value == null || value.isEmpty()) {
 				continue;
 			}
