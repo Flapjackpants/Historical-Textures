@@ -9,6 +9,7 @@ import dev.historicaltextures.GamePaths;
 import dev.historicaltextures.HistoricalTextures;
 import dev.historicaltextures.catalog.HistoricalCatalog;
 import dev.historicaltextures.catalog.LegacyModels;
+import dev.historicaltextures.catalog.LegacyTextureFixes;
 import dev.historicaltextures.catalog.SoundVariant;
 import dev.historicaltextures.catalog.TextureVariant;
 import dev.historicaltextures.config.ModConfig;
@@ -224,6 +225,9 @@ public final class OverlayPackManager {
 							|| relative.equals("textures/entity/villager/villager.png"))) {
 				clearVillagerHoodPixels(destination);
 			}
+			if (LegacyTextureFixes.isCakeSideTarget(relative)) {
+				shiftLegacyCakeArt(destination);
+			}
 			return true;
 		}
 	}
@@ -288,6 +292,30 @@ public final class OverlayPackManager {
 			image.fillRect(30, 47, 34, 17, 0);
 			image.writeToFile(png);
 			HistoricalTextures.LOGGER.debug("Cleared villager hood pixels {}", png.toAbsolutePath());
+		}
+	}
+
+	private static void shiftLegacyCakeArt(Path png) throws IOException {
+		try (InputStream input = Files.newInputStream(png);
+				NativeImage image = NativeImage.read(input)) {
+			int width = image.getWidth();
+			int height = image.getHeight();
+			int[] pixels = new int[width * height];
+			for (int y = 0; y < height; y++) {
+				for (int x = 0; x < width; x++) {
+					pixels[y * width + x] = image.getPixel(x, y);
+				}
+			}
+			if (!LegacyTextureFixes.shiftTopHalfDown(pixels, width, height)) {
+				return;
+			}
+			for (int y = 0; y < height; y++) {
+				for (int x = 0; x < width; x++) {
+					image.setPixel(x, y, pixels[y * width + x]);
+				}
+			}
+			image.writeToFile(png);
+			HistoricalTextures.LOGGER.debug("Shifted legacy cake art {}", png.toAbsolutePath());
 		}
 	}
 
