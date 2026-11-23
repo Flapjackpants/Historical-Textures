@@ -48,19 +48,8 @@ public final class CatalogThumbnailCache {
 			if (stripVillagerHood) {
 				OverlayPackManager.clearVillagerHood(image);
 			}
-			String idPath = stripVillagerHood
-					? "preview/nohood/" + sanitizeId(variantId)
-					: "preview/" + sanitizeId(variantId);
-			Identifier textureId = Identifier.fromNamespaceAndPath(
-					HistoricalTextures.MOD_ID,
-					idPath
-			);
-			DynamicTexture dynamicTexture = new DynamicTexture(textureId::toString, image);
-			Minecraft.getInstance().getTextureManager().register(textureId, dynamicTexture);
-			dynamicTexture.upload();
-			CachedPreview preview = new CachedPreview(textureId, image.getWidth(), image.getHeight());
-			CACHE.put(cacheKey, preview);
-			return Optional.of(preview);
+			String idPrefix = stripVillagerHood ? "preview/nohood/" : "preview/";
+			return Optional.of(register(cacheKey, idPrefix + sanitizeId(variantId), image));
 		} catch (Exception exception) {
 			HistoricalTextures.LOGGER.warn("Failed to load catalog preview for {}", variantId, exception);
 			return Optional.empty();
@@ -87,16 +76,7 @@ public final class CatalogThumbnailCache {
 			try (InputStream stream = resource.get().open()) {
 				image = NativeImage.read(stream);
 			}
-			Identifier textureId = Identifier.fromNamespaceAndPath(
-					HistoricalTextures.MOD_ID,
-					"preview/vanilla/" + sanitizeId(resourcePath)
-			);
-			DynamicTexture dynamicTexture = new DynamicTexture(textureId::toString, image);
-			Minecraft.getInstance().getTextureManager().register(textureId, dynamicTexture);
-			dynamicTexture.upload();
-			CachedPreview preview = new CachedPreview(textureId, image.getWidth(), image.getHeight());
-			CACHE.put(key, preview);
-			return Optional.of(preview);
+			return Optional.of(register(key, "preview/vanilla/" + sanitizeId(resourcePath), image));
 		} catch (Exception exception) {
 			HistoricalTextures.LOGGER.debug("Failed to load vanilla preview for {}", resourcePath, exception);
 			return Optional.empty();
@@ -126,16 +106,7 @@ public final class CatalogThumbnailCache {
 				}
 				image = NativeImage.read(stream);
 			}
-			Identifier textureId = Identifier.fromNamespaceAndPath(
-					HistoricalTextures.MOD_ID,
-					"preview/builtin/" + sanitizeId(resourcePath)
-			);
-			DynamicTexture dynamicTexture = new DynamicTexture(textureId::toString, image);
-			Minecraft.getInstance().getTextureManager().register(textureId, dynamicTexture);
-			dynamicTexture.upload();
-			CachedPreview preview = new CachedPreview(textureId, image.getWidth(), image.getHeight());
-			CACHE.put(key, preview);
-			return Optional.of(preview);
+			return Optional.of(register(key, "preview/builtin/" + sanitizeId(resourcePath), image));
 		} catch (Exception exception) {
 			HistoricalTextures.LOGGER.debug("Failed to load built-in preview for {}", resourcePath, exception);
 			return Optional.empty();
@@ -170,16 +141,7 @@ public final class CatalogThumbnailCache {
 				return Optional.empty();
 			}
 			NativeImage image = NativeImage.read(stream);
-			Identifier textureId = Identifier.fromNamespaceAndPath(
-					HistoricalTextures.MOD_ID,
-					"preview/legacy/" + sanitizeId(source)
-			);
-			DynamicTexture dynamicTexture = new DynamicTexture(textureId::toString, image);
-			Minecraft.getInstance().getTextureManager().register(textureId, dynamicTexture);
-			dynamicTexture.upload();
-			CachedPreview preview = new CachedPreview(textureId, image.getWidth(), image.getHeight());
-			CACHE.put(key, preview);
-			return Optional.of(preview);
+			return Optional.of(register(key, "preview/legacy/" + sanitizeId(source), image));
 		} catch (Exception exception) {
 			HistoricalTextures.LOGGER.debug("Failed to load legacy preview for {}", source, exception);
 			return Optional.empty();
@@ -196,20 +158,21 @@ public final class CatalogThumbnailCache {
 		}
 		try {
 			NativeImage image = NativeImage.read(new ByteArrayInputStream(png));
-			Identifier textureId = Identifier.fromNamespaceAndPath(
-					HistoricalTextures.MOD_ID,
-					"preview/bytes/" + sanitizeId(key)
-			);
-			DynamicTexture dynamicTexture = new DynamicTexture(textureId::toString, image);
-			Minecraft.getInstance().getTextureManager().register(textureId, dynamicTexture);
-			dynamicTexture.upload();
-			CachedPreview preview = new CachedPreview(textureId, image.getWidth(), image.getHeight());
-			CACHE.put(key, preview);
-			return Optional.of(preview);
+			return Optional.of(register(key, "preview/bytes/" + sanitizeId(key), image));
 		} catch (Exception exception) {
 			HistoricalTextures.LOGGER.warn("Failed to load byte preview for {}", key, exception);
 			return Optional.empty();
 		}
+	}
+
+	private static CachedPreview register(String cacheKey, String idPath, NativeImage image) {
+		Identifier textureId = Identifier.fromNamespaceAndPath(HistoricalTextures.MOD_ID, idPath);
+		DynamicTexture dynamicTexture = new DynamicTexture(textureId::toString, image);
+		Minecraft.getInstance().getTextureManager().register(textureId, dynamicTexture);
+		dynamicTexture.upload();
+		CachedPreview preview = new CachedPreview(textureId, image.getWidth(), image.getHeight());
+		CACHE.put(cacheKey, preview);
+		return preview;
 	}
 
 	public static void preload(String variantId, String assetPath) {

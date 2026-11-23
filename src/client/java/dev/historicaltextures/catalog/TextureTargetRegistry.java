@@ -8,6 +8,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
@@ -32,9 +33,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public final class TextureTargetRegistry {
-	private static final int ENTRY_HEIGHT = 26;
 	private static List<TextureTarget> blockTargets;
 	private static List<TextureTarget> itemTargets;
 	private static List<TextureTarget> entityTargets;
@@ -49,19 +50,7 @@ public final class TextureTargetRegistry {
 		if (path == null || path.isEmpty()) {
 			return "";
 		}
-		String s = path;
-		int lastSlash = s.lastIndexOf('/');
-		if (lastSlash >= 0) {
-			s = s.substring(lastSlash + 1);
-		}
-		if (s.endsWith(".png")) {
-			s = s.substring(0, s.length() - ".png".length());
-		}
-		int colon = s.indexOf(':');
-		if (colon >= 0) {
-			s = s.substring(colon + 1);
-		}
-		String[] parts = s.split("_");
+		String[] parts = extractStem(path).split("_");
 		List<String> words = new ArrayList<>();
 		for (String part : parts) {
 			if (!part.isEmpty()) {
@@ -74,43 +63,37 @@ public final class TextureTargetRegistry {
 	}
 
 	public static List<TextureTarget> blockTargets() {
-		if (blockTargets == null) {
-			blockTargets = buildBlockTargets();
-			HistoricalTextures.LOGGER.info("Config UI: {} block texture targets", blockTargets.size());
-		}
+		blockTargets = cached(blockTargets, TextureTargetRegistry::buildBlockTargets, "block texture targets");
 		return blockTargets;
 	}
 
 	public static List<TextureTarget> itemTargets() {
-		if (itemTargets == null) {
-			itemTargets = buildItemTargets();
-			HistoricalTextures.LOGGER.info("Config UI: {} item texture targets", itemTargets.size());
-		}
+		itemTargets = cached(itemTargets, TextureTargetRegistry::buildItemTargets, "item texture targets");
 		return itemTargets;
 	}
 
 	public static List<TextureTarget> entityTargets() {
-		if (entityTargets == null) {
-			entityTargets = buildEntityTargets();
-			HistoricalTextures.LOGGER.info("Config UI: {} entity texture targets", entityTargets.size());
-		}
+		entityTargets = cached(entityTargets, TextureTargetRegistry::buildEntityTargets, "entity texture targets");
 		return entityTargets;
 	}
 
 	public static List<String> soundEvents() {
-		if (soundEvents == null) {
-			soundEvents = buildSoundEvents();
-			HistoricalTextures.LOGGER.info("Config UI: {} sound events", soundEvents.size());
-		}
+		soundEvents = cached(soundEvents, TextureTargetRegistry::buildSoundEvents, "sound events");
 		return soundEvents;
 	}
 
 	public static List<TextureTarget> otherTargets() {
-		if (otherTargets == null) {
-			otherTargets = buildOtherTargets();
-			HistoricalTextures.LOGGER.info("Config UI: {} other texture targets", otherTargets.size());
-		}
+		otherTargets = cached(otherTargets, TextureTargetRegistry::buildOtherTargets, "other texture targets");
 		return otherTargets;
+	}
+
+	private static <T> List<T> cached(List<T> value, Supplier<List<T>> builder, String label) {
+		if (value != null) {
+			return value;
+		}
+		List<T> built = builder.get();
+		HistoricalTextures.LOGGER.info("Config UI: {} {}", built.size(), label);
+		return built;
 	}
 
 	public static void reload() {
@@ -255,13 +238,6 @@ public final class TextureTargetRegistry {
 				&& registryId.getPath().startsWith("baby/");
 	}
 
-	public static String babyModel(TextureTarget target) {
-		if (!isBabyTarget(target)) {
-			return null;
-		}
-		return target.registryId().getPath().substring("baby/".length());
-	}
-
 	private static List<TextureTarget> buildOtherTargets() {
 		Map<String, TextureTarget> byPath = new LinkedHashMap<>();
 		for (String target : HistoricalCatalog.get().texturesByTarget().keySet()) {
@@ -274,10 +250,7 @@ public final class TextureTargetRegistry {
 	}
 
 	private static boolean isOtherTarget(String target) {
-		String path = target;
-		if (path.startsWith("minecraft:")) {
-			path = path.substring("minecraft:".length());
-		}
+		String path = stripPrefix(target, "minecraft:");
 		return !path.startsWith("textures/block/")
 				&& !path.startsWith("textures/item/")
 				&& !path.startsWith("textures/entity/");
@@ -317,10 +290,7 @@ public final class TextureTargetRegistry {
 					continue;
 				}
 				String resourcePath = "minecraft:textures/item/" + id.getPath() + ".png";
-				String descId = item.getDescriptionId();
-				String label = net.minecraft.locale.Language.getInstance().has(descId)
-						? Component.translatable(descId).getString()
-						: humanize(resourcePath);
+				String label = itemLabel(item, resourcePath);
 				byPath.putIfAbsent(resourcePath, new TextureTarget(resourcePath, id, TextureTargetKind.ITEM, label));
 				added++;
 			} catch (Exception exception) {
@@ -406,12 +376,7 @@ public final class TextureTargetRegistry {
 						.map(block -> block.getName().getString())
 						.orElseGet(() -> humanize(target));
 				case ITEM -> BuiltInRegistries.ITEM.getOptional(registryId)
-						.map(item -> {
-							String descId = item.getDescriptionId();
-							return net.minecraft.locale.Language.getInstance().has(descId)
-									? Component.translatable(descId).getString()
-									: humanize(target);
-						})
+						.map(item -> itemLabel(item, target))
 						.orElseGet(() -> humanize(target));
 				case ENTITY -> {
 					String baseName = BuiltInRegistries.ENTITY_TYPE.getOptional(registryId)
@@ -426,13 +391,7 @@ public final class TextureTargetRegistry {
 	}
 
 	private static String otherLabel(String target) {
-		String path = target;
-		if (path.startsWith("minecraft:")) {
-			path = path.substring("minecraft:".length());
-		}
-		if (path.startsWith("textures/")) {
-			path = path.substring("textures/".length());
-		}
+		String path = stripPrefix(stripPrefix(target, "minecraft:"), "textures/");
 		int slash = path.indexOf('/');
 		if (slash < 0) {
 			return humanize(path);
@@ -440,6 +399,13 @@ public final class TextureTargetRegistry {
 		String firstFolder = path.substring(0, slash);
 		String file = path.substring(path.lastIndexOf('/') + 1);
 		return humanize(file) + " (" + humanize(firstFolder) + ")";
+	}
+
+	private static String itemLabel(Item item, String target) {
+		String descId = item.getDescriptionId();
+		return Language.getInstance().has(descId)
+				? Component.translatable(descId).getString()
+				: humanize(target);
 	}
 
 	private static List<String> buildSoundEvents() {
@@ -450,19 +416,9 @@ public final class TextureTargetRegistry {
 	}
 
 	private static String extractStem(String target) {
-		String s = target;
-		int lastSlash = s.lastIndexOf('/');
-		if (lastSlash >= 0) {
-			s = s.substring(lastSlash + 1);
-		}
-		if (s.endsWith(".png")) {
-			s = s.substring(0, s.length() - ".png".length());
-		}
+		String s = stripSuffix(target.substring(target.lastIndexOf('/') + 1), ".png");
 		int colon = s.indexOf(':');
-		if (colon >= 0) {
-			s = s.substring(colon + 1);
-		}
-		return s;
+		return colon >= 0 ? s.substring(colon + 1) : s;
 	}
 
 	private static String entityLabel(String target, Identifier registryId, String baseName) {
@@ -508,10 +464,7 @@ public final class TextureTargetRegistry {
 			if (counts.get(target.displayName().toLowerCase(Locale.ROOT)) > 1) {
 				String extra = humanize(target.resourcePath());
 				if (!extra.isEmpty()) {
-					String newName = target.displayName() + " (" + extra + ")";
-					if (!newName.equalsIgnoreCase(target.displayName())) {
-						target = new TextureTarget(target.resourcePath(), target.registryId(), target.kind(), newName);
-					}
+					target = rename(target, extra);
 				}
 			}
 			list.add(target);
@@ -525,19 +478,11 @@ public final class TextureTargetRegistry {
 			List<TextureTarget> resolved = new ArrayList<>();
 			for (TextureTarget target : list) {
 				if (secondCounts.get(target.displayName().toLowerCase(Locale.ROOT)) > 1) {
-					String path = target.resourcePath();
-					if (path.startsWith("minecraft:")) {
-						path = path.substring("minecraft:".length());
-					}
-					if (path.startsWith("textures/")) {
-						path = path.substring("textures/".length());
-					}
-					if (path.endsWith(".png")) {
-						path = path.substring(0, path.length() - 4);
-					}
-					String extra = humanize(path.replace('/', '_'));
-					String newName = target.displayName() + " (" + extra + ")";
-					target = new TextureTarget(target.resourcePath(), target.registryId(), target.kind(), newName);
+					String path = stripSuffix(
+							stripPrefix(stripPrefix(target.resourcePath(), "minecraft:"), "textures/"),
+							".png"
+					);
+					target = rename(target, humanize(path.replace('/', '_')));
 				}
 				resolved.add(target);
 			}
@@ -551,38 +496,32 @@ public final class TextureTargetRegistry {
 		return List.copyOf(list);
 	}
 
+	private static TextureTarget rename(TextureTarget target, String extra) {
+		String newName = target.displayName() + " (" + extra + ")";
+		return new TextureTarget(target.resourcePath(), target.registryId(), target.kind(), newName);
+	}
+
 	public static int variantCount(String configKey) {
 		if (configKey != null && configKey.startsWith("group:")) {
-			if (groupVersions == null) {
-				blockTargets();
-			}
-			Map<String, List<TextureGroups.GroupVersion>> versions = groupVersions;
-			return versions == null ? 0 : versions.getOrDefault(configKey, List.of()).size();
+			return groupVersions(configKey).size();
 		}
 		return HistoricalCatalog.get().variantCountForTarget(configKey);
 	}
 
 	private static Identifier pathToBlockId(String target) {
-		String path = extractTexturePath(target);
-		if (path == null) {
-			return null;
-		}
-		String file = path.substring("textures/block/".length());
-		if (file.endsWith(".png")) {
-			file = file.substring(0, file.length() - 4);
-		}
-		return Identifier.tryParse("minecraft:" + file);
+		return pathToFileId(target, "block");
 	}
 
 	private static Identifier pathToItemId(String target) {
+		return pathToFileId(target, "item");
+	}
+
+	private static Identifier pathToFileId(String target, String folder) {
 		String path = extractTexturePath(target);
 		if (path == null) {
 			return null;
 		}
-		String file = path.substring("textures/item/".length());
-		if (file.endsWith(".png")) {
-			file = file.substring(0, file.length() - 4);
-		}
+		String file = stripSuffix(path.substring(("textures/" + folder + "/").length()), ".png");
 		return Identifier.tryParse("minecraft:" + file);
 	}
 
@@ -600,17 +539,18 @@ public final class TextureTargetRegistry {
 	}
 
 	private static String extractTexturePath(String target) {
-		String path = target;
-		if (path.startsWith("minecraft:")) {
-			path = path.substring("minecraft:".length());
-		}
+		String path = stripPrefix(target, "minecraft:");
 		if (path.startsWith("textures/")) {
 			return path;
 		}
 		return null;
 	}
 
-	public static int entryHeight() {
-		return ENTRY_HEIGHT;
+	private static String stripPrefix(String value, String prefix) {
+		return value.startsWith(prefix) ? value.substring(prefix.length()) : value;
+	}
+
+	private static String stripSuffix(String value, String suffix) {
+		return value.endsWith(suffix) ? value.substring(0, value.length() - suffix.length()) : value;
 	}
 }

@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -128,16 +129,11 @@ public final class OverlayPackManager {
 		ModConfig config = ModConfig.get();
 		HistoricalCatalog catalog = HistoricalCatalog.get();
 
+		deleteRecursive(root);
 		if (config.textureChoices().isEmpty() && config.soundChoices().isEmpty()) {
-			if (Files.exists(root)) {
-				deleteRecursive(root);
-			}
 			return ApplyResult.empty();
 		}
 
-		if (Files.exists(root)) {
-			deleteRecursive(root);
-		}
 		Files.createDirectories(root.resolve("assets/minecraft/textures"));
 		Files.createDirectories(root.resolve("assets/minecraft/sounds"));
 
@@ -146,41 +142,32 @@ public final class OverlayPackManager {
 		for (Map.Entry<String, String> entry : config.textureChoices().entrySet()) {
 			String target = entry.getKey();
 			String variantId = entry.getValue();
+			boolean written;
 			if (HistoricalCatalog.CURRENT_VARIANT_ID.equals(variantId)) {
-				if (copyBuiltInTexture(root, target)) {
-					texturesWritten++;
-				} else {
-					skipped++;
-				}
-				continue;
-			}
-			if (LegacyBabies.VARIANT_ID.equals(variantId)) {
-				boolean written = LegacyBabies.forBabyTexture(target)
+				written = copyBuiltInTexture(root, target);
+			} else if (LegacyBabies.VARIANT_ID.equals(variantId)) {
+				written = LegacyBabies.forBabyTexture(target)
 						.map(baby -> LegacyBabyResolver.write(root, baby))
 						.orElse(false);
-				if (written) {
-					texturesWritten++;
-				} else {
+			} else {
+				var optionalVariant = catalog.textureVariant(variantId);
+				if (optionalVariant.isEmpty()) {
+					HistoricalTextures.LOGGER.warn("Unknown texture variant id {} for target {}", variantId, target);
 					skipped++;
+					continue;
 				}
-				continue;
+				if (!optionalVariant.get().targets().contains(target)) {
+					HistoricalTextures.LOGGER.warn(
+							"Variant {} no longer targets {}; skipping stale choice",
+							variantId,
+							target
+					);
+					skipped++;
+					continue;
+				}
+				written = copyTextureVariant(root, optionalVariant.get(), target);
 			}
-			var optionalVariant = catalog.textureVariant(variantId);
-			if (optionalVariant.isEmpty()) {
-				HistoricalTextures.LOGGER.warn("Unknown texture variant id {} for target {}", variantId, target);
-				skipped++;
-				continue;
-			}
-			if (!optionalVariant.get().targets().contains(target)) {
-				HistoricalTextures.LOGGER.warn(
-						"Variant {} no longer targets {}; skipping stale choice",
-						variantId,
-						target
-				);
-				skipped++;
-				continue;
-			}
-			if (copyTextureVariant(root, optionalVariant.get(), target)) {
+			if (written) {
 				texturesWritten++;
 			} else {
 				skipped++;
@@ -197,10 +184,9 @@ public final class OverlayPackManager {
 			texturesWritten++;
 		}
 
-		int soundsWritten = 0;
 		JsonObject soundsJson = buildSoundsJson(root, catalog, config);
-		soundsWritten = soundsJson.size();
-		if (soundsJson.size() > 0) {
+		int soundsWritten = soundsJson.size();
+		if (soundsWritten > 0) {
 			Path soundsPath = root.resolve("assets/minecraft/sounds.json");
 			Files.createDirectories(soundsPath.getParent());
 			Files.writeString(soundsPath, GSON.toJson(soundsJson));
@@ -210,18 +196,19 @@ public final class OverlayPackManager {
 		JsonObject pack = new JsonObject();
 		pack.addProperty("description", "Historical Textures overlay");
 		pack.addProperty("pack_format", PACK_FORMAT_MAJOR);
-		JsonArray formatComponent = new JsonArray();
-		formatComponent.add(PACK_FORMAT_MAJOR);
-		formatComponent.add(PACK_FORMAT_MINOR);
-		JsonArray maxFormat = new JsonArray();
-		maxFormat.add(PACK_FORMAT_MAJOR);
-		maxFormat.add(PACK_FORMAT_MINOR);
-		pack.add("min_format", formatComponent);
-		pack.add("max_format", maxFormat);
+		pack.add("min_format", packFormat());
+		pack.add("max_format", packFormat());
 		packMeta.add("pack", pack);
 		Files.writeString(root.resolve("pack.mcmeta"), GSON.toJson(packMeta));
 
 		return new ApplyResult(true, texturesWritten, soundsWritten, skipped);
+	}
+
+	private static JsonArray packFormat() {
+		JsonArray format = new JsonArray();
+		format.add(PACK_FORMAT_MAJOR);
+		format.add(PACK_FORMAT_MINOR);
+		return format;
 	}
 
 	private static boolean copyTextureVariant(Path root, TextureVariant variant, String targetPath) throws IOException {
@@ -231,14 +218,13 @@ public final class OverlayPackManager {
 			return false;
 		}
 		Path destination = root.resolve("assets/minecraft").resolve(relative);
-		Files.createDirectories(destination.getParent());
 
 		try (InputStream input = HistoricalCatalog.get().openAsset(variant.assetPath())) {
 			if (input == null) {
 				HistoricalTextures.LOGGER.warn("Missing catalog asset {} for variant {}", variant.assetPath(), variant.id());
 				return false;
 			}
-			Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING);
+			copyTo(input, destination);
 			HistoricalTextures.LOGGER.debug("Wrote overlay texture {}", destination.toAbsolutePath());
 			writeLegacyFiles(root, variant, targetPath);
 			writeVillagerHoodMcmeta(destination, relative);
@@ -272,13 +258,12 @@ public final class OverlayPackManager {
 			return false;
 		}
 		Path destination = root.resolve("assets/minecraft").resolve(relative);
-		Files.createDirectories(destination.getParent());
 		try (InputStream input = supplier.get()) {
 			if (input == null) {
 				HistoricalTextures.LOGGER.warn("Missing built-in texture stream {} for target {}", resourceId, targetPath);
 				return false;
 			}
-			Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING);
+			copyTo(input, destination);
 		}
 		HistoricalTextures.LOGGER.debug("Wrote built-in overlay texture {}", destination.toAbsolutePath());
 		Identifier mcmetaId = Identifier.fromNamespaceAndPath(
@@ -373,7 +358,6 @@ public final class OverlayPackManager {
 				continue;
 			}
 			Path destination = root.resolve("assets/minecraft").resolve(dest);
-			Files.createDirectories(destination.getParent());
 			try (InputStream input = LegacyModels.open(entry.getValue())) {
 				if (input == null) {
 					HistoricalTextures.LOGGER.warn(
@@ -383,7 +367,7 @@ public final class OverlayPackManager {
 					);
 					continue;
 				}
-				Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING);
+				copyTo(input, destination);
 				HistoricalTextures.LOGGER.debug("Wrote legacy model {}", destination.toAbsolutePath());
 			}
 		}
@@ -405,15 +389,11 @@ public final class OverlayPackManager {
 			String soundName = stripExtension(soundFile.getFileName().toString());
 			String relativePath = "historical_textures/" + soundName;
 			if (!variant.vanillaSoundPath().isEmpty()) {
-				String vanilla = variant.vanillaSoundPath();
-				if (vanilla.startsWith("sounds/")) {
-					relativePath = vanilla.substring("sounds/".length());
-				}
-				relativePath = relativePath.replace(".ogg", "");
+				relativePath = soundRelativePath(variant.vanillaSoundPath()).replace(".ogg", "");
 			}
 
 			JsonObject eventObject = new JsonObject();
-			com.google.gson.JsonArray sounds = new com.google.gson.JsonArray();
+			JsonArray sounds = new JsonArray();
 			sounds.add(relativePath);
 			eventObject.add("sounds", sounds);
 			soundRoot.add(event, eventObject);
@@ -439,23 +419,31 @@ public final class OverlayPackManager {
 		String fileName = variant.wikiFile();
 		Path destination;
 		if (!variant.vanillaSoundPath().isEmpty()) {
-			String relative = variant.vanillaSoundPath();
-			if (relative.startsWith("sounds/")) {
-				relative = relative.substring("sounds/".length());
-			}
-			destination = root.resolve("assets/minecraft/sounds").resolve(relative);
+			destination = root.resolve("assets/minecraft/sounds").resolve(soundRelativePath(variant.vanillaSoundPath()));
 		} else {
 			destination = root.resolve("assets/minecraft/sounds/historical_textures").resolve(fileName);
 		}
-		Files.createDirectories(destination.getParent());
 		try (InputStream input = HistoricalCatalog.get().openAsset(variant.assetPath())) {
 			if (input == null) {
 				HistoricalTextures.LOGGER.warn("Missing catalog sound asset {} for variant {}", variant.assetPath(), variant.id());
 				return null;
 			}
-			Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING);
+			copyTo(input, destination);
 		}
 		return destination;
+	}
+
+	private static String soundRelativePath(String vanillaPath) {
+		return stripPrefix(vanillaPath, "sounds/");
+	}
+
+	private static String stripPrefix(String value, String prefix) {
+		return value.startsWith(prefix) ? value.substring(prefix.length()) : value;
+	}
+
+	private static void copyTo(InputStream input, Path destination) throws IOException {
+		Files.createDirectories(destination.getParent());
+		Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING);
 	}
 
 	private static String stripExtension(String name) {
@@ -468,7 +456,7 @@ public final class OverlayPackManager {
 			return;
 		}
 		try (var walk = Files.walk(path)) {
-			walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
+			walk.sorted(Comparator.reverseOrder()).forEach(p -> {
 				try {
 					Files.deleteIfExists(p);
 				} catch (IOException exception) {
@@ -484,7 +472,7 @@ public final class OverlayPackManager {
 		}
 
 		public static ApplyResult failed() {
-			return new ApplyResult(false, 0, 0, 0);
+			return empty();
 		}
 	}
 }

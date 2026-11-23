@@ -47,6 +47,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Draws the selected variant as a small rotating model inside the preview pane.
@@ -419,9 +420,7 @@ final class VariantPreviewRenderer {
 	}
 
 	static ModelPart cube(int texW, int texH) {
-		int width = Math.max(1, texW);
-		int height = Math.max(1, texH);
-		return CUBE_GEOMETRY.computeIfAbsent(width + "x" + height, key -> {
+		return geometry(CUBE_GEOMETRY, texW, texH, root -> {
 			CubeListBuilder cubes = CubeListBuilder.create();
 			cubes.addBox(-8.0f, -8.0f, -8.0f, 16.0f, 16.0f, 0.0f, Set.of(Direction.NORTH));
 			cubes.addBox(-8.0f, -8.0f, 8.0f, 16.0f, 16.0f, 0.0f, Set.of(Direction.SOUTH));
@@ -429,36 +428,35 @@ final class VariantPreviewRenderer {
 			cubes.addBox(8.0f, -8.0f, -8.0f, 0.0f, 16.0f, 16.0f, Set.of(Direction.EAST));
 			cubes.addBox(-8.0f, -8.0f, -8.0f, 16.0f, 0.0f, 16.0f, Set.of(Direction.UP));
 			cubes.addBox(-8.0f, 8.0f, -8.0f, 16.0f, 0.0f, 16.0f, Set.of(Direction.DOWN));
-			MeshDefinition mesh = new MeshDefinition();
-			mesh.getRoot().addOrReplaceChild("body", cubes, PartPose.ZERO);
-			return LayerDefinition.create(mesh, 16, layerHeight(width, height)).bakeRoot();
+			root.addOrReplaceChild("body", cubes, PartPose.ZERO);
 		});
 	}
 
 	static ModelPart plane(int texW, int texH) {
-		int width = Math.max(1, texW);
-		int height = Math.max(1, texH);
-		return PLANE_GEOMETRY.computeIfAbsent(width + "x" + height, key -> {
+		return geometry(PLANE_GEOMETRY, texW, texH, root -> {
 			CubeListBuilder cubes = CubeListBuilder.create();
 			cubes.addBox(-8.0f, -8.0f, 0.0f, 16.0f, 16.0f, 0.0f, Set.of(Direction.NORTH, Direction.SOUTH));
-			MeshDefinition mesh = new MeshDefinition();
-			mesh.getRoot().addOrReplaceChild("body", cubes, PartPose.ZERO);
-			return LayerDefinition.create(mesh, 16, layerHeight(width, height)).bakeRoot();
+			root.addOrReplaceChild("body", cubes, PartPose.ZERO);
 		});
 	}
 
 	static ModelPart cross(int texW, int texH) {
-		int width = Math.max(1, texW);
-		int height = Math.max(1, texH);
-		return CROSS_GEOMETRY.computeIfAbsent(width + "x" + height, key -> {
-			MeshDefinition mesh = new MeshDefinition();
-			PartDefinition root = mesh.getRoot();
+		return geometry(CROSS_GEOMETRY, texW, texH, root -> {
 			CubeListBuilder first = CubeListBuilder.create();
 			first.addBox(-8.0f, -8.0f, 0.0f, 16.0f, 16.0f, 0.0f, Set.of(Direction.NORTH, Direction.SOUTH));
 			root.addOrReplaceChild("cross_a", first, PartPose.rotation(0.0f, (float) Math.PI / 4.0f, 0.0f));
 			CubeListBuilder second = CubeListBuilder.create();
 			second.addBox(-8.0f, -8.0f, 0.0f, 16.0f, 16.0f, 0.0f, Set.of(Direction.NORTH, Direction.SOUTH));
 			root.addOrReplaceChild("cross_b", second, PartPose.rotation(0.0f, -(float) Math.PI / 4.0f, 0.0f));
+		});
+	}
+
+	private static ModelPart geometry(Map<String, ModelPart> cache, int texW, int texH, Consumer<PartDefinition> parts) {
+		int width = Math.max(1, texW);
+		int height = Math.max(1, texH);
+		return cache.computeIfAbsent(width + "x" + height, key -> {
+			MeshDefinition mesh = new MeshDefinition();
+			parts.accept(mesh.getRoot());
 			return LayerDefinition.create(mesh, 16, layerHeight(width, height)).bakeRoot();
 		});
 	}

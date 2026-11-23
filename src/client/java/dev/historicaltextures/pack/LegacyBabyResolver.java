@@ -50,8 +50,7 @@ public final class LegacyBabyResolver {
 		}
 		Optional<TextureVariant> variant = adultVariant(entry, config);
 		if (variant.isPresent()) {
-			String choice = config.getTextureChoice(entry.adultTexture());
-			for (Map.Entry<String, String> file : LegacyModels.filesFor(entry.adultTexture(), choice).entrySet()) {
+			for (Map.Entry<String, String> file : legacyFiles(entry, config).entrySet()) {
 				if (adultRelative.equals(file.getKey()) && file.getKey().endsWith(".png")) {
 					Optional<byte[]> converted = readBytes(LegacyModels.open(file.getValue()));
 					if (converted.isPresent()) {
@@ -75,9 +74,8 @@ public final class LegacyBabyResolver {
 	 * legacy adult variant and a transform is known, else the static 1.21.11 export.
 	 */
 	public static Optional<JsonObject> babyJem(LegacyBabies.Entry entry, ModConfig config) {
-		String choice = config.getTextureChoice(entry.adultTexture());
 		if (entry.legacyTransform() != null && adultVariant(entry, config).isPresent()) {
-			for (Map.Entry<String, String> file : LegacyModels.filesFor(entry.adultTexture(), choice).entrySet()) {
+			for (Map.Entry<String, String> file : legacyFiles(entry, config).entrySet()) {
 				if (file.getKey() == null || !file.getKey().endsWith(".jem")) {
 					continue;
 				}
@@ -107,9 +105,7 @@ public final class LegacyBabyResolver {
 			return false;
 		}
 		try {
-			Path textureDestination = overlayRoot.resolve("assets/minecraft").resolve(relative(entry.babyTexture()));
-			Files.createDirectories(textureDestination.getParent());
-			Files.write(textureDestination, texture.get());
+			Path textureDestination = writeAsset(overlayRoot, relative(entry.babyTexture()), texture.get());
 			// Same rule as the adult overlay: historical villager art loses the modern hood.
 			if (config.hideVillagerHood()
 					&& adultVariant(entry, config).isPresent()
@@ -126,6 +122,17 @@ public final class LegacyBabyResolver {
 			HistoricalTextures.LOGGER.warn("Failed to write legacy baby {}", entry.babyTexture(), exception);
 			return false;
 		}
+	}
+
+	private static Path writeAsset(Path overlayRoot, String relative, byte[] bytes) throws IOException {
+		Path destination = overlayRoot.resolve("assets/minecraft").resolve(relative);
+		Files.createDirectories(destination.getParent());
+		Files.write(destination, bytes);
+		return destination;
+	}
+
+	private static Map<String, String> legacyFiles(LegacyBabies.Entry entry, ModConfig config) {
+		return LegacyModels.filesFor(entry.adultTexture(), config.getTextureChoice(entry.adultTexture()));
 	}
 
 	private static Optional<TextureVariant> adultVariant(LegacyBabies.Entry entry, ModConfig config) {
