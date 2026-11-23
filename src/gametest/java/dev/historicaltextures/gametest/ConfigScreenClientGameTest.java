@@ -1,6 +1,7 @@
 package dev.historicaltextures.gametest;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.NativeImage;
 import dev.historicaltextures.HistoricalTextures;
 import dev.historicaltextures.catalog.HistoricalCatalog;
 import dev.historicaltextures.catalog.LegacyModels;
@@ -26,9 +27,11 @@ import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.phys.AABB;
 
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -87,9 +90,12 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 	private static final String VILLAGER_PROFESSION_KEY =
 			"minecraft:textures/entity/villager/profession/farmer.png";
 	private static final String VILLAGER_FARMER_VARIANT = "farmer_texture_je1_png";
+	private static final String VILLAGER_LIBRARIAN_KEY =
+			"minecraft:textures/entity/villager/profession/librarian.png";
+	private static final String VILLAGER_LIBRARIAN_VARIANT = "librarian_texture_je1_png";
 
 	private static final FaceDiagnosticTarget VILLAGER_HOOD_TARGET = new FaceDiagnosticTarget(
-			VILLAGER_PROFESSION_KEY,
+			VILLAGER_LIBRARIAN_KEY,
 			"minecraft:villager",
 			null,
 			EntityTypes.VILLAGER,
@@ -925,6 +931,8 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 					"error=" + exception);
 		}
 
+		runHoodPixelChecks(context, phase, failures);
+
 		// Restore config and overlay
 		ModConfig.get().clearAll();
 		ModConfig.get().setHideVillagerHood(true);
@@ -936,6 +944,99 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		context.waitTicks(2);
 		setSearch(context, "");
 		context.waitTicks(2);
+	}
+
+	private void runHoodPixelChecks(
+			ClientGameTestContext context,
+			String phase,
+			List<String> failures
+	) {
+		String step = phase + "_hood_pixels";
+		Path overlay = OverlayPackManager.overlayDirectory().resolve(
+				"assets/minecraft/textures/entity/villager/profession/librarian.png");
+		TextureVariant variant = HistoricalCatalog.get()
+				.textureVariant(VILLAGER_LIBRARIAN_VARIANT)
+				.orElse(null);
+		try {
+			ModConfig.get().clearAll();
+			ModConfig.get().setTextureChoice(VILLAGER_LIBRARIAN_KEY, VILLAGER_LIBRARIAN_VARIANT);
+			ModConfig.get().setHideVillagerHood(true);
+			ModConfig.get().save();
+			generateOverlay(context);
+			String cleared = hoodPixelsClearedDetail(overlay);
+			check(failures, step, "hood_pixels_cleared", cleared == null,
+					cleared == null ? "ok" : cleared);
+
+			ModConfig.get().setHideVillagerHood(false);
+			ModConfig.get().save();
+			generateOverlay(context);
+			String kept = hoodPixelsKeptDetail(overlay, variant);
+			check(failures, step, "hood_pixels_kept", kept == null,
+					kept == null ? "ok" : kept);
+		} catch (Exception exception) {
+			check(failures, step, "hood_pixels_cleared", false, "error=" + exception);
+			check(failures, step, "hood_pixels_kept", false, "error=" + exception);
+		} finally {
+			ModConfig.get().clearAll();
+			ModConfig.get().setHideVillagerHood(true);
+			ModConfig.get().save();
+			generateOverlay(context);
+		}
+	}
+
+	private String hoodPixelsClearedDetail(Path png) {
+		if (!Files.isRegularFile(png)) {
+			return "missing overlay";
+		}
+		try (InputStream input = Files.newInputStream(png);
+				NativeImage image = NativeImage.read(input)) {
+			if (image.getWidth() != 64 || image.getHeight() != 64) {
+				return "size=" + image.getWidth() + "x" + image.getHeight();
+			}
+			for (int y = 0; y < 18; y++) {
+				for (int x = 32; x < 64; x++) {
+					if ((image.getPixel(x, y) >>> 24) != 0) {
+						return "opaque hood pixel " + x + "," + y;
+					}
+				}
+			}
+			for (int y = 47; y < 64; y++) {
+				for (int x = 30; x < 64; x++) {
+					if ((image.getPixel(x, y) >>> 24) != 0) {
+						return "opaque hood pixel " + x + "," + y;
+					}
+				}
+			}
+			if ((image.getPixel(8, 12) >>> 24) == 0) {
+				return "head pixel transparent";
+			}
+			return null;
+		} catch (Exception exception) {
+			return "error=" + exception;
+		}
+	}
+
+	private String hoodPixelsKeptDetail(Path overlay, TextureVariant variant) {
+		if (variant == null) {
+			return "missing variant";
+		}
+		if (!Files.isRegularFile(overlay)) {
+			return "missing overlay";
+		}
+		byte[] expected;
+		try (InputStream input = HistoricalCatalog.get().openAsset(variant.assetPath())) {
+			if (input == null) {
+				return "missing catalog asset " + variant.assetPath();
+			}
+			expected = input.readAllBytes();
+		} catch (Exception exception) {
+			return "catalog read error=" + exception;
+		}
+		try {
+			return Arrays.equals(Files.readAllBytes(overlay), expected) ? null : "bytes differ";
+		} catch (Exception exception) {
+			return "overlay read error=" + exception;
+		}
 	}
 
 	private void generateOverlay(ClientGameTestContext context) {
@@ -1003,14 +1104,14 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		boolean hudWasHidden = hideDiagnosticHud(context);
 		try {
 			ModConfig.get().clearAll();
-			ModConfig.get().setTextureChoice(VILLAGER_PROFESSION_KEY, VILLAGER_FARMER_VARIANT);
+			ModConfig.get().setTextureChoice(VILLAGER_LIBRARIAN_KEY, VILLAGER_LIBRARIAN_VARIANT);
 			ModConfig.get().save();
 
 			sp.getServer().runCommand("kill @e[type=!player]");
 			try {
 				sp.getServer().runCommand(
 						"summon minecraft:villager 0.5 101 0.5 "
-								+ "{NoAI:1b,Rotation:[0f,0f],VillagerData:{profession:\"minecraft:farmer\",type:\"minecraft:plains\",level:1}}"
+								+ "{NoAI:1b,Rotation:[0f,0f],VillagerData:{profession:\"minecraft:librarian\",type:\"minecraft:snow\",level:1}}"
 				);
 			} catch (RuntimeException exception) {
 				logDiagnosticWarn("diag_world_hood summon_failed error=" + exception.getMessage());

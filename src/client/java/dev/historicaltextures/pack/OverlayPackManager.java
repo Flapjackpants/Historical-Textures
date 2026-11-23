@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.mojang.blaze3d.platform.NativeImage;
 import dev.historicaltextures.GamePaths;
 import dev.historicaltextures.HistoricalTextures;
 import dev.historicaltextures.catalog.HistoricalCatalog;
@@ -28,6 +29,7 @@ public final class OverlayPackManager {
 	private static final int PACK_FORMAT_MAJOR = 97;
 	private static final int PACK_FORMAT_MINOR = 1;
 	public static final String VILLAGER_PROFESSION_PREFIX = "textures/entity/villager/profession/";
+	static final String VILLAGER_TEXTURE_PREFIX = "textures/entity/villager/";
 
 	private OverlayPackManager() {
 	}
@@ -207,7 +209,29 @@ public final class OverlayPackManager {
 			HistoricalTextures.LOGGER.debug("Wrote overlay texture {}", destination.toAbsolutePath());
 			writeLegacyFiles(root, variant, targetPath);
 			writeVillagerHoodMcmeta(destination, relative);
+			if (ModConfig.get().hideVillagerHood()
+					&& (relative.startsWith(VILLAGER_PROFESSION_PREFIX)
+							|| relative.equals("textures/entity/villager/villager.png"))) {
+				clearVillagerHoodPixels(destination);
+			}
 			return true;
+		}
+	}
+
+	private static void clearVillagerHoodPixels(Path png) throws IOException {
+		try (InputStream input = Files.newInputStream(png);
+				NativeImage image = NativeImage.read(input)) {
+			if (image.getWidth() != 64 || image.getHeight() != 64) {
+				HistoricalTextures.LOGGER.debug(
+						"Skipping villager hood pixel cleanup for non-64x64 texture {}",
+						png.toAbsolutePath()
+				);
+				return;
+			}
+			image.fillRect(32, 0, 32, 18, 0);
+			image.fillRect(30, 47, 34, 17, 0);
+			image.writeToFile(png);
+			HistoricalTextures.LOGGER.debug("Cleared villager hood pixels {}", png.toAbsolutePath());
 		}
 	}
 
