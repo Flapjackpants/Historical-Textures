@@ -186,21 +186,57 @@
     "adultTexture": "minecraft:textures/entity/cow/cow_cold.png",
     "emfModel": "cold_cow_baby",
     "jem": "babies/cold_cow_baby.jem",
-    "label": "Baby Cow (Cold)"
+    "label": "Baby Cow (Cold)",
+    "legacyTransform": {
+      "type": "baby",
+      "scaleHead": false,
+      "yHeadOffset": 8,
+      "zHeadOffset": 6,
+      "headScale": 2,
+      "bodyScale": 2,
+      "bodyYOffset": 24,
+      "headParts": [
+        "head"
+      ]
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/cow/cow_temperate_baby.png",
     "adultTexture": "minecraft:textures/entity/cow/cow_temperate.png",
     "emfModel": "cow_baby",
     "jem": "babies/cow_baby.jem",
-    "label": "Baby Cow (Temperate)"
+    "label": "Baby Cow (Temperate)",
+    "legacyTransform": {
+      "type": "baby",
+      "scaleHead": false,
+      "yHeadOffset": 8,
+      "zHeadOffset": 6,
+      "headScale": 2,
+      "bodyScale": 2,
+      "bodyYOffset": 24,
+      "headParts": [
+        "head"
+      ]
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/cow/cow_warm_baby.png",
     "adultTexture": "minecraft:textures/entity/cow/cow_warm.png",
     "emfModel": "warm_cow_baby",
     "jem": "babies/warm_cow_baby.jem",
-    "label": "Baby Cow (Warm)"
+    "label": "Baby Cow (Warm)",
+    "legacyTransform": {
+      "type": "baby",
+      "scaleHead": false,
+      "yHeadOffset": 8,
+      "zHeadOffset": 6,
+      "headScale": 2,
+      "bodyScale": 2,
+      "bodyYOffset": 24,
+      "headParts": [
+        "head"
+      ]
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/cow/mooshroom_brown_baby.png",
@@ -284,7 +320,24 @@
     "adultTexture": "minecraft:textures/entity/horse/donkey.png",
     "emfModel": "donkey_baby",
     "jem": "babies/donkey_baby.jem",
-    "label": "Baby Horse (Donkey)"
+    "label": "Baby Horse (Donkey)",
+    "legacyTransform": {
+      "type": "baby",
+      "scaleHead": true,
+      "yHeadOffset": 16.2,
+      "zHeadOffset": 1.36,
+      "headScale": 2.7272,
+      "bodyScale": 2,
+      "bodyYOffset": 20,
+      "headParts": [
+        "head",
+        "mouth",
+        "left_ear",
+        "right_ear",
+        "neck",
+        "mane"
+      ]
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/horse/horse_black_baby.png",
@@ -354,7 +407,24 @@
     "adultTexture": "minecraft:textures/entity/horse/mule.png",
     "emfModel": "mule_baby",
     "jem": "babies/mule_baby.jem",
-    "label": "Baby Horse (Mule)"
+    "label": "Baby Horse (Mule)",
+    "legacyTransform": {
+      "type": "baby",
+      "scaleHead": true,
+      "yHeadOffset": 16.2,
+      "zHeadOffset": 1.36,
+      "headScale": 2.7272,
+      "bodyScale": 2,
+      "bodyYOffset": 20,
+      "headParts": [
+        "head",
+        "mouth",
+        "left_ear",
+        "right_ear",
+        "neck",
+        "mane"
+      ]
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/llama/llama_brown_baby.png",
@@ -445,21 +515,57 @@
     "adultTexture": "minecraft:textures/entity/pig/pig_cold.png",
     "emfModel": "cold_pig_baby",
     "jem": "babies/cold_pig_baby.jem",
-    "label": "Baby Pig (Cold)"
+    "label": "Baby Pig (Cold)",
+    "legacyTransform": {
+      "type": "baby",
+      "scaleHead": false,
+      "yHeadOffset": 4,
+      "zHeadOffset": 4,
+      "headScale": 2,
+      "bodyScale": 2,
+      "bodyYOffset": 24,
+      "headParts": [
+        "head"
+      ]
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/pig/pig_temperate_baby.png",
     "adultTexture": "minecraft:textures/entity/pig/pig_temperate.png",
     "emfModel": "pig_baby",
     "jem": "babies/pig_baby.jem",
-    "label": "Baby Pig (Temperate)"
+    "label": "Baby Pig (Temperate)",
+    "legacyTransform": {
+      "type": "baby",
+      "scaleHead": false,
+      "yHeadOffset": 4,
+      "zHeadOffset": 4,
+      "headScale": 2,
+      "bodyScale": 2,
+      "bodyYOffset": 24,
+      "headParts": [
+        "head"
+      ]
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/pig/pig_warm_baby.png",
     "adultTexture": "minecraft:textures/entity/pig/pig_warm.png",
     "emfModel": "pig_baby",
     "jem": "babies/pig_baby.jem",
-    "label": "Baby Pig (Warm)"
+    "label": "Baby Pig (Warm)",
+    "legacyTransform": {
+      "type": "baby",
+      "scaleHead": false,
+      "yHeadOffset": 4,
+      "zHeadOffset": 4,
+      "headScale": 2,
+      "bodyScale": 2,
+      "bodyYOffset": 24,
+      "headParts": [
+        "head"
+      ]
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/piglin/piglin_baby.png",
@@ -473,7 +579,20 @@
     "adultTexture": "minecraft:textures/entity/piglin/zombified_piglin.png",
     "emfModel": "zombified_piglin_baby",
     "jem": "babies/zombified_piglin_baby.jem",
-    "label": "Baby Piglin (Zombified Piglin)"
+    "label": "Baby Piglin (Zombified Piglin)",
+    "legacyTransform": {
+      "type": "baby",
+      "scaleHead": true,
+      "yHeadOffset": 16,
+      "zHeadOffset": 0,
+      "headScale": 2,
+      "bodyScale": 2,
+      "bodyYOffset": 24,
+      "headParts": [
+        "head",
+        "headwear"
+      ]
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/rabbit/rabbit_black_baby.png",
@@ -481,7 +600,11 @@
     "emfModel": "rabbit_baby",
     "jem": "babies/rabbit_baby.jem",
     "label": "Baby Rabbit (Black)",
-    "fallbackAdultTexture": "babies/textures/rabbit_black.png"
+    "fallbackAdultTexture": "babies/textures/rabbit_black.png",
+    "legacyTransform": {
+      "type": "uniform",
+      "scale": 0.5
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/rabbit/rabbit_brown_baby.png",
@@ -489,7 +612,11 @@
     "emfModel": "rabbit_baby",
     "jem": "babies/rabbit_baby.jem",
     "label": "Baby Rabbit (Brown)",
-    "fallbackAdultTexture": "babies/textures/rabbit_brown.png"
+    "fallbackAdultTexture": "babies/textures/rabbit_brown.png",
+    "legacyTransform": {
+      "type": "uniform",
+      "scale": 0.5
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/rabbit/rabbit_caerbannog_baby.png",
@@ -497,7 +624,11 @@
     "emfModel": "rabbit_baby",
     "jem": "babies/rabbit_baby.jem",
     "label": "Baby Rabbit (Caerbannog)",
-    "fallbackAdultTexture": "babies/textures/rabbit_caerbannog.png"
+    "fallbackAdultTexture": "babies/textures/rabbit_caerbannog.png",
+    "legacyTransform": {
+      "type": "uniform",
+      "scale": 0.5
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/rabbit/rabbit_gold_baby.png",
@@ -505,7 +636,11 @@
     "emfModel": "rabbit_baby",
     "jem": "babies/rabbit_baby.jem",
     "label": "Baby Rabbit (Gold)",
-    "fallbackAdultTexture": "babies/textures/rabbit_gold.png"
+    "fallbackAdultTexture": "babies/textures/rabbit_gold.png",
+    "legacyTransform": {
+      "type": "uniform",
+      "scale": 0.5
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/rabbit/rabbit_salt_baby.png",
@@ -513,7 +648,11 @@
     "emfModel": "rabbit_baby",
     "jem": "babies/rabbit_baby.jem",
     "label": "Baby Rabbit (Salt)",
-    "fallbackAdultTexture": "babies/textures/rabbit_salt.png"
+    "fallbackAdultTexture": "babies/textures/rabbit_salt.png",
+    "legacyTransform": {
+      "type": "uniform",
+      "scale": 0.5
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/rabbit/rabbit_toast_baby.png",
@@ -521,7 +660,11 @@
     "emfModel": "rabbit_baby",
     "jem": "babies/rabbit_baby.jem",
     "label": "Baby Rabbit (Toast)",
-    "fallbackAdultTexture": "babies/textures/rabbit_toast.png"
+    "fallbackAdultTexture": "babies/textures/rabbit_toast.png",
+    "legacyTransform": {
+      "type": "uniform",
+      "scale": 0.5
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/rabbit/rabbit_white_baby.png",
@@ -529,7 +672,11 @@
     "emfModel": "rabbit_baby",
     "jem": "babies/rabbit_baby.jem",
     "label": "Baby Rabbit (White)",
-    "fallbackAdultTexture": "babies/textures/rabbit_white.png"
+    "fallbackAdultTexture": "babies/textures/rabbit_white.png",
+    "legacyTransform": {
+      "type": "uniform",
+      "scale": 0.5
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/rabbit/rabbit_white_splotched_baby.png",
@@ -537,7 +684,11 @@
     "emfModel": "rabbit_baby",
     "jem": "babies/rabbit_baby.jem",
     "label": "Baby Rabbit (White Splotched)",
-    "fallbackAdultTexture": "babies/textures/rabbit_white_splotched.png"
+    "fallbackAdultTexture": "babies/textures/rabbit_white_splotched.png",
+    "legacyTransform": {
+      "type": "uniform",
+      "scale": 0.5
+    }
   },
   {
     "babyTexture": "minecraft:textures/entity/sheep/sheep_baby.png",
@@ -894,6 +1045,19 @@
     "adultTexture": "minecraft:textures/entity/zombie_villager/zombie_villager.png",
     "emfModel": "zombie_villager_baby",
     "jem": "babies/zombie_villager_baby.jem",
-    "label": "Baby Zombie Villager (Villager)"
+    "label": "Baby Zombie Villager (Villager)",
+    "legacyTransform": {
+      "type": "baby",
+      "scaleHead": true,
+      "yHeadOffset": 16,
+      "zHeadOffset": 0,
+      "headScale": 2,
+      "bodyScale": 2,
+      "bodyYOffset": 24,
+      "headParts": [
+        "head",
+        "headwear"
+      ]
+    }
   }
 ]
