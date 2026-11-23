@@ -86,11 +86,7 @@ public final class ModConfig {
 	}
 
 	public void setTextureChoice(String target, String variantId) {
-		if (variantId == null || variantId.isEmpty()) {
-			textureChoices.remove(target);
-		} else {
-			textureChoices.put(target, variantId);
-		}
+		putOrRemove(textureChoices, target, variantId);
 	}
 
 	public String getSoundChoice(String event) {
@@ -98,10 +94,14 @@ public final class ModConfig {
 	}
 
 	public void setSoundChoice(String event, String variantId) {
-		if (variantId == null || variantId.isEmpty()) {
-			soundChoices.remove(event);
+		putOrRemove(soundChoices, event, variantId);
+	}
+
+	private static void putOrRemove(Map<String, String> map, String key, String value) {
+		if (value == null || value.isEmpty()) {
+			map.remove(key);
 		} else {
-			soundChoices.put(event, variantId);
+			map.put(key, value);
 		}
 	}
 

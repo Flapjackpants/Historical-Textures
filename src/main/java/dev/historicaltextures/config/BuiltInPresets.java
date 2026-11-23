@@ -27,17 +27,6 @@ public final class BuiltInPresets {
 			"1.13.2"
 	);
 
-	private static final List<String> NAMES = List.of(
-			"Alpha 1.2.6",
-			"Beta 1.7.3",
-			"1.2.5",
-			"1.4.7",
-			"1.6.4",
-			"1.8.9",
-			"1.12.2",
-			"1.13.2"
-	);
-
 	private static final Pattern JE_TAG = Pattern.compile("JE(\\d+)");
 	private static final Pattern RANGE = Pattern.compile("^(.+?)\\s+[–-]\\s+(.+?)$");
 	private static final int SOUNDS_UNTIL_KEY = ReleaseTimeline.releaseKey("1.9");
@@ -68,7 +57,7 @@ public final class BuiltInPresets {
 					}
 				}
 			}
-			presets.add(new Preset(NAMES.get(i), textureChoices, soundChoices, true, true));
+			presets.add(new Preset(CUTOFFS.get(i).replace("Alpha v", "Alpha "), textureChoices, soundChoices, true, true));
 		}
 		return List.copyOf(presets);
 	}

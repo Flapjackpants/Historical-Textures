@@ -15,6 +15,10 @@ public record SoundVariant(
 		String displayVersion
 ) {
 	public String versionLabel() {
+		return versionLabel(javaVersion, bedrockVersion, displayVersion, label);
+	}
+
+	static String versionLabel(String javaVersion, String bedrockVersion, String displayVersion, String fallback) {
 		if (javaVersion != null && !javaVersion.isBlank()) {
 			if (bedrockVersion != null && !bedrockVersion.isBlank()) {
 				return javaVersion + " / " + bedrockVersion;
@@ -27,6 +31,6 @@ public record SoundVariant(
 		if (displayVersion != null && !displayVersion.isBlank()) {
 			return displayVersion;
 		}
-		return label;
+		return fallback;
 	}
 }
