@@ -95,7 +95,7 @@ public final class BuiltInPresets {
 		return byEvent;
 	}
 
-	private static TextureVariant bestTexture(List<TextureVariant> candidates, int cutoffKey) {
+	static TextureVariant bestTexture(List<TextureVariant> candidates, int cutoffKey) {
 		TextureVariant best = null;
 		int bestKey = -1;
 		int bestJe = -1;
