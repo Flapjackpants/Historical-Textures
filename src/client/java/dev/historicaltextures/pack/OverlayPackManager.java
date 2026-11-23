@@ -313,7 +313,7 @@ public final class OverlayPackManager {
 		return true;
 	}
 
-	private static void clearVillagerHoodPixels(Path png) throws IOException {
+	static void clearVillagerHoodPixels(Path png) throws IOException {
 		try (InputStream input = Files.newInputStream(png);
 				NativeImage image = NativeImage.read(input)) {
 			if (!clearVillagerHood(image)) {

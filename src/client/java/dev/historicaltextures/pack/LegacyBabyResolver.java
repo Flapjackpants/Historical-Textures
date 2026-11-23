@@ -110,6 +110,12 @@ public final class LegacyBabyResolver {
 			Path textureDestination = overlayRoot.resolve("assets/minecraft").resolve(relative(entry.babyTexture()));
 			Files.createDirectories(textureDestination.getParent());
 			Files.write(textureDestination, texture.get());
+			// Same rule as the adult overlay: historical villager art loses the modern hood.
+			if (config.hideVillagerHood()
+					&& adultVariant(entry, config).isPresent()
+					&& OverlayPackManager.isVillagerHoodTarget(relative(entry.adultTexture()))) {
+				OverlayPackManager.clearVillagerHoodPixels(textureDestination);
+			}
 			Path jemDestination = overlayRoot.resolve("assets/minecraft/optifine/cem")
 					.resolve(entry.emfModel() + ".jem");
 			Files.createDirectories(jemDestination.getParent());
