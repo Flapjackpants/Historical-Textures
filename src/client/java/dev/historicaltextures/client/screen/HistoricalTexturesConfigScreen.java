@@ -10,6 +10,7 @@ import dev.historicaltextures.catalog.TextureVariant;
 import dev.historicaltextures.client.CatalogThumbnailCache;
 import dev.historicaltextures.client.SoundPreviewPlayer;
 import dev.historicaltextures.config.ModConfig;
+import dev.historicaltextures.config.Preset;
 import dev.historicaltextures.config.TextureGroups;
 import dev.historicaltextures.pack.OverlayPackManager;
 import net.minecraft.client.Minecraft;
@@ -17,6 +18,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.ObjectSelectionList;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -52,6 +54,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private static final long PREVIEW_RESUME_DELAY_MS = 1000L;
 
 	private final Screen parent;
+	private static Preset lastApplied;
 	private Tab activeTab = Tab.BLOCKS;
 	private EditBox searchBox;
 	private TargetList targetList;
@@ -85,6 +88,9 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	public HistoricalTexturesConfigScreen(Screen parent) {
 		super(Component.translatable("screen.historical_textures.config"));
 		this.parent = parent;
+		if (lastApplied == null) {
+			lastApplied = ModConfig.get().snapshot("");
+		}
 	}
 
 	@Override
@@ -138,10 +144,8 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		addRenderableWidget(targetList);
 		addRenderableWidget(variantList);
 
-		addRenderableWidget(Button.builder(Component.translatable("historical_textures.apply"), b -> applyChanges())
-				.bounds(width / 2 - 100, height - 52, 98, 20).build());
 		addRenderableWidget(Button.builder(Component.literal("Clear all"), b -> clearAll())
-				.bounds(width / 2 + 4, height - 52, 98, 20).build());
+				.bounds(width / 2 - 49, height - 52, 98, 20).build());
 		addRenderableWidget(Button.builder(Component.translatable("historical_textures.credits"), b ->
 						minecraft.setScreenAndShow(new CreditsScreen(this)))
 				.bounds(8, height - 28, 120, 20).build());
@@ -156,7 +160,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				.build();
 		hoodButton.visible = false;
 		hoodButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
-				Component.literal("Old villagers had no hood. Applies to the preview and overlay textures.")));
+				Component.literal("Old villagers had no hood. Applies when you leave this screen.")));
 		addRenderableWidget(hoodButton);
 
 		soundPlayButton = Button.builder(Component.literal("Play"), b -> SoundPreviewPlayer.toggle())
@@ -446,12 +450,8 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		return null;
 	}
 
-	private void applyChanges() {
-		ModConfig.get().save();
-		applyAndReport(minecraft);
-	}
-
 	static void applyAndReport(Minecraft minecraft) {
+		lastApplied = ModConfig.get().snapshot("");
 		OverlayPackManager.ApplyResult result = OverlayPackManager.applyChoices(true);
 		if (minecraft.player != null) {
 			if (result.hadChoices() && result.texturesWritten() == 0 && result.soundsWritten() == 0) {
@@ -468,18 +468,32 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private void clearAll() {
-		ModConfig.get().clearAll();
-		ModConfig.get().save();
-		selectedTarget = null;
-		selectedSoundEvent = null;
-		OverlayPackManager.applyChoices(true);
-		rebuildLists();
+		minecraft.setScreenAndShow(new ConfirmScreen(yes -> {
+			if (yes) {
+				ModConfig.get().clearAll();
+				ModConfig.get().save();
+				selectedTarget = null;
+				selectedSoundEvent = null;
+			}
+			minecraft.setScreenAndShow(this);
+			if (yes) {
+				rebuildLists();
+			}
+		}, Component.literal("Clear all selections?"),
+				Component.literal("Every texture and sound selection will be removed. Changes apply when you leave this screen."),
+				Component.literal("Clear all"), CommonComponents.GUI_CANCEL));
 	}
 
 	@Override
 	public void onClose() {
 		SoundPreviewPlayer.stop();
-		minecraft.setScreenAndShow(parent);
+		if (!ModConfig.get().snapshot("").equals(lastApplied)) {
+			ModConfig.get().save();
+			minecraft.setScreenAndShow(parent);
+			applyAndReport(minecraft);
+		} else {
+			minecraft.setScreenAndShow(parent);
+		}
 	}
 
 	@Override

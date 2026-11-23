@@ -17,7 +17,7 @@ Fabric mod for **Minecraft 26.3+** that lets you pick historical textures and so
 1. Install the mod and Mod Menu.
 2. Open **Mods → Historical Textures → Configure**.
 3. Choose a tab (Blocks, Items, Entities, Sounds), pick a target, then select a historical variant.
-4. Click **Apply & Reload** to generate the overlay resource pack and reload client resources.
+4. Close the screen (Done or Esc); changes apply and resources reload automatically.
 
 Selections are stored in `config/historical_textures.json`. Generated pack files live in `config/historical_textures/overlay/`.
 
@@ -59,8 +59,8 @@ Texture and sound files documented on minecraft.wiki. Wiki text is [CC BY-SA 3.0
 
 - [ ] `./gradlew build` succeeds on JDK 25 toolchain
 - [ ] Mod appears in Mod Menu with config button
-- [ ] Select **Stone** → older variant → **Apply & Reload** → stone texture changes in world
+- [ ] Select **Stone** → older variant → Done → stone texture changes in world
 - [ ] Select **entity.cow.hurt** → old sound → hear change in game
-- [ ] **Clear all** restores vanilla after reload
+- [ ] **Clear all** → confirm → Done restores vanilla after reload
 - [ ] Game launches offline (no wiki network needed)
 # Historical-Textures

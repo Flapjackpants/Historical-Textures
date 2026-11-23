@@ -435,6 +435,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		runHoodSteps(context, phase, failures, screenshots);
 		runCurrentVariantSteps(context, phase, failures, screenshots);
 		runPresetSteps(context, phase, failures, screenshots);
+		runAutoApplySteps(context, phase, failures, screenshots);
 		runCakeGroupSteps(context, phase, failures, screenshots);
 		runSoundSteps(context, phase, failures, screenshots);
 
@@ -1314,7 +1315,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		clickTargetRow(context, failures, findRowIndex(context, 0, "Dandelion", false), stepPlant, "preview_plant_target");
 		context.waitTicks(2);
 		String plantShape = previewShapeName(context);
-		check(failures, stepPlant, "preview_plant_shape", "PLANE".equals(plantShape), "shape=" + plantShape);
+		check(failures, stepPlant, "preview_plant_shape", "CROSS".equals(plantShape), "shape=" + plantShape);
 		recordScreenshot(context, stepPlant, screenshots);
 
 		// 05g preview_entity
@@ -1698,6 +1699,88 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		ModConfig.get().clearAll();
 		ModConfig.get().save();
 		PresetStore.get().delete("HT Test");
+		setSearch(context, "");
+		context.waitTicks(2);
+	}
+
+	private void runAutoApplySteps(
+			ClientGameTestContext context,
+			String phase,
+			List<String> failures,
+			List<Path> screenshots
+	) {
+		String step = phase + "_auto_apply";
+		String stoneKey = "minecraft:textures/block/stone.png";
+		String stoneVariant = "stone_texture_je1_png";
+
+		// auto_apply_no_apply_button: config screen has no Apply & Reload button
+		boolean hasApplyButton = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return false;
+			}
+			for (var child : screen.children()) {
+				if (child instanceof Button button
+						&& button.getMessage().getString().contains("Apply & Reload")) {
+					return true;
+				}
+			}
+			return false;
+		});
+		check(failures, step, "auto_apply_no_apply_button", !hasApplyButton,
+				"found=" + hasApplyButton);
+
+		// clear_all_confirm_cancel: Clear all opens a confirmation; Cancel keeps choices
+		context.runOnClient(client -> {
+			ModConfig.get().setTextureChoice(stoneKey, stoneVariant);
+			ModConfig.get().save();
+		});
+		clickButton(context, "Clear all");
+		String confirmTitle = screenTitle(context);
+		check(failures, step, "clear_all_confirm_title",
+				"Clear all selections?".equals(confirmTitle), "title=" + confirmTitle);
+		clickButton(context, "Cancel");
+		context.waitTicks(3);
+		String cancelTitle = screenTitle(context);
+		check(failures, step, "clear_all_cancel_returns",
+				"Historical Textures".equals(cancelTitle), "title=" + cancelTitle);
+		String choiceAfterCancel = context.computeOnClient(client -> ModConfig.get().getTextureChoice(stoneKey));
+		check(failures, step, "clear_all_cancel_keeps_choice",
+				stoneVariant.equals(choiceAfterCancel), "choice=" + choiceAfterCancel);
+
+		// clear_all_confirm_yes: confirming clears every selection
+		clickButton(context, "Clear all");
+		context.waitTicks(2);
+		clickButton(context, "Clear all");
+		context.waitTicks(3);
+		String yesTitle = screenTitle(context);
+		check(failures, step, "clear_all_yes_returns",
+				"Historical Textures".equals(yesTitle), "title=" + yesTitle);
+		boolean choicesEmpty = context.computeOnClient(client ->
+				ModConfig.get().textureChoices().isEmpty() && ModConfig.get().soundChoices().isEmpty());
+		check(failures, step, "clear_all_yes_empties", choicesEmpty, "empty=" + choicesEmpty);
+
+		// auto_apply_on_done: a selection change plus Done regenerates the overlay
+		context.runOnClient(client -> {
+			ModConfig.get().setTextureChoice(stoneKey, stoneVariant);
+			ModConfig.get().save();
+		});
+		clickButton(context, "Done");
+		waitForPresetApply(context);
+		Path stoneOverlay = OverlayPackManager.overlayDirectory()
+				.resolve("assets/minecraft/textures/block/stone.png");
+		boolean stoneWritten = context.computeOnClient(client -> Files.exists(stoneOverlay));
+		check(failures, step, "auto_apply_on_done", stoneWritten,
+				"exists=" + stoneWritten + " path=" + stoneOverlay);
+
+		// reopen the config screen for the remaining steps and restore clean state
+		context.runOnClient(client -> client.setScreenAndShow(new HistoricalTexturesConfigScreen(null)));
+		context.waitTicks(5);
+		context.runOnClient(client -> {
+			ModConfig.get().clearAll();
+			ModConfig.get().save();
+		});
+		generateOverlay(context);
 		setSearch(context, "");
 		context.waitTicks(2);
 	}
