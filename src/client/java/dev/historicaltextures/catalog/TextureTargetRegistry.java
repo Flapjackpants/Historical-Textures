@@ -1,6 +1,9 @@
 package dev.historicaltextures.catalog;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import dev.historicaltextures.HistoricalTextures;
+import dev.historicaltextures.config.TextureGroups;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -13,7 +16,10 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.server.packs.resources.Resource;
 
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -22,7 +28,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.function.Function;
 
 public final class TextureTargetRegistry {
 	private static final int ENTRY_HEIGHT = 26;
@@ -31,6 +40,7 @@ public final class TextureTargetRegistry {
 	private static List<TextureTarget> entityTargets;
 	private static List<TextureTarget> otherTargets;
 	private static List<String> soundEvents;
+	private static Map<String, List<TextureGroups.GroupVersion>> groupVersions;
 
 	private TextureTargetRegistry() {
 	}
@@ -109,13 +119,92 @@ public final class TextureTargetRegistry {
 		entityTargets = null;
 		otherTargets = null;
 		soundEvents = null;
+		groupVersions = null;
 	}
 
 	private static List<TextureTarget> buildBlockTargets() {
 		Map<String, TextureTarget> byPath = new LinkedHashMap<>();
 		addCatalogTargets(byPath, TextureTargetKind.BLOCK, "textures/block/");
 		enumerateBlocks(byPath);
+		applyBlockGroups(byPath);
 		return sorted(byPath);
+	}
+
+	private static void applyBlockGroups(Map<String, TextureTarget> byPath) {
+		Registry<Block> registry = blockRegistry();
+		Set<String> allBlockPaths = new TreeSet<>();
+		for (Identifier id : registry.keySet()) {
+			if ("minecraft".equals(id.getNamespace())) {
+				allBlockPaths.add(id.getPath());
+			}
+		}
+		Function<String, Optional<JsonObject>> loader = TextureTargetRegistry::loadJsonResource;
+		Map<String, List<TextureGroups.GroupVersion>> versions = new HashMap<>();
+		int groups = 0;
+		for (Identifier id : registry.keySet()) {
+			if (!"minecraft".equals(id.getNamespace())) {
+				continue;
+			}
+			try {
+				Block block = registry.getValue(id);
+				if (block == null) {
+					continue;
+				}
+				String path = id.getPath();
+				Set<String> textures = BlockModelTextures.collect(path, loader);
+				List<String> members = TextureGroups.members(path, textures, allBlockPaths);
+				if (members.size() < 2) {
+					continue;
+				}
+				for (String member : members) {
+					byPath.remove(member);
+				}
+				byPath.remove("minecraft:textures/block/" + path + ".png");
+				TextureTarget group = new TextureTarget(
+						"minecraft:textures/block/" + path + ".png",
+						id,
+						TextureTargetKind.BLOCK,
+						block.getName().getString(),
+						members
+				);
+				byPath.put(group.configKey(), group);
+				versions.put(group.configKey(),
+						TextureGroups.versions(members, HistoricalCatalog.get().texturesByTarget()));
+				groups++;
+			} catch (Exception exception) {
+				HistoricalTextures.LOGGER.debug("Skipped block group {}: {}", id, exception.toString());
+			}
+		}
+		groupVersions = versions;
+		HistoricalTextures.LOGGER.info("Config UI: {} block groups", groups);
+	}
+
+	private static Optional<JsonObject> loadJsonResource(String path) {
+		try {
+			Minecraft minecraft = Minecraft.getInstance();
+			if (minecraft == null || minecraft.getResourceManager() == null) {
+				return Optional.empty();
+			}
+			Optional<Resource> resource = minecraft.getResourceManager()
+					.getResource(Identifier.parse(path));
+			if (resource.isEmpty()) {
+				return Optional.empty();
+			}
+			try (var stream = resource.get().open()) {
+				return Optional.of(JsonParser.parseReader(
+						new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject());
+			}
+		} catch (Exception exception) {
+			return Optional.empty();
+		}
+	}
+
+	public static List<TextureGroups.GroupVersion> groupVersions(String configKey) {
+		if (groupVersions == null) {
+			blockTargets();
+		}
+		Map<String, List<TextureGroups.GroupVersion>> versions = groupVersions;
+		return versions == null ? List.of() : versions.getOrDefault(configKey, List.of());
 	}
 
 	private static List<TextureTarget> buildItemTargets() {
@@ -415,13 +504,20 @@ public final class TextureTargetRegistry {
 		}
 
 		list.sort(Comparator
-				.comparingInt((TextureTarget target) -> HistoricalCatalog.get().variantCountForTarget(target.configKey()))
+				.comparingInt((TextureTarget target) -> variantCount(target.configKey()))
 				.reversed()
 				.thenComparing(TextureTarget::displayName, String.CASE_INSENSITIVE_ORDER));
 		return List.copyOf(list);
 	}
 
 	public static int variantCount(String configKey) {
+		if (configKey != null && configKey.startsWith("group:")) {
+			if (groupVersions == null) {
+				blockTargets();
+			}
+			Map<String, List<TextureGroups.GroupVersion>> versions = groupVersions;
+			return versions == null ? 0 : versions.getOrDefault(configKey, List.of()).size();
+		}
 		return HistoricalCatalog.get().variantCountForTarget(configKey);
 	}
 

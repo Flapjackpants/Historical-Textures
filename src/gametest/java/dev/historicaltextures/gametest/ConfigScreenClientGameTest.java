@@ -433,6 +433,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		runHoodSteps(context, phase, failures, screenshots);
 		runCurrentVariantSteps(context, phase, failures, screenshots);
 		runPresetSteps(context, phase, failures, screenshots);
+		runCakeGroupSteps(context, phase, failures, screenshots);
 
 		// 05j search_scroll_top
 		String stepScroll = phase + "_05j_search_scroll_top";
@@ -1656,6 +1657,111 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		PresetStore.get().delete("HT Test");
 		setSearch(context, "");
 		context.waitTicks(2);
+	}
+
+	private void runCakeGroupSteps(
+			ClientGameTestContext context,
+			String phase,
+			List<String> failures,
+			List<Path> screenshots
+	) {
+		String step = phase + "_cake_group";
+		clickButton(context, "Blocks");
+		context.waitTicks(3);
+		setSearch(context, "cake");
+		context.waitTicks(2);
+
+		Object cakeRow = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return new Object[]{-1, false, false};
+			}
+			try {
+				Object listObject = screenFieldValue(screen, "targetList");
+				if (!(listObject instanceof AbstractSelectionList<?> targetList)) {
+					return new Object[]{-1, false, false};
+				}
+				boolean cakeSideRow = false;
+				for (int index = 0; index < targetList.children().size(); index++) {
+					String narration = getRowNarration(targetList, index);
+					if ("cake side".equalsIgnoreCase(narration)) {
+						cakeSideRow = true;
+					}
+					Object entry = targetList.children().get(index);
+					var field = entry.getClass().getDeclaredField("target");
+					field.setAccessible(true);
+					if (field.get(entry) instanceof TextureTarget target
+							&& "Cake".equals(target.displayName())) {
+						boolean isGroup = target.isGroup()
+								&& target.members().contains("minecraft:textures/block/cake_side.png");
+						return new Object[]{index, isGroup, cakeSideRow};
+					}
+				}
+				return new Object[]{-1, false, cakeSideRow};
+			} catch (ReflectiveOperationException exception) {
+				return new Object[]{-1, false, false};
+			}
+		});
+		int cakeIndex = cakeRow instanceof Object[] row && row[0] instanceof Integer index ? index : -1;
+		boolean cakeIsGroup = cakeRow instanceof Object[] row && Boolean.TRUE.equals(row[1]);
+		boolean cakeSideRowExists = cakeRow instanceof Object[] row && Boolean.TRUE.equals(row[2])
+				|| cakeSideRowExistsLater(context);
+		check(failures, step, "cake_group_target", cakeIndex >= 0 && cakeIsGroup,
+				"rowIndex=" + cakeIndex + " isGroup=" + cakeIsGroup);
+		check(failures, step, "cake_side_row_hidden", !cakeSideRowExists,
+				"cakeSideRow=" + cakeSideRowExists);
+		if (cakeIndex < 0) {
+			return;
+		}
+		clickTargetRow(context, failures, cakeIndex, step, "cake_group_click");
+		context.waitTicks(2);
+
+		int betaRow = findVariantRowIndex(context, 1, "beta 1.2");
+		check(failures, step, "cake_beta_row", betaRow >= 0, "rowIndex=" + betaRow);
+		if (betaRow >= 0) {
+			clickVariantRow(context, betaRow);
+			context.waitTicks(3);
+		}
+		recordScreenshot(context, step + "_variants", screenshots);
+
+		String sideChoice = context.computeOnClient(client ->
+				ModConfig.get().getTextureChoice("minecraft:textures/block/cake_side.png"));
+		String topChoice = context.computeOnClient(client ->
+				ModConfig.get().getTextureChoice("minecraft:textures/block/cake_top.png"));
+		check(failures, step, "cake_side_choice",
+				"cake_side_texture_je1_be1_png".equals(sideChoice), "choice=" + sideChoice);
+		check(failures, step, "cake_top_choice",
+				"cake_top_texture_je1_be1_png".equals(topChoice), "choice=" + topChoice);
+
+		ModConfig.get().clearAll();
+		ModConfig.get().save();
+		generateOverlay(context);
+		setSearch(context, "");
+		context.waitTicks(2);
+	}
+
+	private boolean cakeSideRowExistsLater(ClientGameTestContext context) {
+		Object result = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return false;
+			}
+			try {
+				Object listObject = screenFieldValue(screen, "targetList");
+				if (!(listObject instanceof AbstractSelectionList<?> targetList)) {
+					return false;
+				}
+				for (int index = 0; index < targetList.children().size(); index++) {
+					if ("cake side".equalsIgnoreCase(getRowNarration(targetList, index))) {
+						return true;
+					}
+				}
+				return false;
+			} catch (ReflectiveOperationException exception) {
+				return false;
+			}
+		});
+		return Boolean.TRUE.equals(result);
 	}
 
 	private int firstCatalogVariantRow(ClientGameTestContext context) {

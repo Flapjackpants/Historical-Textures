@@ -9,6 +9,7 @@ import dev.historicaltextures.catalog.TextureTargetRegistry;
 import dev.historicaltextures.catalog.TextureVariant;
 import dev.historicaltextures.client.CatalogThumbnailCache;
 import dev.historicaltextures.config.ModConfig;
+import dev.historicaltextures.config.TextureGroups;
 import dev.historicaltextures.pack.OverlayPackManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -27,7 +28,9 @@ import net.minecraft.util.Util;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 public final class HistoricalTexturesConfigScreen extends Screen {
 	private static final int TEXT_WHITE = 0xFFFFFFFF;
@@ -204,7 +207,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		TextureTargetEntry selectedTargetEntry = null;
 		for (TextureTarget target : targets) {
-			if (!matchesFilter(target.displayName()) && !matchesFilter(target.configKey())) {
+			if (!matchesTargetFilter(target)) {
 				continue;
 			}
 			TextureTargetEntry entry = new TextureTargetEntry(target);
@@ -268,6 +271,9 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 	private List<VariantList.Entry> buildTextureVariantEntries(TextureTarget target) {
 		List<VariantList.Entry> entries = new ArrayList<>();
+		if (target.isGroup()) {
+			return buildGroupVariantEntries(target);
+		}
 		List<TextureVariant> variants = HistoricalCatalog.get().textureVariantsForTarget(target.configKey());
 		entries.add(new VariantEntry(Component.literal("Vanilla (default)"), null, null, null, target.configKey()));
 		if (CatalogThumbnailCache.hasBuiltIn(target.resourcePath())) {
@@ -291,6 +297,74 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			emptyVariantHint = null;
 		}
 		return entries;
+	}
+
+	private List<VariantList.Entry> buildGroupVariantEntries(TextureTarget target) {
+		List<VariantList.Entry> entries = new ArrayList<>();
+		List<TextureGroups.GroupVersion> versions = TextureTargetRegistry.groupVersions(target.configKey());
+		entries.add(new VariantEntry(
+				Component.literal("Vanilla (default)"),
+				null,
+				null,
+				null,
+				target.configKey(),
+				Map.of(),
+				target.members()
+		));
+		Map<String, String> currentChoices = new TreeMap<>();
+		for (String member : target.members()) {
+			if (CatalogThumbnailCache.hasBuiltIn(member)) {
+				currentChoices.put(member, HistoricalCatalog.CURRENT_VARIANT_ID);
+			}
+		}
+		if (!currentChoices.isEmpty()) {
+			entries.add(new VariantEntry(
+					Component.literal("Current (" + SharedConstants.getCurrentVersion().name() + ")"),
+					Component.literal("Built-in texture"),
+					HistoricalCatalog.CURRENT_VARIANT_ID,
+					null,
+					target.configKey(),
+					currentChoices,
+					target.members()
+			));
+		}
+		for (TextureGroups.GroupVersion version : versions) {
+			TextureVariant previewVariant = groupPreviewVariant(target, version);
+			if (previewVariant != null) {
+				CatalogThumbnailCache.preload(previewVariant.id(), previewVariant.assetPath());
+			}
+			entries.add(new VariantEntry(
+					Component.literal(version.label()),
+					Component.literal(version.choices().size() + " textures"),
+					version.label(),
+					previewVariant,
+					target.configKey(),
+					version.choices(),
+					target.members()
+			));
+		}
+		if (versions.isEmpty()) {
+			emptyVariantHint = Component.literal("No historical variants in catalog for this block.");
+		} else {
+			emptyVariantHint = null;
+		}
+		return entries;
+	}
+
+	private TextureVariant groupPreviewVariant(TextureTarget target, TextureGroups.GroupVersion version) {
+		String representative = version.choices().get(target.resourcePath());
+		if (representative == null) {
+			for (String member : target.members()) {
+				representative = version.choices().get(member);
+				if (representative != null) {
+					break;
+				}
+			}
+		}
+		if (representative == null) {
+			return null;
+		}
+		return HistoricalCatalog.get().textureVariant(representative).orElse(null);
 	}
 
 	private List<VariantList.Entry> buildSoundVariantEntries(String event) {
@@ -322,6 +396,44 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 	private boolean matchesFilter(String value) {
 		return filter.isEmpty() || value.toLowerCase(Locale.ROOT).contains(filter);
+	}
+
+	private boolean matchesTargetFilter(TextureTarget target) {
+		if (matchesFilter(target.displayName()) || matchesFilter(target.configKey())) {
+			return true;
+		}
+		if (target.isGroup()) {
+			for (String member : target.members()) {
+				if (matchesFilter(member)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private String singleSubtitle(TextureTarget target) {
+		String choice = ModConfig.get().getTextureChoice(target.configKey());
+		if (choice == null) {
+			return null;
+		}
+		return HistoricalCatalog.get().textureVariant(choice)
+				.map(TextureVariant::versionLabel)
+				.orElse(choice);
+	}
+
+	private String groupSubtitle(TextureTarget target) {
+		for (TextureGroups.GroupVersion version : TextureTargetRegistry.groupVersions(target.configKey())) {
+			if (TextureGroups.matches(version, target.members(), ModConfig.get()::getTextureChoice)) {
+				return version.label();
+			}
+		}
+		for (String member : target.members()) {
+			if (ModConfig.get().getTextureChoice(member) != null) {
+				return "Custom";
+			}
+		}
+		return null;
 	}
 
 	private void applyChanges() {
@@ -720,11 +832,8 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				line += " (" + variantCount + ")";
 			}
 			graphics.text(font, fit(line, maxW), getContentX() + 4, getContentY() + 2, TEXT_WHITE);
-			String choice = ModConfig.get().getTextureChoice(target.configKey());
-			if (choice != null) {
-				String subtitle = HistoricalCatalog.get().textureVariant(choice)
-						.map(TextureVariant::versionLabel)
-						.orElse(choice);
+			String subtitle = target.isGroup() ? groupSubtitle(target) : singleSubtitle(target);
+			if (subtitle != null) {
 				graphics.text(font, fit(subtitle, maxW), getContentX() + 4, getContentY() + 12, TEXT_MUTED);
 			} else if (variantCount == 0) {
 				graphics.text(font, fit("no catalog variants", maxW), getContentX() + 4, getContentY() + 12, TEXT_MUTED);
@@ -798,13 +907,22 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		private final String variantId;
 		private final TextureVariant textureVariant;
 		private final String configKey;
+		private final Map<String, String> groupChoices;
+		private final List<String> groupMembers;
 
 		private VariantEntry(Component label, Component subtitle, String variantId, TextureVariant textureVariant, String configKey) {
+			this(label, subtitle, variantId, textureVariant, configKey, null, null);
+		}
+
+		private VariantEntry(Component label, Component subtitle, String variantId, TextureVariant textureVariant,
+				String configKey, Map<String, String> groupChoices, List<String> groupMembers) {
 			this.label = label;
 			this.subtitle = subtitle;
 			this.variantId = variantId;
 			this.textureVariant = textureVariant;
 			this.configKey = configKey;
+			this.groupChoices = groupChoices;
+			this.groupMembers = groupMembers;
 		}
 
 		@Override
@@ -825,7 +943,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				textX = previewX + PREVIEW_SIZE + 4;
 				Optional<CatalogThumbnailCache.CachedPreview> preview = textureVariant != null
 						? CatalogThumbnailCache.get(textureVariant.id(), textureVariant.assetPath())
-						: CatalogThumbnailCache.getBuiltIn(configKey);
+						: CatalogThumbnailCache.getBuiltIn(selectedTarget != null ? selectedTarget.resourcePath() : configKey);
 				if (preview.isPresent()) {
 					CatalogThumbnailCache.CachedPreview cached = preview.get();
 					float vMax = cached.height() > 0
@@ -858,6 +976,13 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		}
 
 		boolean matchesChoice(String chosenId) {
+			if (groupChoices != null) {
+				return TextureGroups.matches(
+						new TextureGroups.GroupVersion("", 0, groupChoices),
+						groupMembers != null ? groupMembers : List.of(),
+						ModConfig.get()::getTextureChoice
+				);
+			}
 			if (variantId == null) {
 				return chosenId == null || chosenId.isEmpty();
 			}
@@ -870,6 +995,16 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				return false;
 			}
 			variantList.setSelected(this);
+			if (groupChoices != null) {
+				if (groupMembers != null) {
+					for (String member : groupMembers) {
+						ModConfig.get().setTextureChoice(member, groupChoices.get(member));
+					}
+				}
+				ModConfig.get().save();
+				rebuildVariants();
+				return true;
+			}
 			if (activeTab == Tab.SOUNDS) {
 				ModConfig.get().setSoundChoice(configKey, variantId);
 			} else {
