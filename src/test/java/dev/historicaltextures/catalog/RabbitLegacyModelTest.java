@@ -94,7 +94,7 @@ class RabbitLegacyModelTest {
 	@Test
 	void rootAnimationsMatchLegacyRabbit() throws Exception {
 		Map<String, String> expected = new java.util.HashMap<>();
-		expected.put("var.jc", "if(is_on_ground, 0, min(1, var.jc + frame_time * 2))");
+		expected.put("var.jc", "if(var.jc >= 1, if(is_on_ground, 0, 1), if(var.jc > 0 || !is_on_ground, min(1, var.jc + frame_time * 2), 0))");
 		expected.put("var.jf", "sin(var.jc * pi)");
 		expected.put("legacy_head.rx", "torad(head_pitch)");
 		expected.put("legacy_head.ry", "torad(head_yaw)");
