@@ -197,7 +197,7 @@ final class VariantPreviewRenderer {
 		MeshDefinition mesh = new MeshDefinition();
 		PartDefinition rootPart = mesh.getRoot();
 		Set<String> usedNames = new HashSet<>();
-		Map<String, Float> partScales = new HashMap<>();
+		Map<List<String>, Float> partScales = new HashMap<>();
 		JsonArray models = root.getAsJsonArray("models");
 		if (models == null) {
 			return LayerDefinition.create(mesh, texW, texH).bakeRoot();
@@ -208,51 +208,14 @@ final class VariantPreviewRenderer {
 					? model.get("id").getAsString()
 					: model.has("part") ? model.get("part").getAsString() : "part";
 			String name = uniquePartName(rawName, usedNames);
-			if (model.has("scale")) {
-				partScales.put(name, model.get("scale").getAsFloat());
-			}
 			float[] translate = floats(model.getAsJsonArray("translate"), 3);
 			float[] rotate = floats(model.getAsJsonArray("rotate"), 3);
 			float pivotX = translate[0];
 			float pivotY = 24.0f + translate[1];
 			float pivotZ = -translate[2];
-
-			CubeListBuilder cubes = CubeListBuilder.create();
-			if (model.has("mirrorTexture") && "u".equals(model.get("mirrorTexture").getAsString())) {
-				cubes.mirror();
-			}
-			JsonArray boxes = model.getAsJsonArray("boxes");
-			if (boxes != null) {
-				for (JsonElement boxElement : boxes) {
-					JsonObject box = boxElement.getAsJsonObject();
-					float[] coordinates = floats(box.getAsJsonArray("coordinates"), 6);
-					JsonArray textureOffset = box.getAsJsonArray("textureOffset");
-					int u = textureOffset != null && textureOffset.size() > 0 ? textureOffset.get(0).getAsInt() : 0;
-					int v = textureOffset != null && textureOffset.size() > 1 ? textureOffset.get(1).getAsInt() : 0;
-					float sizeAdd = box.has("sizeAdd") ? box.get("sizeAdd").getAsFloat() : 0.0f;
-					float x = coordinates[0];
-					float y = coordinates[1];
-					float z = coordinates[2];
-					float w = coordinates[3];
-					float h = coordinates[4];
-					float d = coordinates[5];
-					float absMinX = -(x + w);
-					float absMinY = 24.0f - (y + h);
-					float absMinZ = z;
-					cubes.texOffs(u, v).addBox(
-							absMinX - pivotX,
-							absMinY - pivotY,
-							absMinZ - pivotZ,
-							w,
-							h,
-							d,
-							new CubeDeformation(sizeAdd)
-					);
-				}
-			}
-			rootPart.addOrReplaceChild(
+			PartDefinition part = rootPart.addOrReplaceChild(
 					name,
-					cubes,
+					legacyCubes(model, pivotX, pivotY - 24.0f, pivotZ),
 					PartPose.offsetAndRotation(
 							pivotX,
 							pivotY,
@@ -262,17 +225,99 @@ final class VariantPreviewRenderer {
 							(float) Math.toRadians(rotate[2])
 					)
 			);
-		}
-		ModelPart baked = LayerDefinition.create(mesh, texW, texH).bakeRoot();
-		for (Map.Entry<String, Float> entry : partScales.entrySet()) {
-			if (baked.hasChild(entry.getKey())) {
-				ModelPart child = baked.getChild(entry.getKey());
-				child.xScale = entry.getValue();
-				child.yScale = entry.getValue();
-				child.zScale = entry.getValue();
+			// EMF places a part's custom frame at the vanilla pivot plus its inverted translate.
+			addLegacySubmodels(part, model, -translate[0], -translate[1], translate[2], List.of(name), partScales);
+			if (model.has("scale")) {
+				partScales.put(List.of(name), model.get("scale").getAsFloat());
 			}
 		}
+		ModelPart baked = LayerDefinition.create(mesh, texW, texH).bakeRoot();
+		for (Map.Entry<List<String>, Float> entry : partScales.entrySet()) {
+			ModelPart child = baked;
+			for (String name : entry.getKey()) {
+				child = child.getChild(name);
+			}
+			child.xScale = entry.getValue();
+			child.yScale = entry.getValue();
+			child.zScale = entry.getValue();
+		}
 		return baked;
+	}
+
+	/**
+	 * Adds submodels the way EMF reads them: translate and box minimums inverted on x and y,
+	 * relative to the parent's frame.
+	 */
+	private static void addLegacySubmodels(
+			PartDefinition parent,
+			JsonObject model,
+			float offsetX,
+			float offsetY,
+			float offsetZ,
+			List<String> path,
+			Map<List<String>, Float> partScales
+	) {
+		JsonArray submodels = model.getAsJsonArray("submodels");
+		if (submodels == null) {
+			return;
+		}
+		Set<String> usedNames = new HashSet<>();
+		for (JsonElement element : submodels) {
+			JsonObject submodel = element.getAsJsonObject();
+			String name = uniquePartName(submodel.has("id") ? submodel.get("id").getAsString() : "submodel", usedNames);
+			float[] translate = floats(submodel.getAsJsonArray("translate"), 3);
+			float[] rotate = floats(submodel.getAsJsonArray("rotate"), 3);
+			PartDefinition child = parent.addOrReplaceChild(
+					name,
+					legacyCubes(submodel, 0.0f, 0.0f, 0.0f),
+					PartPose.offsetAndRotation(
+							offsetX - translate[0],
+							offsetY - translate[1],
+							offsetZ + translate[2],
+							(float) Math.toRadians(-rotate[0]),
+							(float) Math.toRadians(-rotate[1]),
+							(float) Math.toRadians(rotate[2])
+					)
+			);
+			List<String> childPath = new ArrayList<>(path);
+			childPath.add(name);
+			if (submodel.has("scale")) {
+				partScales.put(childPath, submodel.get("scale").getAsFloat());
+			}
+			addLegacySubmodels(child, submodel, 0.0f, 0.0f, 0.0f, childPath, partScales);
+		}
+	}
+
+	private static CubeListBuilder legacyCubes(JsonObject model, float originX, float originY, float originZ) {
+		CubeListBuilder cubes = CubeListBuilder.create();
+		if (model.has("mirrorTexture") && "u".equals(model.get("mirrorTexture").getAsString())) {
+			cubes.mirror();
+		}
+		JsonArray boxes = model.getAsJsonArray("boxes");
+		if (boxes == null) {
+			return cubes;
+		}
+		for (JsonElement boxElement : boxes) {
+			JsonObject box = boxElement.getAsJsonObject();
+			float[] coordinates = floats(box.getAsJsonArray("coordinates"), 6);
+			JsonArray textureOffset = box.getAsJsonArray("textureOffset");
+			int u = textureOffset != null && textureOffset.size() > 0 ? textureOffset.get(0).getAsInt() : 0;
+			int v = textureOffset != null && textureOffset.size() > 1 ? textureOffset.get(1).getAsInt() : 0;
+			float sizeAdd = box.has("sizeAdd") ? box.get("sizeAdd").getAsFloat() : 0.0f;
+			float w = coordinates[3];
+			float h = coordinates[4];
+			float d = coordinates[5];
+			cubes.texOffs(u, v).addBox(
+					-(coordinates[0] + w) - originX,
+					-(coordinates[1] + h) - originY,
+					coordinates[2] - originZ,
+					w,
+					h,
+					d,
+					new CubeDeformation(sizeAdd)
+			);
+		}
+		return cubes;
 	}
 
 	private static float[] floats(JsonArray array, int count) {
