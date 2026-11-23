@@ -197,6 +197,7 @@ final class VariantPreviewRenderer {
 		MeshDefinition mesh = new MeshDefinition();
 		PartDefinition rootPart = mesh.getRoot();
 		Set<String> usedNames = new HashSet<>();
+		Map<String, Float> partScales = new HashMap<>();
 		JsonArray models = root.getAsJsonArray("models");
 		if (models == null) {
 			return LayerDefinition.create(mesh, texW, texH).bakeRoot();
@@ -207,6 +208,9 @@ final class VariantPreviewRenderer {
 					? model.get("id").getAsString()
 					: model.has("part") ? model.get("part").getAsString() : "part";
 			String name = uniquePartName(rawName, usedNames);
+			if (model.has("scale")) {
+				partScales.put(name, model.get("scale").getAsFloat());
+			}
 			float[] translate = floats(model.getAsJsonArray("translate"), 3);
 			float[] rotate = floats(model.getAsJsonArray("rotate"), 3);
 			float pivotX = translate[0];
@@ -259,7 +263,16 @@ final class VariantPreviewRenderer {
 					)
 			);
 		}
-		return LayerDefinition.create(mesh, texW, texH).bakeRoot();
+		ModelPart baked = LayerDefinition.create(mesh, texW, texH).bakeRoot();
+		for (Map.Entry<String, Float> entry : partScales.entrySet()) {
+			if (baked.hasChild(entry.getKey())) {
+				ModelPart child = baked.getChild(entry.getKey());
+				child.xScale = entry.getValue();
+				child.yScale = entry.getValue();
+				child.zScale = entry.getValue();
+			}
+		}
+		return baked;
 	}
 
 	private static float[] floats(JsonArray array, int count) {

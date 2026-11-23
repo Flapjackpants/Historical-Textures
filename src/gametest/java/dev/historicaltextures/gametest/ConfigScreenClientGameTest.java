@@ -6,6 +6,7 @@ import dev.historicaltextures.HistoricalTextures;
 import dev.historicaltextures.catalog.HistoricalCatalog;
 import dev.historicaltextures.catalog.LegacyModels;
 import dev.historicaltextures.catalog.TextureTarget;
+import dev.historicaltextures.catalog.TextureTargetKind;
 import dev.historicaltextures.catalog.TextureTargetRegistry;
 import dev.historicaltextures.catalog.TextureVariant;
 import dev.historicaltextures.client.CatalogThumbnailCache;
@@ -22,6 +23,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.level.entity.EntityTypeTest;
@@ -55,21 +57,40 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 					"minecraft:cow",
 					"minecraft:temperate",
 					EntityTypes.COW,
-					List.of("cow_texture_je1_png", "cow_texture_je5_png", "cow_texture_png")
+					List.of("cow_texture_je1_png", "cow_texture_je5_png", "cow_texture_png"),
+					null
 			),
 			new FaceDiagnosticTarget(
 					"minecraft:textures/entity/piglin/zombified_piglin.png",
 					"minecraft:zombified_piglin",
 					null,
 					EntityTypes.ZOMBIFIED_PIGLIN,
-					List.of("zombie_pigman_texture_je0_png", "zombie_pigman_texture_je2_png")
+					List.of("zombie_pigman_texture_je0_png", "zombie_pigman_texture_je2_png"),
+					null
 			),
 			new FaceDiagnosticTarget(
 					"minecraft:textures/entity/pig/pig_temperate.png",
 					"minecraft:pig",
 					"minecraft:temperate",
 					EntityTypes.PIG,
-					List.of("pig_texture_je1_png")
+					List.of("pig_texture_je1_png"),
+					null
+			),
+			new FaceDiagnosticTarget(
+					"minecraft:textures/entity/rabbit/rabbit_brown.png",
+					"minecraft:rabbit",
+					null,
+					EntityTypes.RABBIT,
+					List.of("brown_rabbit_texture_je2_png"),
+					"RabbitType:0"
+			),
+			new FaceDiagnosticTarget(
+					"minecraft:textures/entity/rabbit/rabbit_caerbannog.png",
+					"minecraft:rabbit",
+					null,
+					EntityTypes.RABBIT,
+					List.of("killer_bunny_texture_je1_png"),
+					"RabbitType:99"
 			)
 	);
 
@@ -81,7 +102,8 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 			String entityId,
 			String entityVariant,
 			EntityTypeTest<Entity, ? extends Entity> entityType,
-			List<String> variantIds
+			List<String> variantIds,
+			String summonNbt
 	) {
 	}
 
@@ -99,7 +121,8 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 			"minecraft:villager",
 			null,
 			EntityTypes.VILLAGER,
-			List.of()
+			List.of(),
+			null
 	);
 
 	@Override
@@ -556,6 +579,9 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 	) {
 		runPreviewFaceDiagnostic(context, screenshots);
 		runWorldFaceDiagnostic(context, sp, failures, screenshots);
+		boolean rabbitModelPresent = rabbitLegacyModelPresent(context);
+		check(failures, "diag_rabbit", "rabbit_legacy_model", rabbitModelPresent,
+				"legacyModel(brown JE2) present=" + rabbitModelPresent);
 	}
 
 	private void runPreviewFaceDiagnostic(ClientGameTestContext context, List<Path> screenshots) {
@@ -638,7 +664,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 
 					sp.getServer().runCommand("kill @e[type=!player]");
 					sp.getServer().runCommand(
-							"summon " + target.entityId() + " 0.5 101 0.5 " + diagnosticSummonNbt(target.entityVariant())
+							"summon " + target.entityId() + " 0.5 101 0.5 " + diagnosticSummonNbt(target)
 					);
 					context.waitTicks(10);
 					double[] anchor = diagnosticMobAnchor(sp, target);
@@ -769,10 +795,13 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		});
 	}
 
-	private static String diagnosticSummonNbt(String variant) {
+	private static String diagnosticSummonNbt(FaceDiagnosticTarget target) {
 		StringBuilder nbt = new StringBuilder("{NoAI:1b,Rotation:[0f,0f]");
-		if (variant != null) {
-			nbt.append(",variant:\"").append(variant).append('"');
+		if (target.entityVariant() != null) {
+			nbt.append(",variant:\"").append(target.entityVariant()).append('"');
+		}
+		if (target.summonNbt() != null) {
+			nbt.append(',').append(target.summonNbt());
 		}
 		return nbt.append('}').toString();
 	}
@@ -1634,6 +1663,33 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 						TextureTarget.class,
 						TextureVariant.class
 				);
+				method.setAccessible(true);
+				Object optional = method.invoke(null, target, variant);
+				return optional instanceof Optional<?> opt && opt.isPresent();
+			} catch (ReflectiveOperationException exception) {
+				return false;
+			}
+		});
+		return Boolean.TRUE.equals(result);
+	}
+
+	private boolean rabbitLegacyModelPresent(ClientGameTestContext context) {
+		Object result = context.computeOnClient(client -> {
+			TextureVariant variant = HistoricalCatalog.get()
+					.textureVariant("brown_rabbit_texture_je2_png")
+					.orElse(null);
+			if (variant == null) {
+				return false;
+			}
+			TextureTarget target = new TextureTarget(
+					"minecraft:textures/entity/rabbit/rabbit_brown.png",
+					Identifier.tryParse("minecraft:rabbit"),
+					TextureTargetKind.ENTITY,
+					"Rabbit"
+			);
+			try {
+				Class<?> renderer = Class.forName("dev.historicaltextures.client.screen.VariantPreviewRenderer");
+				var method = renderer.getDeclaredMethod("legacyModel", TextureTarget.class, TextureVariant.class);
 				method.setAccessible(true);
 				Object optional = method.invoke(null, target, variant);
 				return optional instanceof Optional<?> opt && opt.isPresent();

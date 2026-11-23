@@ -165,5 +165,66 @@
     "mule_texture_je1_png": {
       "optifine/cem/mule.jem": "donkey_legacy.jem"
     }
+  },
+  "minecraft:textures/entity/rabbit/rabbit_brown.png": {
+    "brown_rabbit_texture_je1_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    },
+    "brown_rabbit_texture_je2_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/rabbit/rabbit_black.png": {
+    "black_rabbit_texture_je1_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    },
+    "black_rabbit_texture_je2_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/rabbit/rabbit_gold.png": {
+    "gold_rabbit_texture_je1_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    },
+    "gold_rabbit_texture_je2_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/rabbit/rabbit_salt.png": {
+    "salt_rabbit_texture_je1_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/rabbit/rabbit_toast.png": {
+    "toast_rabbit_texture_je1_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/rabbit/rabbit_white.png": {
+    "white_rabbit_texture_je1_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    },
+    "white_rabbit_texture_je2_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/rabbit/rabbit_white_splotched.png": {
+    "black_white_rabbit_texture_je1_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    },
+    "black_white_rabbit_texture_je2_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    }
+  },
+  "minecraft:textures/entity/rabbit/rabbit_caerbannog.png": {
+    "killer_bunny_texture_je1_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    },
+    "killer_bunny_texture_je2_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    },
+    "killer_bunny_texture_je3_png": {
+      "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
+    }
   }
 }
