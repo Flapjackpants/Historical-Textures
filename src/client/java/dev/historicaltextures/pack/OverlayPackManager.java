@@ -175,6 +175,16 @@ public final class OverlayPackManager {
 			}
 		}
 
+		for (String relative : LegacyTextureFixes.villagerTypeTexturesToBlank(config.textureChoices())) {
+			Path destination = root.resolve("assets/minecraft").resolve(relative);
+			Files.createDirectories(destination.getParent());
+			try (NativeImage image = new NativeImage(64, 64, true)) {
+				image.fillRect(0, 0, 64, 64, 0);
+				image.writeToFile(destination);
+			}
+			texturesWritten++;
+		}
+
 		int soundsWritten = 0;
 		JsonObject soundsJson = buildSoundsJson(root, catalog, config);
 		soundsWritten = soundsJson.size();

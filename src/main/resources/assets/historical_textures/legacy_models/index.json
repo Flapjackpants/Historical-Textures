@@ -226,5 +226,13 @@
     "killer_bunny_texture_je3_png": {
       "optifine/cem/rabbit.jem": "rabbit_legacy.jem"
     }
+  },
+  "minecraft:textures/entity/bat/bat.png": {
+    "bat_texture_je1_png": {
+      "optifine/cem/bat.jem": "bat_legacy.jem"
+    },
+    "bat_texture_je2_be2_png": {
+      "optifine/cem/bat.jem": "bat_legacy.jem"
+    }
   }
 }

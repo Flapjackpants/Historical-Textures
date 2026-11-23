@@ -1,5 +1,6 @@
 package dev.historicaltextures.config;
 
+import dev.historicaltextures.catalog.HistoricalCatalog;
 import dev.historicaltextures.catalog.SoundVariant;
 import dev.historicaltextures.catalog.TextureVariant;
 import org.junit.jupiter.api.Test;
@@ -160,6 +161,16 @@ class BuiltInPresetsTest {
 		assertEquals("t_beta", presetNamed(presets, "1.2.5").textureChoices().get("T"));
 		assertEquals("t_beta", presetNamed(presets, "Beta 1.7.3").textureChoices().get("T"));
 		assertEquals("t_classic", presetNamed(presets, "Alpha 1.2.6").textureChoices().get("T"));
+	}
+
+	@Test
+	void betaPresetResolvesProgrammerArtBirchLeaves() {
+		List<Preset> presets = BuiltInPresets.create(HistoricalCatalog.get());
+		assertEquals(
+				"birch_leaves_texture_programmer_art_png",
+				presetNamed(presets, "Beta 1.7.3").textureChoices()
+						.get("minecraft:textures/block/birch_leaves.png")
+		);
 	}
 
 	@Test

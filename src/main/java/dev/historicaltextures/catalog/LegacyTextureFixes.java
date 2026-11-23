@@ -1,11 +1,38 @@
 package dev.historicaltextures.catalog;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 /**
  * Repairs legacy texture layouts that predate model changes, applied to files
  * written into the overlay pack. Pure Java: no Minecraft imports.
  */
 public final class LegacyTextureFixes {
+	public static final List<String> VILLAGER_TYPES = List.of(
+			"desert", "jungle", "plains", "savanna", "snow", "swamp", "taiga"
+	);
+
 	private LegacyTextureFixes() {
+	}
+
+	/**
+	 * Pre-1.14 villagers rendered a single villager.png with no biome overlay.
+	 * When the user picks a historical villager texture, the modern per-biome
+	 * type layers must be blanked or they would draw on top of it.
+	 */
+	public static List<String> villagerTypeTexturesToBlank(Map<String, String> textureChoices) {
+		String choice = textureChoices == null
+				? null
+				: textureChoices.get("minecraft:textures/entity/villager/villager.png");
+		if (choice == null || HistoricalCatalog.CURRENT_VARIANT_ID.equals(choice)) {
+			return List.of();
+		}
+		List<String> paths = new ArrayList<>(VILLAGER_TYPES.size());
+		for (String type : VILLAGER_TYPES) {
+			paths.add("textures/entity/villager/type/" + type + ".png");
+		}
+		return paths;
 	}
 
 	public static boolean isCakeSideTarget(String relativePath) {

@@ -592,6 +592,9 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		boolean rabbitModelPresent = rabbitLegacyModelPresent(context);
 		check(failures, "diag_rabbit", "rabbit_legacy_model", rabbitModelPresent,
 				"legacyModel(brown JE2) present=" + rabbitModelPresent);
+		boolean batModelPresent = batLegacyModelPresent(context);
+		check(failures, "diag_bat", "bat_legacy_model", batModelPresent,
+				"legacyModel(bat JE1) present=" + batModelPresent);
 	}
 
 	private void runPreviewFaceDiagnostic(ClientGameTestContext context, List<Path> screenshots) {
@@ -2425,6 +2428,33 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 					Identifier.tryParse("minecraft:rabbit"),
 					TextureTargetKind.ENTITY,
 					"Rabbit"
+			);
+			try {
+				Class<?> renderer = Class.forName("dev.historicaltextures.client.screen.VariantPreviewRenderer");
+				var method = renderer.getDeclaredMethod("legacyModel", TextureTarget.class, TextureVariant.class);
+				method.setAccessible(true);
+				Object optional = method.invoke(null, target, variant);
+				return optional instanceof Optional<?> opt && opt.isPresent();
+			} catch (ReflectiveOperationException exception) {
+				return false;
+			}
+		});
+		return Boolean.TRUE.equals(result);
+	}
+
+	private boolean batLegacyModelPresent(ClientGameTestContext context) {
+		Object result = context.computeOnClient(client -> {
+			TextureVariant variant = HistoricalCatalog.get()
+					.textureVariant("bat_texture_je1_png")
+					.orElse(null);
+			if (variant == null) {
+				return false;
+			}
+			TextureTarget target = new TextureTarget(
+					"minecraft:textures/entity/bat/bat.png",
+					null,
+					TextureTargetKind.ENTITY,
+					"Bat"
 			);
 			try {
 				Class<?> renderer = Class.forName("dev.historicaltextures.client.screen.VariantPreviewRenderer");
