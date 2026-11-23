@@ -210,9 +210,11 @@ final class VariantPreviewRenderer {
 			String name = uniquePartName(rawName, usedNames);
 			float[] translate = floats(model.getAsJsonArray("translate"), 3);
 			float[] rotate = floats(model.getAsJsonArray("rotate"), 3);
-			float pivotX = translate[0];
-			float pivotY = 24.0f + translate[1];
-			float pivotZ = -translate[2];
+			// EMF's root part has no vanilla pivot; its frame stays at the origin.
+			boolean isRoot = model.has("part") && "root".equals(model.get("part").getAsString());
+			float pivotX = isRoot ? 0.0f : translate[0];
+			float pivotY = isRoot ? 0.0f : 24.0f + translate[1];
+			float pivotZ = isRoot ? 0.0f : -translate[2];
 			PartDefinition part = rootPart.addOrReplaceChild(
 					name,
 					legacyCubes(model, pivotX, pivotY - 24.0f, pivotZ),

@@ -5,13 +5,13 @@
   ],
   "models": [
     {
-      "part": "backlegs",
-      "id": "backlegs",
+      "part": "root",
+      "id": "root",
       "invertAxis": "xy",
       "translate": [
         0,
-        -1,
-        -4
+        0,
+        0
       ],
       "boxes": [],
       "submodels": [
@@ -20,7 +20,7 @@
           "invertAxis": "xy",
           "translate": [
             0,
-            0,
+            -24,
             0
           ],
           "scale": 0.6,
@@ -362,10 +362,29 @@
       ],
       "animations": [
         {
+          "var.jc": "if(is_on_ground, 0, min(1, var.jc + frame_time * 2))",
+          "var.jf": "sin(var.jc * pi)",
           "legacy_head.rx": "torad(head_pitch)",
-          "legacy_head.ry": "torad(head_yaw)"
+          "legacy_head.ry": "torad(head_yaw)",
+          "legacy_left_thigh.rx": "torad(var.jf * 50 - 21)",
+          "legacy_right_thigh.rx": "torad(var.jf * 50 - 21)",
+          "legacy_left_foot.rx": "torad(var.jf * 50)",
+          "legacy_right_foot.rx": "torad(var.jf * 50)",
+          "legacy_left_arm.rx": "torad(var.jf * -40 - 11)",
+          "legacy_right_arm.rx": "torad(var.jf * -40 - 11)"
         }
       ]
+    },
+    {
+      "part": "backlegs",
+      "id": "backlegs",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
     },
     {
       "part": "body",
