@@ -1,0 +1,303 @@
+{
+  "textureSize": [
+    128,
+    64
+  ],
+  "models": [
+    {
+      "part": "root",
+      "id": "root",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": [],
+      "submodels": [
+        {
+          "id": "legacy_head",
+          "invertAxis": "xy",
+          "translate": [
+            0.0,
+            -23.166667938232422,
+            -1.6666667461395264
+          ],
+          "scale": 0.16666667,
+          "boxes": [
+            {
+              "coordinates": [
+                -3.0,
+                -4.0,
+                -3.0,
+                6.0,
+                5.0,
+                6.0
+              ],
+              "textureOffset": [
+                3,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy_right_front_leg",
+          "invertAxis": "xy",
+          "translate": [
+            0.8333333730697632,
+            -23.5,
+            -0.6666666865348816
+          ],
+          "scale": 0.16666667,
+          "boxes": [
+            {
+              "coordinates": [
+                0.0,
+                -1.0,
+                -2.0,
+                13.0,
+                1.0,
+                5.0
+              ],
+              "textureOffset": [
+                27,
+                30
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy_right_hind_leg",
+          "invertAxis": "xy",
+          "translate": [
+            0.5833333730697632,
+            -23.666667938232422,
+            1.8333333730697632
+          ],
+          "scale": 0.16666667,
+          "boxes": [
+            {
+              "coordinates": [
+                -2.0,
+                -1.0,
+                0.0,
+                4.0,
+                1.0,
+                10.0
+              ],
+              "textureOffset": [
+                1,
+                23
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy_egg_belly",
+          "invertAxis": "xy",
+          "translate": [
+            0.0,
+            -21.83333396911621,
+            -1.6666667461395264
+          ],
+          "rotate": [
+            -90.00000250447816,
+            0.0,
+            0.0
+          ],
+          "scale": 0.16666667,
+          "boxes": [
+            {
+              "coordinates": [
+                -4.5,
+                -21.0,
+                -14.0,
+                9.0,
+                18.0,
+                1.0
+              ],
+              "textureOffset": [
+                70,
+                33
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy_left_hind_leg",
+          "invertAxis": "xy",
+          "translate": [
+            -0.5833333730697632,
+            -23.666667938232422,
+            1.8333333730697632
+          ],
+          "scale": 0.16666667,
+          "boxes": [
+            {
+              "coordinates": [
+                -2.0,
+                -1.0,
+                0.0,
+                4.0,
+                1.0,
+                10.0
+              ],
+              "textureOffset": [
+                1,
+                12
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy_body",
+          "invertAxis": "xy",
+          "translate": [
+            0.0,
+            -21.83333396911621,
+            -1.6666667461395264
+          ],
+          "rotate": [
+            -90.00000250447816,
+            0.0,
+            0.0
+          ],
+          "scale": 0.16666667,
+          "boxes": [
+            {
+              "coordinates": [
+                -9.5,
+                -23.0,
+                -10.0,
+                19.0,
+                20.0,
+                6.0
+              ],
+              "textureOffset": [
+                7,
+                37
+              ]
+            },
+            {
+              "coordinates": [
+                -5.5,
+                -21.0,
+                -13.0,
+                11.0,
+                18.0,
+                3.0
+              ],
+              "textureOffset": [
+                31,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy_left_front_leg",
+          "invertAxis": "xy",
+          "translate": [
+            -0.8333333730697632,
+            -23.5,
+            -0.6666666865348816
+          ],
+          "scale": 0.16666667,
+          "boxes": [
+            {
+              "coordinates": [
+                -13.0,
+                -1.0,
+                -2.0,
+                13.0,
+                1.0,
+                5.0
+              ],
+              "textureOffset": [
+                27,
+                24
+              ]
+            }
+          ]
+        }
+      ],
+      "animations": [
+        {
+          "legacy_head.rx": "torad(head_pitch)",
+          "legacy_head.ry": "torad(head_yaw)",
+          "legacy_right_front_leg.rx": "cos(limb_swing*0.6662+pi)*1.4*limb_speed",
+          "legacy_right_hind_leg.rx": "cos(limb_swing*0.6662)*1.4*limb_speed",
+          "legacy_left_hind_leg.rx": "cos(limb_swing*0.6662+pi)*1.4*limb_speed",
+          "legacy_left_front_leg.rx": "cos(limb_swing*0.6662)*1.4*limb_speed"
+        }
+      ]
+    },
+    {
+      "part": "body",
+      "id": "body",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    },
+    {
+      "part": "head",
+      "id": "head",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    },
+    {
+      "part": "left_front_leg",
+      "id": "left_front_leg",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    },
+    {
+      "part": "left_hind_leg",
+      "id": "left_hind_leg",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    },
+    {
+      "part": "right_front_leg",
+      "id": "right_front_leg",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    },
+    {
+      "part": "right_hind_leg",
+      "id": "right_hind_leg",
+      "invertAxis": "xy",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "boxes": []
+    }
+  ]
+}

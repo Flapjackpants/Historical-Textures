@@ -1,0 +1,899 @@
+[
+  {
+    "babyTexture": "minecraft:textures/entity/axolotl/axolotl_blue_baby.png",
+    "adultTexture": "minecraft:textures/entity/axolotl/axolotl_blue.png",
+    "emfModel": "axolotl_baby",
+    "jem": "babies/axolotl_baby.jem",
+    "label": "Baby Axolotl (Blue)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/axolotl/axolotl_cyan_baby.png",
+    "adultTexture": "minecraft:textures/entity/axolotl/axolotl_cyan.png",
+    "emfModel": "axolotl_baby",
+    "jem": "babies/axolotl_baby.jem",
+    "label": "Baby Axolotl (Cyan)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/axolotl/axolotl_gold_baby.png",
+    "adultTexture": "minecraft:textures/entity/axolotl/axolotl_gold.png",
+    "emfModel": "axolotl_baby",
+    "jem": "babies/axolotl_baby.jem",
+    "label": "Baby Axolotl (Gold)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/axolotl/axolotl_lucy_baby.png",
+    "adultTexture": "minecraft:textures/entity/axolotl/axolotl_lucy.png",
+    "emfModel": "axolotl_baby",
+    "jem": "babies/axolotl_baby.jem",
+    "label": "Baby Axolotl (Lucy)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/axolotl/axolotl_wild_baby.png",
+    "adultTexture": "minecraft:textures/entity/axolotl/axolotl_wild.png",
+    "emfModel": "axolotl_baby",
+    "jem": "babies/axolotl_baby.jem",
+    "label": "Baby Axolotl (Wild)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/bear/polarbear_baby.png",
+    "adultTexture": "minecraft:textures/entity/bear/polarbear.png",
+    "emfModel": "polar_bear_baby",
+    "jem": "babies/polar_bear_baby.jem",
+    "label": "Baby Polar Bear"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/bee/bee_angry_baby.png",
+    "adultTexture": "minecraft:textures/entity/bee/bee_angry.png",
+    "emfModel": "bee_baby",
+    "jem": "babies/bee_baby.jem",
+    "label": "Baby Bee (Angry)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/bee/bee_angry_nectar_baby.png",
+    "adultTexture": "minecraft:textures/entity/bee/bee_angry_nectar.png",
+    "emfModel": "bee_baby",
+    "jem": "babies/bee_baby.jem",
+    "label": "Baby Bee (Angry Nectar)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/bee/bee_baby.png",
+    "adultTexture": "minecraft:textures/entity/bee/bee.png",
+    "emfModel": "bee_baby",
+    "jem": "babies/bee_baby.jem",
+    "label": "Baby Bee"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/bee/bee_nectar_baby.png",
+    "adultTexture": "minecraft:textures/entity/bee/bee_nectar.png",
+    "emfModel": "bee_baby",
+    "jem": "babies/bee_baby.jem",
+    "label": "Baby Bee (Nectar)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/camel/camel_baby.png",
+    "adultTexture": "minecraft:textures/entity/camel/camel.png",
+    "emfModel": "camel_baby",
+    "jem": "babies/camel_baby.jem",
+    "label": "Baby Camel"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cat/cat_all_black_baby.png",
+    "adultTexture": "minecraft:textures/entity/cat/cat_all_black.png",
+    "emfModel": "cat_baby",
+    "jem": "babies/cat_baby.jem",
+    "label": "Baby Cat (All Black)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cat/cat_black_baby.png",
+    "adultTexture": "minecraft:textures/entity/cat/cat_black.png",
+    "emfModel": "cat_baby",
+    "jem": "babies/cat_baby.jem",
+    "label": "Baby Cat (Black)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cat/cat_british_shorthair_baby.png",
+    "adultTexture": "minecraft:textures/entity/cat/cat_british_shorthair.png",
+    "emfModel": "cat_baby",
+    "jem": "babies/cat_baby.jem",
+    "label": "Baby Cat (British Shorthair)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cat/cat_calico_baby.png",
+    "adultTexture": "minecraft:textures/entity/cat/cat_calico.png",
+    "emfModel": "cat_baby",
+    "jem": "babies/cat_baby.jem",
+    "label": "Baby Cat (Calico)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cat/cat_jellie_baby.png",
+    "adultTexture": "minecraft:textures/entity/cat/cat_jellie.png",
+    "emfModel": "cat_baby",
+    "jem": "babies/cat_baby.jem",
+    "label": "Baby Cat (Jellie)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cat/cat_persian_baby.png",
+    "adultTexture": "minecraft:textures/entity/cat/cat_persian.png",
+    "emfModel": "cat_baby",
+    "jem": "babies/cat_baby.jem",
+    "label": "Baby Cat (Persian)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cat/cat_ragdoll_baby.png",
+    "adultTexture": "minecraft:textures/entity/cat/cat_ragdoll.png",
+    "emfModel": "cat_baby",
+    "jem": "babies/cat_baby.jem",
+    "label": "Baby Cat (Ragdoll)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cat/cat_red_baby.png",
+    "adultTexture": "minecraft:textures/entity/cat/cat_red.png",
+    "emfModel": "cat_baby",
+    "jem": "babies/cat_baby.jem",
+    "label": "Baby Cat (Red)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cat/cat_siamese_baby.png",
+    "adultTexture": "minecraft:textures/entity/cat/cat_siamese.png",
+    "emfModel": "cat_baby",
+    "jem": "babies/cat_baby.jem",
+    "label": "Baby Cat (Siamese)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cat/cat_tabby_baby.png",
+    "adultTexture": "minecraft:textures/entity/cat/cat_tabby.png",
+    "emfModel": "cat_baby",
+    "jem": "babies/cat_baby.jem",
+    "label": "Baby Cat (Tabby)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cat/cat_white_baby.png",
+    "adultTexture": "minecraft:textures/entity/cat/cat_white.png",
+    "emfModel": "cat_baby",
+    "jem": "babies/cat_baby.jem",
+    "label": "Baby Cat (White)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cat/ocelot_baby.png",
+    "adultTexture": "minecraft:textures/entity/cat/ocelot.png",
+    "emfModel": "ocelot_baby",
+    "jem": "babies/ocelot_baby.jem",
+    "label": "Baby Cat (Ocelot)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/chicken/chicken_cold_baby.png",
+    "adultTexture": "minecraft:textures/entity/chicken/chicken_cold.png",
+    "emfModel": "cold_chicken_baby",
+    "jem": "babies/cold_chicken_baby.jem",
+    "label": "Baby Chicken (Cold)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/chicken/chicken_temperate_baby.png",
+    "adultTexture": "minecraft:textures/entity/chicken/chicken_temperate.png",
+    "emfModel": "chicken_baby",
+    "jem": "babies/chicken_baby.jem",
+    "label": "Baby Chicken (Temperate)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/chicken/chicken_warm_baby.png",
+    "adultTexture": "minecraft:textures/entity/chicken/chicken_warm.png",
+    "emfModel": "chicken_baby",
+    "jem": "babies/chicken_baby.jem",
+    "label": "Baby Chicken (Warm)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cow/cow_cold_baby.png",
+    "adultTexture": "minecraft:textures/entity/cow/cow_cold.png",
+    "emfModel": "cold_cow_baby",
+    "jem": "babies/cold_cow_baby.jem",
+    "label": "Baby Cow (Cold)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cow/cow_temperate_baby.png",
+    "adultTexture": "minecraft:textures/entity/cow/cow_temperate.png",
+    "emfModel": "cow_baby",
+    "jem": "babies/cow_baby.jem",
+    "label": "Baby Cow (Temperate)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cow/cow_warm_baby.png",
+    "adultTexture": "minecraft:textures/entity/cow/cow_warm.png",
+    "emfModel": "warm_cow_baby",
+    "jem": "babies/warm_cow_baby.jem",
+    "label": "Baby Cow (Warm)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cow/mooshroom_brown_baby.png",
+    "adultTexture": "minecraft:textures/entity/cow/mooshroom_brown.png",
+    "emfModel": "mooshroom_baby",
+    "jem": "babies/mooshroom_baby.jem",
+    "label": "Baby Mooshroom (Brown)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/cow/mooshroom_red_baby.png",
+    "adultTexture": "minecraft:textures/entity/cow/mooshroom_red.png",
+    "emfModel": "mooshroom_baby",
+    "jem": "babies/mooshroom_baby.jem",
+    "label": "Baby Mooshroom (Red)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/dolphin/dolphin_baby.png",
+    "adultTexture": "minecraft:textures/entity/dolphin/dolphin.png",
+    "emfModel": "dolphin_baby",
+    "jem": "babies/dolphin_baby.jem",
+    "label": "Baby Dolphin"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/fox/fox_baby.png",
+    "adultTexture": "minecraft:textures/entity/fox/fox.png",
+    "emfModel": "fox_baby",
+    "jem": "babies/fox_baby.jem",
+    "label": "Baby Fox"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/fox/fox_sleep_baby.png",
+    "adultTexture": "minecraft:textures/entity/fox/fox_sleep.png",
+    "emfModel": "fox_baby",
+    "jem": "babies/fox_baby.jem",
+    "label": "Baby Fox (Sleep)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/fox/fox_snow_baby.png",
+    "adultTexture": "minecraft:textures/entity/fox/fox_snow.png",
+    "emfModel": "fox_baby",
+    "jem": "babies/fox_baby.jem",
+    "label": "Baby Fox (Snow)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/fox/fox_snow_sleep_baby.png",
+    "adultTexture": "minecraft:textures/entity/fox/fox_snow_sleep.png",
+    "emfModel": "fox_baby",
+    "jem": "babies/fox_baby.jem",
+    "label": "Baby Fox (Snow Sleep)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/ghast/happy_ghast_baby.png",
+    "adultTexture": "minecraft:textures/entity/ghast/happy_ghast.png",
+    "emfModel": "happy_ghast_baby",
+    "jem": "babies/happy_ghast_baby.jem",
+    "label": "Baby Ghast (Happy Ghast)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/goat/goat_baby.png",
+    "adultTexture": "minecraft:textures/entity/goat/goat.png",
+    "emfModel": "goat_baby",
+    "jem": "babies/goat_baby.jem",
+    "label": "Baby Goat"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/hoglin/hoglin_baby.png",
+    "adultTexture": "minecraft:textures/entity/hoglin/hoglin.png",
+    "emfModel": "hoglin_baby",
+    "jem": "babies/hoglin_baby.jem",
+    "label": "Baby Hoglin"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/hoglin/zoglin_baby.png",
+    "adultTexture": "minecraft:textures/entity/hoglin/zoglin.png",
+    "emfModel": "zoglin_baby",
+    "jem": "babies/zoglin_baby.jem",
+    "label": "Baby Hoglin (Zoglin)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/horse/donkey_baby.png",
+    "adultTexture": "minecraft:textures/entity/horse/donkey.png",
+    "emfModel": "donkey_baby",
+    "jem": "babies/donkey_baby.jem",
+    "label": "Baby Horse (Donkey)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/horse/horse_black_baby.png",
+    "adultTexture": "minecraft:textures/entity/horse/horse_black.png",
+    "emfModel": "horse_baby",
+    "jem": "babies/horse_baby.jem",
+    "label": "Baby Horse (Black)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/horse/horse_brown_baby.png",
+    "adultTexture": "minecraft:textures/entity/horse/horse_brown.png",
+    "emfModel": "horse_baby",
+    "jem": "babies/horse_baby.jem",
+    "label": "Baby Horse (Brown)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/horse/horse_chestnut_baby.png",
+    "adultTexture": "minecraft:textures/entity/horse/horse_chestnut.png",
+    "emfModel": "horse_baby",
+    "jem": "babies/horse_baby.jem",
+    "label": "Baby Horse (Chestnut)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/horse/horse_creamy_baby.png",
+    "adultTexture": "minecraft:textures/entity/horse/horse_creamy.png",
+    "emfModel": "horse_baby",
+    "jem": "babies/horse_baby.jem",
+    "label": "Baby Horse (Creamy)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/horse/horse_darkbrown_baby.png",
+    "adultTexture": "minecraft:textures/entity/horse/horse_darkbrown.png",
+    "emfModel": "horse_baby",
+    "jem": "babies/horse_baby.jem",
+    "label": "Baby Horse (Darkbrown)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/horse/horse_gray_baby.png",
+    "adultTexture": "minecraft:textures/entity/horse/horse_gray.png",
+    "emfModel": "horse_baby",
+    "jem": "babies/horse_baby.jem",
+    "label": "Baby Horse (Gray)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/horse/horse_skeleton_baby.png",
+    "adultTexture": "minecraft:textures/entity/horse/horse_skeleton.png",
+    "emfModel": "skeleton_horse_baby",
+    "jem": "babies/skeleton_horse_baby.jem",
+    "label": "Baby Horse (Skeleton)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/horse/horse_white_baby.png",
+    "adultTexture": "minecraft:textures/entity/horse/horse_white.png",
+    "emfModel": "horse_baby",
+    "jem": "babies/horse_baby.jem",
+    "label": "Baby Horse (White)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/horse/horse_zombie_baby.png",
+    "adultTexture": "minecraft:textures/entity/horse/horse_zombie.png",
+    "emfModel": "zombie_horse_baby",
+    "jem": "babies/zombie_horse_baby.jem",
+    "label": "Baby Horse (Zombie)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/horse/mule_baby.png",
+    "adultTexture": "minecraft:textures/entity/horse/mule.png",
+    "emfModel": "mule_baby",
+    "jem": "babies/mule_baby.jem",
+    "label": "Baby Horse (Mule)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/llama/llama_brown_baby.png",
+    "adultTexture": "minecraft:textures/entity/llama/llama_brown.png",
+    "emfModel": "llama_baby",
+    "jem": "babies/llama_baby.jem",
+    "label": "Baby Llama (Brown)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/llama/llama_creamy_baby.png",
+    "adultTexture": "minecraft:textures/entity/llama/llama_creamy.png",
+    "emfModel": "llama_baby",
+    "jem": "babies/llama_baby.jem",
+    "label": "Baby Llama (Creamy)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/llama/llama_gray_baby.png",
+    "adultTexture": "minecraft:textures/entity/llama/llama_gray.png",
+    "emfModel": "llama_baby",
+    "jem": "babies/llama_baby.jem",
+    "label": "Baby Llama (Gray)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/llama/llama_white_baby.png",
+    "adultTexture": "minecraft:textures/entity/llama/llama_white.png",
+    "emfModel": "llama_baby",
+    "jem": "babies/llama_baby.jem",
+    "label": "Baby Llama (White)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/nautilus/nautilus_baby.png",
+    "adultTexture": "minecraft:textures/entity/nautilus/nautilus.png",
+    "emfModel": "nautilus_baby",
+    "jem": "babies/nautilus_baby.jem",
+    "label": "Baby Nautilus"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/panda/aggressive_panda_baby.png",
+    "adultTexture": "minecraft:textures/entity/panda/panda_aggressive.png",
+    "emfModel": "panda_baby",
+    "jem": "babies/panda_baby.jem",
+    "label": "Baby Panda (Aggressive Panda)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/panda/brown_panda_baby.png",
+    "adultTexture": "minecraft:textures/entity/panda/panda_brown.png",
+    "emfModel": "panda_baby",
+    "jem": "babies/panda_baby.jem",
+    "label": "Baby Panda (Brown Panda)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/panda/lazy_panda_baby.png",
+    "adultTexture": "minecraft:textures/entity/panda/panda_lazy.png",
+    "emfModel": "panda_baby",
+    "jem": "babies/panda_baby.jem",
+    "label": "Baby Panda (Lazy Panda)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/panda/panda_baby.png",
+    "adultTexture": "minecraft:textures/entity/panda/panda.png",
+    "emfModel": "panda_baby",
+    "jem": "babies/panda_baby.jem",
+    "label": "Baby Panda"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/panda/playful_panda_baby.png",
+    "adultTexture": "minecraft:textures/entity/panda/panda_playful.png",
+    "emfModel": "panda_baby",
+    "jem": "babies/panda_baby.jem",
+    "label": "Baby Panda (Playful Panda)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/panda/weak_panda_baby.png",
+    "adultTexture": "minecraft:textures/entity/panda/panda_weak.png",
+    "emfModel": "panda_baby",
+    "jem": "babies/panda_baby.jem",
+    "label": "Baby Panda (Weak Panda)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/panda/worried_panda_baby.png",
+    "adultTexture": "minecraft:textures/entity/panda/panda_worried.png",
+    "emfModel": "panda_baby",
+    "jem": "babies/panda_baby.jem",
+    "label": "Baby Panda (Worried Panda)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/pig/pig_cold_baby.png",
+    "adultTexture": "minecraft:textures/entity/pig/pig_cold.png",
+    "emfModel": "cold_pig_baby",
+    "jem": "babies/cold_pig_baby.jem",
+    "label": "Baby Pig (Cold)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/pig/pig_temperate_baby.png",
+    "adultTexture": "minecraft:textures/entity/pig/pig_temperate.png",
+    "emfModel": "pig_baby",
+    "jem": "babies/pig_baby.jem",
+    "label": "Baby Pig (Temperate)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/pig/pig_warm_baby.png",
+    "adultTexture": "minecraft:textures/entity/pig/pig_warm.png",
+    "emfModel": "pig_baby",
+    "jem": "babies/pig_baby.jem",
+    "label": "Baby Pig (Warm)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/piglin/piglin_baby.png",
+    "adultTexture": "minecraft:textures/entity/piglin/piglin.png",
+    "emfModel": "piglin_baby",
+    "jem": "babies/piglin_baby.jem",
+    "label": "Baby Piglin"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/piglin/zombified_piglin_baby.png",
+    "adultTexture": "minecraft:textures/entity/piglin/zombified_piglin.png",
+    "emfModel": "zombified_piglin_baby",
+    "jem": "babies/zombified_piglin_baby.jem",
+    "label": "Baby Piglin (Zombified Piglin)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/rabbit/rabbit_black_baby.png",
+    "adultTexture": "minecraft:textures/entity/rabbit/rabbit_black.png",
+    "emfModel": "rabbit_baby",
+    "jem": "babies/rabbit_baby.jem",
+    "label": "Baby Rabbit (Black)",
+    "fallbackAdultTexture": "babies/textures/rabbit_black.png"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/rabbit/rabbit_brown_baby.png",
+    "adultTexture": "minecraft:textures/entity/rabbit/rabbit_brown.png",
+    "emfModel": "rabbit_baby",
+    "jem": "babies/rabbit_baby.jem",
+    "label": "Baby Rabbit (Brown)",
+    "fallbackAdultTexture": "babies/textures/rabbit_brown.png"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/rabbit/rabbit_caerbannog_baby.png",
+    "adultTexture": "minecraft:textures/entity/rabbit/rabbit_caerbannog.png",
+    "emfModel": "rabbit_baby",
+    "jem": "babies/rabbit_baby.jem",
+    "label": "Baby Rabbit (Caerbannog)",
+    "fallbackAdultTexture": "babies/textures/rabbit_caerbannog.png"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/rabbit/rabbit_gold_baby.png",
+    "adultTexture": "minecraft:textures/entity/rabbit/rabbit_gold.png",
+    "emfModel": "rabbit_baby",
+    "jem": "babies/rabbit_baby.jem",
+    "label": "Baby Rabbit (Gold)",
+    "fallbackAdultTexture": "babies/textures/rabbit_gold.png"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/rabbit/rabbit_salt_baby.png",
+    "adultTexture": "minecraft:textures/entity/rabbit/rabbit_salt.png",
+    "emfModel": "rabbit_baby",
+    "jem": "babies/rabbit_baby.jem",
+    "label": "Baby Rabbit (Salt)",
+    "fallbackAdultTexture": "babies/textures/rabbit_salt.png"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/rabbit/rabbit_toast_baby.png",
+    "adultTexture": "minecraft:textures/entity/rabbit/rabbit_toast.png",
+    "emfModel": "rabbit_baby",
+    "jem": "babies/rabbit_baby.jem",
+    "label": "Baby Rabbit (Toast)",
+    "fallbackAdultTexture": "babies/textures/rabbit_toast.png"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/rabbit/rabbit_white_baby.png",
+    "adultTexture": "minecraft:textures/entity/rabbit/rabbit_white.png",
+    "emfModel": "rabbit_baby",
+    "jem": "babies/rabbit_baby.jem",
+    "label": "Baby Rabbit (White)",
+    "fallbackAdultTexture": "babies/textures/rabbit_white.png"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/rabbit/rabbit_white_splotched_baby.png",
+    "adultTexture": "minecraft:textures/entity/rabbit/rabbit_white_splotched.png",
+    "emfModel": "rabbit_baby",
+    "jem": "babies/rabbit_baby.jem",
+    "label": "Baby Rabbit (White Splotched)",
+    "fallbackAdultTexture": "babies/textures/rabbit_white_splotched.png"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/sheep/sheep_baby.png",
+    "adultTexture": "minecraft:textures/entity/sheep/sheep.png",
+    "emfModel": "sheep_baby",
+    "jem": "babies/sheep_baby.jem",
+    "label": "Baby Sheep"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/sheep/sheep_wool_baby.png",
+    "adultTexture": "minecraft:textures/entity/sheep/sheep_wool.png",
+    "emfModel": "sheep_baby_wool",
+    "jem": "babies/sheep_baby_wool.jem",
+    "label": "Baby Sheep (Wool)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/squid/glow_squid_baby.png",
+    "adultTexture": "minecraft:textures/entity/squid/glow_squid.png",
+    "emfModel": "glow_squid_baby",
+    "jem": "babies/glow_squid_baby.jem",
+    "label": "Baby Squid (Glow Squid)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/squid/squid_baby.png",
+    "adultTexture": "minecraft:textures/entity/squid/squid.png",
+    "emfModel": "squid_baby",
+    "jem": "babies/squid_baby.jem",
+    "label": "Baby Squid"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/turtle/turtle_baby.png",
+    "adultTexture": "minecraft:textures/entity/turtle/turtle.png",
+    "emfModel": "turtle_baby",
+    "jem": "babies/turtle_baby.jem",
+    "label": "Baby Turtle"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/villager/baby/desert.png",
+    "adultTexture": "minecraft:textures/entity/villager/type/desert.png",
+    "emfModel": "villager_baby",
+    "jem": "babies/villager_baby.jem",
+    "label": "Baby Villager (Desert)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/villager/baby/jungle.png",
+    "adultTexture": "minecraft:textures/entity/villager/type/jungle.png",
+    "emfModel": "villager_baby",
+    "jem": "babies/villager_baby.jem",
+    "label": "Baby Villager (Jungle)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/villager/baby/plains.png",
+    "adultTexture": "minecraft:textures/entity/villager/type/plains.png",
+    "emfModel": "villager_baby",
+    "jem": "babies/villager_baby.jem",
+    "label": "Baby Villager (Plains)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/villager/baby/savanna.png",
+    "adultTexture": "minecraft:textures/entity/villager/type/savanna.png",
+    "emfModel": "villager_baby",
+    "jem": "babies/villager_baby.jem",
+    "label": "Baby Villager (Savanna)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/villager/baby/snow.png",
+    "adultTexture": "minecraft:textures/entity/villager/type/snow.png",
+    "emfModel": "villager_baby",
+    "jem": "babies/villager_baby.jem",
+    "label": "Baby Villager (Snow)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/villager/baby/swamp.png",
+    "adultTexture": "minecraft:textures/entity/villager/type/swamp.png",
+    "emfModel": "villager_baby",
+    "jem": "babies/villager_baby.jem",
+    "label": "Baby Villager (Swamp)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/villager/baby/taiga.png",
+    "adultTexture": "minecraft:textures/entity/villager/type/taiga.png",
+    "emfModel": "villager_baby",
+    "jem": "babies/villager_baby.jem",
+    "label": "Baby Villager (Taiga)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/villager/villager_baby.png",
+    "adultTexture": "minecraft:textures/entity/villager/villager.png",
+    "emfModel": "villager_baby",
+    "jem": "babies/villager_baby.jem",
+    "label": "Baby Villager"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_angry_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_angry.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Angry)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_ashen_angry_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_ashen_angry.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Ashen Angry)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_ashen_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_ashen.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Ashen)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_ashen_tame_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_ashen_tame.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Ashen Tame)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_black_angry_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_black_angry.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Black Angry)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_black_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_black.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Black)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_black_tame_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_black_tame.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Black Tame)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_chestnut_angry_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_chestnut_angry.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Chestnut Angry)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_chestnut_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_chestnut.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Chestnut)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_chestnut_tame_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_chestnut_tame.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Chestnut Tame)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_rusty_angry_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_rusty_angry.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Rusty Angry)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_rusty_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_rusty.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Rusty)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_rusty_tame_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_rusty_tame.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Rusty Tame)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_snowy_angry_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_snowy_angry.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Snowy Angry)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_snowy_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_snowy.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Snowy)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_snowy_tame_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_snowy_tame.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Snowy Tame)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_spotted_angry_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_spotted_angry.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Spotted Angry)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_spotted_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_spotted.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Spotted)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_spotted_tame_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_spotted_tame.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Spotted Tame)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_striped_angry_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_striped_angry.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Striped Angry)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_striped_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_striped.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Striped)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_striped_tame_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_striped_tame.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Striped Tame)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_tame_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_tame.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Tame)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_woods_angry_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_woods_angry.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Woods Angry)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_woods_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_woods.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Woods)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/wolf/wolf_woods_tame_baby.png",
+    "adultTexture": "minecraft:textures/entity/wolf/wolf_woods_tame.png",
+    "emfModel": "wolf_baby",
+    "jem": "babies/wolf_baby.jem",
+    "label": "Baby Wolf (Woods Tame)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/zombie/drowned_baby.png",
+    "adultTexture": "minecraft:textures/entity/zombie/drowned.png",
+    "emfModel": "drowned_baby",
+    "jem": "babies/drowned_baby.jem",
+    "label": "Baby Zombie (Drowned)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/zombie/husk_baby.png",
+    "adultTexture": "minecraft:textures/entity/zombie/husk.png",
+    "emfModel": "husk_baby",
+    "jem": "babies/husk_baby.jem",
+    "label": "Baby Zombie (Husk)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/zombie/zombie_baby.png",
+    "adultTexture": "minecraft:textures/entity/zombie/zombie.png",
+    "emfModel": "zombie_baby",
+    "jem": "babies/zombie_baby.jem",
+    "label": "Baby Zombie"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/zombie_villager/baby/desert.png",
+    "adultTexture": "minecraft:textures/entity/zombie_villager/type/desert.png",
+    "emfModel": "zombie_villager_baby",
+    "jem": "babies/zombie_villager_baby.jem",
+    "label": "Baby Zombie Villager (Desert)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/zombie_villager/baby/jungle.png",
+    "adultTexture": "minecraft:textures/entity/zombie_villager/type/jungle.png",
+    "emfModel": "zombie_villager_baby",
+    "jem": "babies/zombie_villager_baby.jem",
+    "label": "Baby Zombie Villager (Jungle)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/zombie_villager/baby/plains.png",
+    "adultTexture": "minecraft:textures/entity/zombie_villager/type/plains.png",
+    "emfModel": "zombie_villager_baby",
+    "jem": "babies/zombie_villager_baby.jem",
+    "label": "Baby Zombie Villager (Plains)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/zombie_villager/baby/savanna.png",
+    "adultTexture": "minecraft:textures/entity/zombie_villager/type/savanna.png",
+    "emfModel": "zombie_villager_baby",
+    "jem": "babies/zombie_villager_baby.jem",
+    "label": "Baby Zombie Villager (Savanna)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/zombie_villager/baby/snow.png",
+    "adultTexture": "minecraft:textures/entity/zombie_villager/type/snow.png",
+    "emfModel": "zombie_villager_baby",
+    "jem": "babies/zombie_villager_baby.jem",
+    "label": "Baby Zombie Villager (Snow)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/zombie_villager/baby/swamp.png",
+    "adultTexture": "minecraft:textures/entity/zombie_villager/type/swamp.png",
+    "emfModel": "zombie_villager_baby",
+    "jem": "babies/zombie_villager_baby.jem",
+    "label": "Baby Zombie Villager (Swamp)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/zombie_villager/baby/taiga.png",
+    "adultTexture": "minecraft:textures/entity/zombie_villager/type/taiga.png",
+    "emfModel": "zombie_villager_baby",
+    "jem": "babies/zombie_villager_baby.jem",
+    "label": "Baby Zombie Villager (Taiga)"
+  },
+  {
+    "babyTexture": "minecraft:textures/entity/zombie_villager/zombie_villager_baby.png",
+    "adultTexture": "minecraft:textures/entity/zombie_villager/zombie_villager.png",
+    "emfModel": "zombie_villager_baby",
+    "jem": "babies/zombie_villager_baby.jem",
+    "label": "Baby Zombie Villager (Villager)"
+  }
+]
