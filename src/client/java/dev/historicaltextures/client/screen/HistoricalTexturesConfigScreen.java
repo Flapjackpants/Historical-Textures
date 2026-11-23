@@ -8,6 +8,7 @@ import dev.historicaltextures.catalog.TextureTarget;
 import dev.historicaltextures.catalog.TextureTargetRegistry;
 import dev.historicaltextures.catalog.TextureVariant;
 import dev.historicaltextures.client.CatalogThumbnailCache;
+import dev.historicaltextures.client.SoundPreviewPlayer;
 import dev.historicaltextures.config.ModConfig;
 import dev.historicaltextures.config.TextureGroups;
 import dev.historicaltextures.pack.OverlayPackManager;
@@ -78,6 +79,8 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private long previewLastFrameMs;
 	private TextureTarget previewTarget;
 	private Button hoodButton;
+	private Button soundPlayButton;
+	private boolean timelineDragging;
 
 	public HistoricalTexturesConfigScreen(Screen parent) {
 		super(Component.translatable("screen.historical_textures.config"));
@@ -156,10 +159,17 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				Component.literal("Old villagers had no hood. Applies on Apply & Reload.")));
 		addRenderableWidget(hoodButton);
 
+		soundPlayButton = Button.builder(Component.literal("Play"), b -> SoundPreviewPlayer.toggle())
+				.bounds(col3X + (previewW - 60) / 2, listTop + (listBottom - listTop) / 2 - 34, 60, 20)
+				.build();
+		soundPlayButton.visible = false;
+		addRenderableWidget(soundPlayButton);
+
 		rebuildLists();
 	}
 
 	private void switchTab(Tab tab) {
+		SoundPreviewPlayer.stop();
 		activeTab = tab;
 		selectedTarget = null;
 		selectedSoundEvent = null;
@@ -468,7 +478,14 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 	@Override
 	public void onClose() {
+		SoundPreviewPlayer.stop();
 		minecraft.setScreenAndShow(parent);
+	}
+
+	@Override
+	public void removed() {
+		super.removed();
+		SoundPreviewPlayer.stop();
 	}
 
 	private String fit(String text, int maxWidth) {
@@ -515,6 +532,9 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private void extractPreview(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+		if (soundPlayButton != null) {
+			soundPlayButton.visible = false;
+		}
 		int boxX = col3X;
 		int boxY = listTop;
 		int boxW = previewW;
@@ -529,10 +549,11 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		updatePreviewMotion(shape);
 
 		if (shape == VariantPreviewRenderer.Shape.NONE || preview == null) {
-			Component msg = activeTab == Tab.SOUNDS
-					? Component.literal("No preview for sounds.")
-					: Component.literal("Select a variant to preview.");
-			graphics.textWithWordWrap(font, msg, boxX + 8, boxY + 12, boxW - 16, TEXT_MUTED);
+			if (activeTab == Tab.SOUNDS) {
+				extractSoundPreview(graphics, boxX, boxY, boxW, boxH);
+				return;
+			}
+			graphics.textWithWordWrap(font, Component.literal("Select a variant to preview."), boxX + 8, boxY + 12, boxW - 16, TEXT_MUTED);
 			return;
 		}
 
@@ -584,6 +605,74 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			default -> {
 			}
 		}
+	}
+
+	private void extractSoundPreview(GuiGraphicsExtractor graphics, int boxX, int boxY, int boxW, int boxH) {
+		VariantEntry entry = selectedVariantEntry();
+		SoundVariant variant = entry != null && entry.variantId != null
+				? HistoricalCatalog.get().soundVariant(entry.variantId).orElse(null)
+				: null;
+		if (variant == null) {
+			SoundPreviewPlayer.stop();
+			graphics.textWithWordWrap(font, Component.literal("Select a historical sound to preview it."),
+					boxX + 8, boxY + 12, boxW - 16, TEXT_MUTED);
+			return;
+		}
+		if (!SoundPreviewPlayer.load(entry.variantId, variant.assetPath())) {
+			graphics.textWithWordWrap(font, Component.literal("Can't play this sound."),
+					boxX + 8, boxY + 12, boxW - 16, TEXT_ERROR);
+			return;
+		}
+
+		soundPlayButton.setMessage(Component.literal(SoundPreviewPlayer.isPlaying() ? "Pause" : "Play"));
+		soundPlayButton.visible = true;
+
+		int[] timeline = soundTimelineRect();
+		graphics.fill(timeline[0], timeline[1], timeline[0] + timeline[2], timeline[1] + 6, 0xFF303030);
+		float duration = SoundPreviewPlayer.durationSeconds();
+		float position = duration > 0.0f ? SoundPreviewPlayer.positionSeconds() / duration : 0.0f;
+		int fillWidth = Math.round(timeline[2] * Mth.clamp(position, 0.0f, 1.0f));
+		if (fillWidth > 0) {
+			graphics.fill(timeline[0], timeline[1], timeline[0] + fillWidth, timeline[1] + 6, 0xFF55FF55);
+		}
+		int knobX = Math.min(timeline[0] + fillWidth, timeline[0] + timeline[2] - 2);
+		graphics.fill(knobX, timeline[1], knobX + 2, timeline[1] + 6, 0xFFFFFFFF);
+
+		String time = formatSoundTime(SoundPreviewPlayer.positionSeconds())
+				+ " / " + formatSoundTime(duration);
+		graphics.text(font, Component.literal(time),
+				boxX + boxW / 2 - font.width(time) / 2, timeline[1] + 10, TEXT_MUTED);
+	}
+
+	private int[] soundTimelineRect() {
+		int middle = listTop + (listBottom - listTop) / 2;
+		return new int[]{col3X + 8, middle - 6, previewW - 16};
+	}
+
+	private boolean soundPlayerVisible() {
+		return activeTab == Tab.SOUNDS && soundPlayButton != null && soundPlayButton.visible;
+	}
+
+	private boolean isInsideTimeline(double mouseX, double mouseY) {
+		if (!soundPlayerVisible()) {
+			return false;
+		}
+		int[] timeline = soundTimelineRect();
+		return mouseX >= timeline[0] && mouseX < timeline[0] + timeline[2]
+				&& mouseY >= timeline[1] - 2 && mouseY <= timeline[1] + 8;
+	}
+
+	private void seekTimeline(double mouseX) {
+		int[] timeline = soundTimelineRect();
+		if (timeline[2] <= 0) {
+			return;
+		}
+		SoundPreviewPlayer.seek((float) ((mouseX - timeline[0]) / timeline[2]));
+	}
+
+	private static String formatSoundTime(float seconds) {
+		int total = Math.max(0, Math.round(seconds));
+		return total / 60 + ":" + String.format(Locale.ROOT, "%02d", total % 60);
 	}
 
 	private void extractFlatPreview(GuiGraphicsExtractor graphics, PreviewTexture preview, int boxX, int boxY, int boxW, int boxH) {
@@ -769,6 +858,12 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		if (event.button() == InputConstants.MOUSE_BUTTON_LEFT
+				&& isInsideTimeline(event.x(), event.y())) {
+			timelineDragging = true;
+			seekTimeline(event.x());
+			return true;
+		}
+		if (event.button() == InputConstants.MOUSE_BUTTON_LEFT
 				&& isThreeDimensional(previewShape())
 				&& isInsidePreview(event.x(), event.y())) {
 			previewDragging = true;
@@ -780,6 +875,10 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 	@Override
 	public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+		if (timelineDragging) {
+			seekTimeline(event.x());
+			return true;
+		}
 		if (previewDragging) {
 			previewYaw += (float) dragX * PREVIEW_DRAG_SENSITIVITY;
 			float limit = previewShape() == VariantPreviewRenderer.Shape.PLANE
@@ -793,6 +892,10 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 	@Override
 	public boolean mouseReleased(MouseButtonEvent event) {
+		if (timelineDragging) {
+			timelineDragging = false;
+			return true;
+		}
 		if (previewDragging) {
 			previewDragging = false;
 			previewResumeAtMs = Util.getMillis() + PREVIEW_RESUME_DELAY_MS;
@@ -899,6 +1002,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			}
 			selectedSoundEvent = soundEvent;
 			selectedTarget = null;
+			SoundPreviewPlayer.stop();
 			targetList.setSelected(this);
 			rebuildVariants();
 			return true;

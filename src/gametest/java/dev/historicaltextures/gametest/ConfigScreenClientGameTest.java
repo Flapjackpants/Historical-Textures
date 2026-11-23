@@ -8,8 +8,10 @@ import dev.historicaltextures.catalog.LegacyModels;
 import dev.historicaltextures.catalog.TextureTarget;
 import dev.historicaltextures.catalog.TextureTargetKind;
 import dev.historicaltextures.catalog.TextureTargetRegistry;
+import dev.historicaltextures.catalog.SoundVariant;
 import dev.historicaltextures.catalog.TextureVariant;
 import dev.historicaltextures.client.CatalogThumbnailCache;
+import dev.historicaltextures.client.SoundPreviewPlayer;
 import dev.historicaltextures.client.screen.HistoricalTexturesConfigScreen;
 import dev.historicaltextures.config.ModConfig;
 import dev.historicaltextures.config.Preset;
@@ -434,6 +436,7 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		runCurrentVariantSteps(context, phase, failures, screenshots);
 		runPresetSteps(context, phase, failures, screenshots);
 		runCakeGroupSteps(context, phase, failures, screenshots);
+		runSoundSteps(context, phase, failures, screenshots);
 
 		// 05j search_scroll_top
 		String stepScroll = phase + "_05j_search_scroll_top";
@@ -1778,6 +1781,133 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 		generateOverlay(context);
 		setSearch(context, "");
 		context.waitTicks(2);
+	}
+
+	private void runSoundSteps(
+			ClientGameTestContext context,
+			String phase,
+			List<String> failures,
+			List<Path> screenshots
+	) {
+		String step = phase + "_sounds";
+		clickButton(context, "Sounds");
+		context.waitTicks(3);
+		setSearch(context, "");
+		context.waitTicks(2);
+
+		int eventIndex = context.computeOnClient(client -> {
+			List<String> events = TextureTargetRegistry.soundEvents();
+			for (int index = 0; index < events.size(); index++) {
+				if (!HistoricalCatalog.get().soundVariantsForEvent(events.get(index)).isEmpty()) {
+					return index;
+				}
+			}
+			return -1;
+		});
+		check(failures, step, "sound_event_found", eventIndex >= 0, "index=" + eventIndex);
+		if (eventIndex < 0) {
+			clickButton(context, "Blocks");
+			return;
+		}
+		clickSelectionRow(context, 0, eventIndex);
+		context.waitTicks(3);
+
+		int variantRow = firstCatalogVariantRow(context);
+		check(failures, step, "sound_variant_row", variantRow >= 0, "rowIndex=" + variantRow);
+		if (variantRow < 0) {
+			clickButton(context, "Blocks");
+			return;
+		}
+		clickVariantRow(context, variantRow);
+		context.waitTicks(3);
+
+		Object[] selected = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return null;
+			}
+			try {
+				var listField = screen.getClass().getDeclaredField("variantList");
+				listField.setAccessible(true);
+				Object list = listField.get(screen);
+				if (!(list instanceof AbstractSelectionList<?> selection)) {
+					return null;
+				}
+				Object entry = selection.getSelected();
+				if (entry == null) {
+					return null;
+				}
+				var idField = entry.getClass().getDeclaredField("variantId");
+				idField.setAccessible(true);
+				String id = (String) idField.get(entry);
+				String assetPath = id == null ? null : HistoricalCatalog.get()
+						.soundVariant(id)
+						.map(SoundVariant::assetPath)
+						.orElse(null);
+				return new Object[]{id, assetPath};
+			} catch (ReflectiveOperationException exception) {
+				return null;
+			}
+		});
+		String variantId = selected != null && selected[0] instanceof String id ? id : null;
+		String assetPath = selected != null && selected[1] instanceof String path ? path : null;
+
+		boolean playButton = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return false;
+			}
+			for (var child : screen.children()) {
+				if (child instanceof Button button && button.visible
+						&& "Play".equals(button.getMessage().getString())) {
+					return true;
+				}
+			}
+			return false;
+		});
+		check(failures, step, "sound_play_button", playButton, "visible=" + playButton);
+
+		float duration = context.computeOnClient(client -> SoundPreviewPlayer.durationSeconds());
+		check(failures, step, "sound_duration", duration > 0.0f, "duration=" + duration);
+
+		boolean playable = variantId != null && assetPath != null
+				&& Boolean.TRUE.equals(context.computeOnClient(client ->
+						SoundPreviewPlayer.load(variantId, assetPath)));
+
+		clickButton(context, "Play");
+		context.waitTicks(10);
+		String playLabel = context.computeOnClient(client -> {
+			Screen screen = client.gui.screen();
+			if (screen == null) {
+				return "";
+			}
+			for (var child : screen.children()) {
+				if (child instanceof Button button && button.visible) {
+					String message = button.getMessage().getString();
+					if ("Play".equals(message) || "Pause".equals(message)) {
+						return message;
+					}
+				}
+			}
+			return "";
+		});
+		if (playable) {
+			check(failures, step, "sound_playing", "Pause".equals(playLabel), "label=" + playLabel);
+		} else {
+			checkSkipped(step, "sound_playing", "sound failed to load (no audio device?)");
+		}
+		recordScreenshot(context, step + "_player", screenshots);
+
+		clickButton(context, "Blocks");
+		context.waitTicks(3);
+		boolean stillPlaying = context.computeOnClient(client -> SoundPreviewPlayer.isPlaying());
+		check(failures, step, "sound_stopped", !stillPlaying, "isPlaying=" + stillPlaying);
+	}
+
+	private void checkSkipped(String step, String checkName, String reason) {
+		String line = String.format("[HT-GAMETEST] %s %s SKIPPED %s", step, checkName, reason);
+		HistoricalTextures.LOGGER.info(line);
+		System.out.println(line);
 	}
 
 	private boolean cakeSideRowExistsLater(ClientGameTestContext context) {
