@@ -227,17 +227,6 @@ public final class PresetsScreen extends Screen {
 		minecraft.setScreenAndShow(parent);
 	}
 
-	private String fit(String text, int maxWidth) {
-		if (font.width(text) <= maxWidth) {
-			return text;
-		}
-		int dotsWidth = font.width("...");
-		if (maxWidth <= dotsWidth) {
-			return "...";
-		}
-		return font.plainSubstrByWidth(text, maxWidth - dotsWidth) + "...";
-	}
-
 	private final class PresetEntry extends PresetList.Entry {
 		private final Preset preset;
 
@@ -259,8 +248,8 @@ public final class PresetsScreen extends Screen {
 			String kind = preset.builtIn() ? "Built-in" : "Saved";
 			String subtitle = kind + " · " + preset.textureChoices().size()
 					+ " textures, " + preset.soundChoices().size() + " sounds";
-			graphics.text(font, fit(preset.name(), maxW), getContentX() + 4, getContentY() + 3, TEXT_WHITE);
-			graphics.text(font, fit(subtitle, maxW), getContentX() + 4, getContentY() + 15, TEXT_MUTED);
+			graphics.text(font, ColumnList.fit(font, preset.name(), maxW), getContentX() + 4, getContentY() + 3, TEXT_WHITE);
+			graphics.text(font, ColumnList.fit(font, subtitle, maxW), getContentX() + 4, getContentY() + 15, TEXT_MUTED);
 		}
 
 		@Override
@@ -278,24 +267,9 @@ public final class PresetsScreen extends Screen {
 		}
 	}
 
-	private static final class PresetList extends ObjectSelectionList<PresetList.Entry> {
+	private static final class PresetList extends ColumnList<PresetList.Entry> {
 		PresetList(Minecraft minecraft, int width, int height, int top, int entryHeight) {
 			super(minecraft, width, height, top, entryHeight);
-		}
-
-		@Override
-		public int getRowWidth() {
-			return width - 14;
-		}
-
-		@Override
-		protected int scrollBarX() {
-			return getX() + width - scrollbarWidth();
-		}
-
-		@Override
-		public int getRowLeft() {
-			return getX() + 2;
 		}
 
 		abstract static class Entry extends ObjectSelectionList.Entry<Entry> {

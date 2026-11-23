@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-final class PresetContentsList extends ObjectSelectionList<PresetContentsList.Entry> {
+final class PresetContentsList extends ColumnList<PresetContentsList.Entry> {
 	private static final int ROW_HEIGHT = 20;
 	private static final int TEXT_WHITE = 0xFFFFFFFF;
 	private static final int TEXT_MUTED = 0xFFA0A0A0;
@@ -36,21 +36,6 @@ final class PresetContentsList extends ObjectSelectionList<PresetContentsList.En
 	PresetContentsList(Minecraft minecraft, int width, int height, int top) {
 		super(minecraft, width, height, top, ROW_HEIGHT);
 		this.font = minecraft.font;
-	}
-
-	@Override
-	public int getRowWidth() {
-		return width - 14;
-	}
-
-	@Override
-	protected int scrollBarX() {
-		return getX() + width - scrollbarWidth();
-	}
-
-	@Override
-	public int getRowLeft() {
-		return getX() + 2;
 	}
 
 	void show(Map<String, String> textureChoices, Map<String, String> soundChoices, boolean hideVillagerHood) {
@@ -153,20 +138,6 @@ final class PresetContentsList extends ObjectSelectionList<PresetContentsList.En
 		return version == null ? "" : version;
 	}
 
-	private String fit(String text, int maxWidth) {
-		if (text == null) {
-			return "";
-		}
-		if (font.width(text) <= maxWidth) {
-			return text;
-		}
-		int dotsWidth = font.width("...");
-		if (maxWidth <= dotsWidth) {
-			return "...";
-		}
-		return font.plainSubstrByWidth(text, maxWidth - dotsWidth) + "...";
-	}
-
 	private String combinedText(String name, String version) {
 		if (version == null || version.isEmpty()) {
 			return name;
@@ -179,9 +150,9 @@ final class PresetContentsList extends ObjectSelectionList<PresetContentsList.En
 		String safeVersion = version == null ? "" : version;
 		int textRight = contentRight - 4;
 		int versionWidth = Math.min(font.width(safeVersion), Math.max(24, (textRight - textX) / 2));
-		String shownVersion = fit(safeVersion, versionWidth);
+		String shownVersion = fit(font, safeVersion, versionWidth);
 		int nameMaxWidth = textRight - font.width(shownVersion) - 4 - textX;
-		String shownName = fit(name, Math.max(8, nameMaxWidth));
+		String shownName = fit(font, name, Math.max(8, nameMaxWidth));
 		int y = centerY - 4;
 		graphics.text(font, shownName, textX, y, TEXT_WHITE);
 		if (!shownVersion.isEmpty()) {
@@ -231,7 +202,7 @@ final class PresetContentsList extends ObjectSelectionList<PresetContentsList.En
 		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered,
 				float partialTick) {
-			graphics.text(font, fit(text, getContentRight() - getContentX() - 8),
+			graphics.text(font, fit(font, text, getContentRight() - getContentX() - 8),
 					getContentX() + 4, getContentYMiddle() - 4, TEXT_HEADER);
 		}
 	}
@@ -251,7 +222,7 @@ final class PresetContentsList extends ObjectSelectionList<PresetContentsList.En
 		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered,
 				float partialTick) {
-			graphics.text(font, fit(text, getContentRight() - getContentX() - 8),
+			graphics.text(font, fit(font, text, getContentRight() - getContentX() - 8),
 					getContentX() + 4, getContentYMiddle() - 4, TEXT_WHITE);
 		}
 	}

@@ -21,13 +21,14 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.ObjectSelectionList;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
 
@@ -61,8 +62,8 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private static Preset lastApplied;
 	private Tab activeTab = Tab.BLOCKS;
 	private EditBox searchBox;
-	private TargetList targetList;
-	private VariantList variantList;
+	private EntryList targetList;
+	private EntryList variantList;
 	private TextureTarget selectedTarget;
 	private String selectedSoundEvent;
 	private String filter = "";
@@ -105,11 +106,12 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		int tabY = 8;
 		int tabX = 8;
-		addRenderableWidget(Button.builder(Component.literal("Blocks"), b -> switchTab(Tab.BLOCKS)).bounds(tabX, tabY, 60, 20).build());
-		addRenderableWidget(Button.builder(Component.literal("Items"), b -> switchTab(Tab.ITEMS)).bounds(tabX + 64, tabY, 60, 20).build());
-		addRenderableWidget(Button.builder(Component.literal("Entities"), b -> switchTab(Tab.ENTITIES)).bounds(tabX + 128, tabY, 60, 20).build());
-		addRenderableWidget(Button.builder(Component.literal("Other"), b -> switchTab(Tab.OTHER)).bounds(tabX + 192, tabY, 60, 20).build());
-		addRenderableWidget(Button.builder(Component.literal("Sounds"), b -> switchTab(Tab.SOUNDS)).bounds(tabX + 256, tabY, 60, 20).build());
+		int tabIndex = 0;
+		for (Tab tab : Tab.values()) {
+			addRenderableWidget(Button.builder(Component.literal(tab.label), b -> switchTab(tab))
+					.bounds(tabX + 64 * tabIndex, tabY, 60, 20).build());
+			tabIndex++;
+		}
 
 		int margin = 8;
 		int gap = 8;
@@ -135,8 +137,8 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		listBottom = height - 60;
 		int listHeight = listBottom - listTop;
 
-		targetList = new TargetList(minecraft, col1W, listHeight, listTop, TARGET_ENTRY_HEIGHT);
-		variantList = new VariantList(minecraft, col2W, listHeight, listTop, VARIANT_ENTRY_HEIGHT);
+		targetList = new EntryList(minecraft, col1W, listHeight, listTop, TARGET_ENTRY_HEIGHT);
+		variantList = new EntryList(minecraft, col2W, listHeight, listTop, VARIANT_ENTRY_HEIGHT);
 		targetList.setX(col1X);
 		targetList.setY(listTop);
 		targetList.setWidth(col1W);
@@ -163,7 +165,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				.bounds(col3X + 4, listBottom - 24, previewW - 8, 20)
 				.build();
 		hoodButton.visible = false;
-		hoodButton.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+		hoodButton.setTooltip(Tooltip.create(
 				Component.literal("Old villagers had no hood. Applies when you leave this screen.")));
 		addRenderableWidget(hoodButton);
 
@@ -191,7 +193,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private void rebuildTargets() {
-		List<TargetList.Entry> targetEntries = new ArrayList<>();
+		List<EntryList.Row> targetEntries = new ArrayList<>();
 
 		if (activeTab == Tab.SOUNDS) {
 			SoundTargetEntry selectedTargetEntry = null;
@@ -245,7 +247,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private void rebuildVariants() {
-		List<VariantList.Entry> variantEntries = new ArrayList<>();
+		List<EntryList.Row> variantEntries = new ArrayList<>();
 
 		if (activeTab == Tab.SOUNDS) {
 			if (selectedSoundEvent != null) {
@@ -272,14 +274,14 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		finishVariantList(variantEntries, configKey, false);
 	}
 
-	private void finishVariantList(List<VariantList.Entry> entries, String configKey, boolean soundTab) {
+	private void finishVariantList(List<EntryList.Row> entries, String configKey, boolean soundTab) {
 		variantList.replaceEntries(entries);
 		variantList.setScrollAmount(0);
 		if (configKey == null) {
 			return;
 		}
 		String chosen = soundTab ? ModConfig.get().getSoundChoice(configKey) : ModConfig.get().getTextureChoice(configKey);
-		for (VariantList.Entry entry : entries) {
+		for (EntryList.Row entry : entries) {
 			if (entry instanceof VariantEntry variantEntry && variantEntry.matchesChoice(chosen)) {
 				variantList.setSelected(entry);
 				return;
@@ -287,24 +289,18 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		}
 	}
 
-	private List<VariantList.Entry> buildTextureVariantEntries(TextureTarget target) {
-		List<VariantList.Entry> entries = new ArrayList<>();
+	private List<EntryList.Row> buildTextureVariantEntries(TextureTarget target) {
 		if (TextureTargetRegistry.isBabyTarget(target)) {
 			return buildBabyVariantEntries(target);
 		}
 		if (target.isGroup()) {
 			return buildGroupVariantEntries(target);
 		}
+		List<EntryList.Row> entries = new ArrayList<>();
 		List<TextureVariant> variants = HistoricalCatalog.get().textureVariantsForTarget(target.configKey());
-		entries.add(new VariantEntry(Component.literal("Vanilla (default)"), null, null, null, target.configKey()));
+		entries.add(vanillaEntry(target.configKey(), null, null));
 		if (CatalogThumbnailCache.hasBuiltIn(target.resourcePath())) {
-			entries.add(new VariantEntry(
-					Component.literal("Current (" + SharedConstants.getCurrentVersion().name() + ")"),
-					Component.literal("Built-in texture"),
-					HistoricalCatalog.CURRENT_VARIANT_ID,
-					null,
-					target.configKey()
-			));
+			entries.add(currentEntry(target, null, null));
 		}
 		for (TextureVariant variant : variants) {
 			CatalogThumbnailCache.preload(variant.id(), variant.assetPath());
@@ -320,17 +316,9 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		return entries;
 	}
 
-	private List<VariantList.Entry> buildBabyVariantEntries(TextureTarget target) {
-		List<VariantList.Entry> entries = new ArrayList<>();
-		entries.add(new VariantEntry(
-				Component.literal("Vanilla (default)"),
-				null,
-				null,
-				null,
-				target.configKey(),
-				Map.of(),
-				target.members()
-		));
+	private List<EntryList.Row> buildBabyVariantEntries(TextureTarget target) {
+		List<EntryList.Row> entries = new ArrayList<>();
+		entries.add(vanillaEntry(target.configKey(), Map.of(), target.members()));
 		Map<String, String> legacyChoices = new LinkedHashMap<>();
 		for (String member : target.members()) {
 			legacyChoices.put(member, LegacyBabies.VARIANT_ID);
@@ -348,18 +336,10 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		return entries;
 	}
 
-	private List<VariantList.Entry> buildGroupVariantEntries(TextureTarget target) {
-		List<VariantList.Entry> entries = new ArrayList<>();
+	private List<EntryList.Row> buildGroupVariantEntries(TextureTarget target) {
+		List<EntryList.Row> entries = new ArrayList<>();
 		List<TextureGroups.GroupVersion> versions = TextureTargetRegistry.groupVersions(target.configKey());
-		entries.add(new VariantEntry(
-				Component.literal("Vanilla (default)"),
-				null,
-				null,
-				null,
-				target.configKey(),
-				Map.of(),
-				target.members()
-		));
+		entries.add(vanillaEntry(target.configKey(), Map.of(), target.members()));
 		Map<String, String> currentChoices = new TreeMap<>();
 		for (String member : target.members()) {
 			if (CatalogThumbnailCache.hasBuiltIn(member)) {
@@ -367,15 +347,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			}
 		}
 		if (!currentChoices.isEmpty()) {
-			entries.add(new VariantEntry(
-					Component.literal("Current (" + SharedConstants.getCurrentVersion().name() + ")"),
-					Component.literal("Built-in texture"),
-					HistoricalCatalog.CURRENT_VARIANT_ID,
-					null,
-					target.configKey(),
-					currentChoices,
-					target.members()
-			));
+			entries.add(currentEntry(target, currentChoices, target.members()));
 		}
 		for (TextureGroups.GroupVersion version : versions) {
 			TextureVariant previewVariant = groupPreviewVariant(target, version);
@@ -416,15 +388,39 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		return HistoricalCatalog.get().textureVariant(representative).orElse(null);
 	}
 
-	private List<VariantList.Entry> buildSoundVariantEntries(String event) {
-		List<VariantList.Entry> entries = new ArrayList<>();
-		entries.add(new VariantEntry(Component.literal("Vanilla (default)"), null, null, null, event));
+	private List<EntryList.Row> buildSoundVariantEntries(String event) {
+		List<EntryList.Row> entries = new ArrayList<>();
+		entries.add(vanillaEntry(event, null, null));
 		for (SoundVariant variant : HistoricalCatalog.get().soundVariantsForEvent(event)) {
 			Component label = Component.literal(variant.versionLabel());
 			Component subtitle = subtitleForSound(variant);
 			entries.add(new VariantEntry(label, subtitle, variant.id(), null, event));
 		}
 		return entries;
+	}
+
+	private VariantEntry vanillaEntry(String configKey, Map<String, String> groupChoices, List<String> groupMembers) {
+		return new VariantEntry(
+				Component.literal("Vanilla (default)"),
+				null,
+				null,
+				null,
+				configKey,
+				groupChoices,
+				groupMembers
+		);
+	}
+
+	private VariantEntry currentEntry(TextureTarget target, Map<String, String> groupChoices, List<String> groupMembers) {
+		return new VariantEntry(
+				Component.literal("Current (" + SharedConstants.getCurrentVersion().name() + ")"),
+				Component.literal("Built-in texture"),
+				HistoricalCatalog.CURRENT_VARIANT_ID,
+				null,
+				target.configKey(),
+				groupChoices,
+				groupMembers
+		);
 	}
 
 	private Component subtitleForVariant(List<String> textureTags, String fallbackLabel) {
@@ -537,20 +533,6 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		SoundPreviewPlayer.stop();
 	}
 
-	private String fit(String text, int maxWidth) {
-		if (text == null) {
-			return "";
-		}
-		if (font.width(text) <= maxWidth) {
-			return text;
-		}
-		int dotsWidth = font.width("...");
-		if (maxWidth <= dotsWidth) {
-			return "...";
-		}
-		return font.plainSubstrByWidth(text, maxWidth - dotsWidth) + "...";
-	}
-
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
 		updateHoodButton();
@@ -592,7 +574,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		graphics.fill(boxX, boxY, boxX + boxW, boxY + boxH, 0xC0000000);
 		graphics.outline(boxX, boxY, boxW, boxH, 0xFF555555);
 
-		PreviewTexture preview = currentPreviewTexture();
+		CatalogThumbnailCache.CachedPreview preview = currentPreviewTexture();
 		VariantPreviewRenderer.Shape shape = effectivePreviewShape(preview);
 		resetPreviewMotion(shape);
 		updatePreviewMotion(shape);
@@ -611,60 +593,27 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		int innerY0 = boxY + inset;
 		int innerX1 = boxX + boxW - inset;
 		int innerY1 = boxY + boxH - inset;
-		switch (shape) {
-			case CUBE -> VariantPreviewRenderer.extract(
-					graphics,
-					shape,
-					VariantPreviewRenderer.cube(preview.width(), preview.height()),
-					preview.textureId(),
-					innerX0,
-					innerY0,
-					innerX1,
-					innerY1,
-					previewPitch,
-					previewYaw
-			);
-			case PLANE -> VariantPreviewRenderer.extract(
-					graphics,
-					shape,
-					VariantPreviewRenderer.plane(preview.width(), preview.height()),
-					preview.textureId(),
-					innerX0,
-					innerY0,
-					innerX1,
-					innerY1,
-					previewPitch,
-					previewYaw
-			);
-			case CROSS -> VariantPreviewRenderer.extract(
-					graphics,
-					shape,
-					VariantPreviewRenderer.cross(preview.width(), preview.height()),
-					preview.textureId(),
-					innerX0,
-					innerY0,
-					innerX1,
-					innerY1,
-					previewPitch,
-					previewYaw
-			);
-			case ENTITY -> entityPreviewPart().ifPresent(part ->
-					VariantPreviewRenderer.extract(
-							graphics,
-							shape,
-							part,
-							preview.textureId(),
-							innerX0,
-							innerY0,
-							innerX1,
-							innerY1,
-							previewPitch,
-							previewYaw
-					)
-			);
-			case FLAT -> extractFlatPreview(graphics, preview, boxX, boxY, boxW, boxH);
-			default -> {
-			}
+		Optional<ModelPart> part = switch (shape) {
+			case CUBE -> Optional.of(VariantPreviewRenderer.cube(preview.width(), preview.height()));
+			case PLANE -> Optional.of(VariantPreviewRenderer.plane(preview.width(), preview.height()));
+			case CROSS -> Optional.of(VariantPreviewRenderer.cross(preview.width(), preview.height()));
+			case ENTITY -> entityPreviewPart();
+			default -> Optional.empty();
+		};
+		part.ifPresent(modelPart -> VariantPreviewRenderer.extract(
+				graphics,
+				shape,
+				modelPart,
+				preview.textureId(),
+				innerX0,
+				innerY0,
+				innerX1,
+				innerY1,
+				previewPitch,
+				previewYaw
+		));
+		if (shape == VariantPreviewRenderer.Shape.FLAT) {
+			extractFlatPreview(graphics, preview, boxX, boxY, boxW, boxH);
 		}
 	}
 
@@ -736,7 +685,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		return total / 60 + ":" + String.format(Locale.ROOT, "%02d", total % 60);
 	}
 
-	private void extractFlatPreview(GuiGraphicsExtractor graphics, PreviewTexture preview, int boxX, int boxY, int boxW, int boxH) {
+	private void extractFlatPreview(GuiGraphicsExtractor graphics, CatalogThumbnailCache.CachedPreview preview, int boxX, int boxY, int boxW, int boxH) {
 		int srcW = preview.width();
 		int srcH = Math.min(preview.width(), preview.height());
 		int maxDraw = Math.min(boxW, boxH) - 16;
@@ -774,7 +723,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		return VariantPreviewRenderer.shapeFor(selectedTarget);
 	}
 
-	private VariantPreviewRenderer.Shape effectivePreviewShape(PreviewTexture preview) {
+	private VariantPreviewRenderer.Shape effectivePreviewShape(CatalogThumbnailCache.CachedPreview preview) {
 		VariantPreviewRenderer.Shape shape = previewShape();
 		if (selectedBabyEntry().isPresent()) {
 			return shape;
@@ -823,7 +772,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private VariantEntry selectedVariantEntry() {
-		VariantList.Entry selected = variantList != null ? variantList.getSelected() : null;
+		EntryList.Row selected = variantList != null ? variantList.getSelected() : null;
 		return selected instanceof VariantEntry variantEntry ? variantEntry : null;
 	}
 
@@ -843,7 +792,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		return entry.emfModel() + "|" + (choice != null ? choice : "vanilla");
 	}
 
-	private PreviewTexture currentPreviewTexture() {
+	private CatalogThumbnailCache.CachedPreview currentPreviewTexture() {
 		VariantEntry variantEntry = selectedVariantEntry();
 		if (variantEntry != null && variantEntry.textureVariant != null) {
 			Optional<CatalogThumbnailCache.CachedPreview> opt = Optional.empty();
@@ -866,14 +815,14 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 						stripHood
 				);
 			}
-			return opt.map(cached -> new PreviewTexture(cached.textureId(), cached.width(), cached.height())).orElse(null);
+			return opt.orElse(null);
 		}
 		if (variantEntry != null
 				&& HistoricalCatalog.CURRENT_VARIANT_ID.equals(variantEntry.variantId)
 				&& selectedTarget != null) {
 			Optional<CatalogThumbnailCache.CachedPreview> opt =
 					CatalogThumbnailCache.getBuiltIn(selectedTarget.resourcePath());
-			return opt.map(cached -> new PreviewTexture(cached.textureId(), cached.width(), cached.height())).orElse(null);
+			return opt.orElse(null);
 		}
 		Optional<LegacyBabies.Entry> babyEntry = selectedBabyEntry();
 		if (babyEntry.isPresent()) {
@@ -881,12 +830,12 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			Optional<CatalogThumbnailCache.CachedPreview> opt = LegacyBabyResolver
 					.adultTextureBytes(babyEntry.get(), ModConfig.get())
 					.flatMap(bytes -> CatalogThumbnailCache.getBytes(cacheKey, bytes));
-			return opt.map(cached -> new PreviewTexture(cached.textureId(), cached.width(), cached.height())).orElse(null);
+			return opt.orElse(null);
 		}
 		if (selectedTarget != null) {
 			Optional<CatalogThumbnailCache.CachedPreview> opt =
 					CatalogThumbnailCache.getVanilla(selectedTarget.resourcePath());
-			return opt.map(cached -> new PreviewTexture(cached.textureId(), cached.width(), cached.height())).orElse(null);
+			return opt.orElse(null);
 		}
 		return null;
 	}
@@ -922,10 +871,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private static boolean isThreeDimensional(VariantPreviewRenderer.Shape shape) {
-		return shape == VariantPreviewRenderer.Shape.CUBE
-				|| shape == VariantPreviewRenderer.Shape.PLANE
-				|| shape == VariantPreviewRenderer.Shape.CROSS
-				|| shape == VariantPreviewRenderer.Shape.ENTITY;
+		return shape != VariantPreviewRenderer.Shape.NONE && shape != VariantPreviewRenderer.Shape.FLAT;
 	}
 
 	private boolean hoodApplies() {
@@ -1017,18 +963,36 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		return super.mouseReleased(event);
 	}
 
-	private record PreviewTexture(Identifier textureId, int width, int height) {
+	private void extractTargetRow(GuiGraphicsExtractor graphics, EntryList.Row row, String name, int variantCount,
+			String subtitle) {
+		if (targetList.getSelected() == row) {
+			graphics.fill(row.getContentX(), row.getContentY(), row.getContentRight(), row.getContentBottom(), SELECTED_ROW);
+		}
+		int maxW = row.getContentRight() - (row.getContentX() + 4) - 4;
+		String line = variantCount > 0 ? name + " (" + variantCount + ")" : name;
+		graphics.text(font, ColumnList.fit(font, line, maxW), row.getContentX() + 4, row.getContentY() + 2, TEXT_WHITE);
+		if (subtitle != null) {
+			graphics.text(font, ColumnList.fit(font, subtitle, maxW), row.getContentX() + 4, row.getContentY() + 12, TEXT_MUTED);
+		} else if (variantCount == 0) {
+			graphics.text(font, ColumnList.fit(font, "no catalog variants", maxW), row.getContentX() + 4, row.getContentY() + 12, TEXT_MUTED);
+		}
 	}
 
 	private enum Tab {
-		BLOCKS,
-		ITEMS,
-		ENTITIES,
-		OTHER,
-		SOUNDS
+		BLOCKS("Blocks"),
+		ITEMS("Items"),
+		ENTITIES("Entities"),
+		OTHER("Other"),
+		SOUNDS("Sounds");
+
+		private final String label;
+
+		Tab(String label) {
+			this.label = label;
+		}
 	}
 
-	private final class TextureTargetEntry extends TargetList.Entry {
+	private final class TextureTargetEntry extends EntryList.Row {
 		final TextureTarget target;
 
 		private TextureTargetEntry(TextureTarget target) {
@@ -1042,26 +1006,13 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
-			if (targetList.getSelected() == this) {
-				graphics.fill(getContentX(), getContentY(), getContentRight(), getContentBottom(), SELECTED_ROW);
-			}
-			int maxW = getContentRight() - (getContentX() + 4) - 4;
-			int variantCount = TextureTargetRegistry.variantCount(target.configKey());
-			String line = target.displayName();
-			if (variantCount > 0) {
-				line += " (" + variantCount + ")";
-			}
-			graphics.text(font, fit(line, maxW), getContentX() + 4, getContentY() + 2, TEXT_WHITE);
-			String subtitle = target.isGroup() ? groupSubtitle(target) : singleSubtitle(target);
-			if (subtitle != null) {
-				graphics.text(font, fit(subtitle, maxW), getContentX() + 4, getContentY() + 12, TEXT_MUTED);
-			} else if (variantCount == 0) {
-				graphics.text(font, fit("no catalog variants", maxW), getContentX() + 4, getContentY() + 12, TEXT_MUTED);
-			}
+			extractTargetRow(graphics, this, target.displayName(),
+					TextureTargetRegistry.variantCount(target.configKey()),
+					target.isGroup() ? groupSubtitle(target) : singleSubtitle(target));
 		}
 
 		@Override
-		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+		public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 			if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) {
 				return false;
 			}
@@ -1073,7 +1024,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		}
 	}
 
-	private final class SoundTargetEntry extends TargetList.Entry {
+	private final class SoundTargetEntry extends EntryList.Row {
 		private final String soundEvent;
 
 		private SoundTargetEntry(String soundEvent) {
@@ -1087,29 +1038,16 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
-			if (targetList.getSelected() == this) {
-				graphics.fill(getContentX(), getContentY(), getContentRight(), getContentBottom(), SELECTED_ROW);
-			}
-			int maxW = getContentRight() - (getContentX() + 4) - 4;
-			int variantCount = HistoricalCatalog.get().soundVariantsForEvent(soundEvent).size();
-			String line = soundEvent;
-			if (variantCount > 0) {
-				line += " (" + variantCount + ")";
-			}
-			graphics.text(font, fit(line, maxW), getContentX() + 4, getContentY() + 2, TEXT_WHITE);
 			String choice = ModConfig.get().getSoundChoice(soundEvent);
-			if (choice != null) {
-				String choiceSub = HistoricalCatalog.get().soundVariant(choice)
-						.map(SoundVariant::versionLabel)
-						.orElse(choice);
-				graphics.text(font, fit(choiceSub, maxW), getContentX() + 4, getContentY() + 12, TEXT_MUTED);
-			} else if (variantCount == 0) {
-				graphics.text(font, fit("no catalog variants", maxW), getContentX() + 4, getContentY() + 12, TEXT_MUTED);
-			}
+			String subtitle = choice != null
+					? HistoricalCatalog.get().soundVariant(choice).map(SoundVariant::versionLabel).orElse(choice)
+					: null;
+			extractTargetRow(graphics, this, soundEvent,
+					HistoricalCatalog.get().soundVariantsForEvent(soundEvent).size(), subtitle);
 		}
 
 		@Override
-		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+		public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 			if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) {
 				return false;
 			}
@@ -1122,7 +1060,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		}
 	}
 
-	private final class VariantEntry extends VariantList.Entry {
+	private final class VariantEntry extends EntryList.Row {
 		private final Component label;
 		private final Component subtitle;
 		private final String variantId;
@@ -1189,10 +1127,10 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			int maxW = getContentRight() - textX - 4;
 			int color = variantId == null ? TEXT_ACCENT : (variantList.getSelected() == this ? TEXT_ACCENT : TEXT_WHITE);
 			if (subtitle != null && variantId != null) {
-				graphics.text(font, fit(label.getString(), maxW), textX, getContentY() + 4, color);
-				graphics.text(font, fit(subtitle.getString(), maxW), textX, getContentY() + 16, TEXT_MUTED);
+				graphics.text(font, ColumnList.fit(font, label.getString(), maxW), textX, getContentY() + 4, color);
+				graphics.text(font, ColumnList.fit(font, subtitle.getString(), maxW), textX, getContentY() + 16, TEXT_MUTED);
 			} else {
-				graphics.text(font, fit(label.getString(), maxW), textX, getContentYMiddle() - 4, color);
+				graphics.text(font, ColumnList.fit(font, label.getString(), maxW), textX, getContentYMiddle() - 4, color);
 			}
 		}
 
@@ -1211,7 +1149,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		}
 
 		@Override
-		public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
+		public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 			if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) {
 				return false;
 			}
@@ -1236,51 +1174,12 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		}
 	}
 
-	private static class TargetList extends ObjectSelectionList<TargetList.Entry> {
-		TargetList(Minecraft minecraft, int width, int height, int top, int entryHeight) {
+	private static final class EntryList extends ColumnList<EntryList.Row> {
+		EntryList(Minecraft minecraft, int width, int height, int top, int entryHeight) {
 			super(minecraft, width, height, top, entryHeight);
 		}
 
-		@Override
-		public int getRowWidth() {
-			return width - 14;
-		}
-
-		@Override
-		protected int scrollBarX() {
-			return getX() + width - scrollbarWidth();
-		}
-
-		@Override
-		public int getRowLeft() {
-			return getX() + 2;
-		}
-
-		abstract static class Entry extends ObjectSelectionList.Entry<Entry> {
-		}
-	}
-
-	private static class VariantList extends ObjectSelectionList<VariantList.Entry> {
-		VariantList(Minecraft minecraft, int width, int height, int top, int entryHeight) {
-			super(minecraft, width, height, top, entryHeight);
-		}
-
-		@Override
-		public int getRowWidth() {
-			return width - 14;
-		}
-
-		@Override
-		protected int scrollBarX() {
-			return getX() + width - scrollbarWidth();
-		}
-
-		@Override
-		public int getRowLeft() {
-			return getX() + 2;
-		}
-
-		abstract static class Entry extends ObjectSelectionList.Entry<Entry> {
+		abstract static class Row extends ObjectSelectionList.Entry<Row> {
 		}
 	}
 }
