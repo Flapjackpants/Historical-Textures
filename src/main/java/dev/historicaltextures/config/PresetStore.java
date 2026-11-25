@@ -2,6 +2,7 @@ package dev.historicaltextures.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import dev.historicaltextures.GamePaths;
 import dev.historicaltextures.HistoricalTextures;
 
@@ -78,7 +79,7 @@ public final class PresetStore {
 				presets.add(new Preset(
 						entry.name,
 						entry.textureChoices,
-						entry.soundChoices,
+						SoundChoices.fromJson(entry.soundChoices),
 						entry.hideVillagerHood == null || entry.hideVillagerHood,
 						false
 				));
@@ -112,7 +113,7 @@ public final class PresetStore {
 		PresetData data = new PresetData();
 		data.name = preset.name();
 		data.textureChoices = preset.textureChoices();
-		data.soundChoices = preset.soundChoices();
+		data.soundChoices = SoundChoices.toJson(preset.soundChoices());
 		data.hideVillagerHood = preset.hideVillagerHood();
 		return data;
 	}
@@ -124,7 +125,7 @@ public final class PresetStore {
 	private static final class PresetData {
 		String name;
 		Map<String, String> textureChoices;
-		Map<String, String> soundChoices;
+		Map<String, JsonElement> soundChoices;
 		Boolean hideVillagerHood;
 	}
 }

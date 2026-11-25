@@ -109,14 +109,14 @@ class BuiltInPresetsTest {
 		SoundVariant ranged = sound("cow_range", "entity.cow.hurt", "0.0.14a – 1.8.9");
 		List<Preset> presets = BuiltInPresets.create(List.of(), List.of(historical, ranged));
 
-		assertEquals("cow_old", presetNamed(presets, "Beta 1.7.3").soundChoices().get("entity.cow.ambient"));
-		assertEquals("cow_old", presetNamed(presets, "1.8.9").soundChoices().get("entity.cow.ambient"));
+		assertEquals(List.of("cow_old"), presetNamed(presets, "Beta 1.7.3").soundChoices().get("entity.cow.ambient"));
+		assertEquals(List.of("cow_old"), presetNamed(presets, "1.8.9").soundChoices().get("entity.cow.ambient"));
 		assertFalse(presetNamed(presets, "1.12.2").soundChoices().containsKey("entity.cow.ambient"));
 		assertFalse(presetNamed(presets, "1.13.2").soundChoices().containsKey("entity.cow.ambient"));
 
-		assertEquals("cow_range", presetNamed(presets, "1.6.4").soundChoices().get("entity.cow.hurt"));
-		assertEquals("cow_range", presetNamed(presets, "1.8.9").soundChoices().get("entity.cow.hurt"));
-		assertEquals("cow_range", presetNamed(presets, "1.2.5").soundChoices().get("entity.cow.hurt"));
+		assertEquals(List.of("cow_range"), presetNamed(presets, "1.6.4").soundChoices().get("entity.cow.hurt"));
+		assertEquals(List.of("cow_range"), presetNamed(presets, "1.8.9").soundChoices().get("entity.cow.hurt"));
+		assertEquals(List.of("cow_range"), presetNamed(presets, "1.2.5").soundChoices().get("entity.cow.hurt"));
 	}
 
 	@Test
@@ -124,8 +124,21 @@ class BuiltInPresetsTest {
 		SoundVariant historical = sound("a_hist", "entity.event", "Historical");
 		SoundVariant ranged = sound("b_range", "entity.event", "0.0.14a – 1.8.9");
 		List<Preset> presets = BuiltInPresets.create(List.of(), List.of(historical, ranged));
-		assertEquals("b_range", presetNamed(presets, "1.6.4").soundChoices().get("entity.event"));
-		assertEquals("b_range", presetNamed(presets, "Alpha 1.2.6").soundChoices().get("entity.event"));
+		assertEquals(List.of("b_range"), presetNamed(presets, "1.6.4").soundChoices().get("entity.event"));
+		assertEquals(List.of("b_range"), presetNamed(presets, "Alpha 1.2.6").soundChoices().get("entity.event"));
+	}
+
+	@Test
+	void storesTheWholeFolderOfTheBestSound() {
+		List<SoundVariant> sounds = List.of(
+				sound("cow1", "entity.cow.ambient", "Historical"),
+				sound("cow2", "entity.cow.ambient", "Historical"),
+				sound("cow3", "entity.cow.ambient", "Historical")
+		);
+		List<Preset> presets = BuiltInPresets.create(List.of(), sounds);
+
+		assertEquals(List.of("cow1", "cow2", "cow3"), presetNamed(presets, "Beta 1.7.3").soundChoices()
+				.get("entity.cow.ambient"));
 	}
 
 	@Test
@@ -177,9 +190,13 @@ class BuiltInPresetsTest {
 	void presetRecordCopiesMaps() {
 		Map<String, String> mutable = new java.util.HashMap<>();
 		mutable.put("T", "v1");
-		Preset preset = new Preset("x", mutable, Map.of(), true, true);
+		Map<String, List<String>> mutableSounds = new java.util.HashMap<>();
+		mutableSounds.put("e", new java.util.ArrayList<>(List.of("a")));
+		Preset preset = new Preset("x", mutable, mutableSounds, true, true);
 		mutable.put("U", "v2");
+		mutableSounds.get("e").add("b");
+		mutableSounds.put("f", List.of("c"));
 		assertEquals(Map.of("T", "v1"), preset.textureChoices());
-		assertEquals(Map.of(), preset.soundChoices());
+		assertEquals(Map.of("e", List.of("a")), preset.soundChoices());
 	}
 }

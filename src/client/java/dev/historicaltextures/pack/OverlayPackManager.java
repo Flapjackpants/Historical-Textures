@@ -375,28 +375,36 @@ public final class OverlayPackManager {
 
 	private static JsonObject buildSoundsJson(Path root, HistoricalCatalog catalog, ModConfig config) throws IOException {
 		JsonObject soundRoot = new JsonObject();
-		for (Map.Entry<String, String> entry : config.soundChoices().entrySet()) {
-			String event = entry.getKey();
-			String variantId = entry.getValue();
-			SoundVariant variant = catalog.soundVariant(variantId).orElse(null);
-			if (variant == null) {
-				continue;
+		for (Map.Entry<String, List<String>> entry : config.soundChoices().entrySet()) {
+			List<String> relativePaths = new ArrayList<>();
+			for (String variantId : entry.getValue()) {
+				SoundVariant variant = catalog.soundVariant(variantId).orElse(null);
+				if (variant == null) {
+					continue;
+				}
+				Path soundFile = copySoundVariant(root, variant);
+				if (soundFile == null) {
+					continue;
+				}
+				String soundName = stripExtension(soundFile.getFileName().toString());
+				String relativePath = "historical_textures/" + soundName;
+				if (!variant.vanillaSoundPath().isEmpty()) {
+					relativePath = soundRelativePath(variant.vanillaSoundPath()).replace(".ogg", "");
+				}
+				if (!relativePaths.contains(relativePath)) {
+					relativePaths.add(relativePath);
+				}
 			}
-			Path soundFile = copySoundVariant(root, variant);
-			if (soundFile == null) {
+			if (relativePaths.isEmpty()) {
 				continue;
-			}
-			String soundName = stripExtension(soundFile.getFileName().toString());
-			String relativePath = "historical_textures/" + soundName;
-			if (!variant.vanillaSoundPath().isEmpty()) {
-				relativePath = soundRelativePath(variant.vanillaSoundPath()).replace(".ogg", "");
 			}
 
 			JsonObject eventObject = new JsonObject();
+			eventObject.addProperty("replace", true);
 			JsonArray sounds = new JsonArray();
-			sounds.add(relativePath);
+			relativePaths.forEach(sounds::add);
 			eventObject.add("sounds", sounds);
-			soundRoot.add(event, eventObject);
+			soundRoot.add(entry.getKey(), eventObject);
 		}
 		return soundRoot;
 	}

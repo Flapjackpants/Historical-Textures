@@ -25,7 +25,7 @@ class PresetStoreTest {
 		store().save(new Preset(
 				"Mine",
 				Map.of("minecraft:textures/block/stone.png", "stone_je1"),
-				Map.of("entity.cow.ambient", "cow_old"),
+				Map.of("entity.cow.ambient", List.of("cow_old")),
 				false,
 				false
 		));
@@ -35,7 +35,7 @@ class PresetStoreTest {
 		Preset preset = presets.get(0);
 		assertEquals("Mine", preset.name());
 		assertEquals(Map.of("minecraft:textures/block/stone.png", "stone_je1"), preset.textureChoices());
-		assertEquals(Map.of("entity.cow.ambient", "cow_old"), preset.soundChoices());
+		assertEquals(Map.of("entity.cow.ambient", List.of("cow_old")), preset.soundChoices());
 		assertFalse(preset.hideVillagerHood());
 		assertFalse(preset.builtIn());
 	}
@@ -44,12 +44,12 @@ class PresetStoreTest {
 	void sameNameSaveReplacesCaseInsensitive() {
 		PresetStore store = store();
 		store.save(new Preset("My Preset", Map.of("a", "1"), Map.of(), true, false));
-		store.save(new Preset("MY PRESET", Map.of("b", "2"), Map.of("e", "s"), false, false));
+		store.save(new Preset("MY PRESET", Map.of("b", "2"), Map.of("e", List.of("s")), false, false));
 
 		List<Preset> presets = store.userPresets();
 		assertEquals(1, presets.size());
 		assertEquals(Map.of("b", "2"), presets.get(0).textureChoices());
-		assertEquals(Map.of("e", "s"), presets.get(0).soundChoices());
+		assertEquals(Map.of("e", List.of("s")), presets.get(0).soundChoices());
 		assertFalse(presets.get(0).hideVillagerHood());
 	}
 
@@ -74,6 +74,27 @@ class PresetStoreTest {
 
 		assertEquals(List.of("Alpha", "bravo", "charlie"),
 				store.userPresets().stream().map(Preset::name).toList());
+	}
+
+	@Test
+	void legacyStringSoundChoiceLoadsAsSingletonList() throws Exception {
+		Files.writeString(dir.resolve("presets.json"), """
+				{"presets":[{"name":"Old","textureChoices":{},"soundChoices":{"entity.cow.ambient":"cow_old"},"hideVillagerHood":false}]}
+				""");
+
+		List<Preset> presets = store().userPresets();
+
+		assertEquals(1, presets.size());
+		assertEquals(Map.of("entity.cow.ambient", List.of("cow_old")), presets.get(0).soundChoices());
+	}
+
+	@Test
+	void severalSoundIdsRoundTrip() {
+		PresetStore store = store();
+		store.save(new Preset("Mine", Map.of(), Map.of("entity.cow.ambient", List.of("cow1", "cow2")), true, false));
+
+		Preset preset = store().userPresets().get(0);
+		assertEquals(Map.of("entity.cow.ambient", List.of("cow1", "cow2")), preset.soundChoices());
 	}
 
 	@Test

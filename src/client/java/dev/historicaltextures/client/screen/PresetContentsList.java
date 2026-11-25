@@ -38,7 +38,7 @@ final class PresetContentsList extends ColumnList<PresetContentsList.Entry> {
 		this.font = minecraft.font;
 	}
 
-	void show(Map<String, String> textureChoices, Map<String, String> soundChoices, boolean hideVillagerHood) {
+	void show(Map<String, String> textureChoices, Map<String, List<String>> soundChoices, boolean hideVillagerHood) {
 		targetNames.clear();
 		collectTargetNames();
 		replaceEntries(buildRows(textureChoices, soundChoices, hideVillagerHood));
@@ -57,7 +57,7 @@ final class PresetContentsList extends ColumnList<PresetContentsList.Entry> {
 		}
 	}
 
-	private List<Entry> buildRows(Map<String, String> textureChoices, Map<String, String> soundChoices,
+	private List<Entry> buildRows(Map<String, String> textureChoices, Map<String, List<String>> soundChoices,
 			boolean hideVillagerHood) {
 		List<Entry> rows = new ArrayList<>();
 		if (textureChoices.isEmpty() && soundChoices.isEmpty()) {
@@ -80,7 +80,7 @@ final class PresetContentsList extends ColumnList<PresetContentsList.Entry> {
 		}
 
 		List<SoundRow> soundRows = new ArrayList<>();
-		for (Map.Entry<String, String> choice : soundChoices.entrySet()) {
+		for (Map.Entry<String, List<String>> choice : soundChoices.entrySet()) {
 			soundRows.add(new SoundRow(choice.getKey(), choice.getValue(), soundVersion(choice.getValue())));
 		}
 		soundRows.sort(Comparator.comparing(SoundRow::event, String.CASE_INSENSITIVE_ORDER));
@@ -131,6 +131,16 @@ final class PresetContentsList extends ColumnList<PresetContentsList.Entry> {
 		return version == null ? "" : version;
 	}
 
+	private String soundVersion(List<String> variantIds) {
+		if (variantIds == null || variantIds.isEmpty()) {
+			return "";
+		}
+		if (variantIds.size() == 1) {
+			return soundVersion(variantIds.get(0));
+		}
+		return variantIds.size() + " sounds";
+	}
+
 	private String soundVersion(String variantId) {
 		String version = HistoricalCatalog.get().soundVariant(variantId)
 				.map(SoundVariant::versionLabel)
@@ -177,7 +187,7 @@ final class PresetContentsList extends ColumnList<PresetContentsList.Entry> {
 	private record TextureRow(String key, String variantId, String name, String version) {
 	}
 
-	private record SoundRow(String event, String variantId, String version) {
+	private record SoundRow(String event, List<String> variantIds, String version) {
 	}
 
 	abstract static class Entry extends ObjectSelectionList.Entry<Entry> {

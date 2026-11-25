@@ -2,28 +2,28 @@ package dev.historicaltextures.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.JsonElement;
 import dev.historicaltextures.HistoricalTextures;
 import dev.historicaltextures.GamePaths;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
-import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public final class ModConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	private static final Type MAP_TYPE = TypeToken.getParameterized(Map.class, String.class, String.class).getType();
 
 	private static ModConfig instance;
 	private final Path configPath;
 
 	private Map<String, String> textureChoices = new HashMap<>();
-	private Map<String, String> soundChoices = new HashMap<>();
+	private Map<String, List<String>> soundChoices = new HashMap<>();
 	private boolean hideVillagerHood = true;
 
 	public ModConfig(Path configPath) {
@@ -42,7 +42,10 @@ public final class ModConfig {
 	}
 
 	private static ModConfig load() {
-		Path path = GamePaths.configFile();
+		return load(GamePaths.configFile());
+	}
+
+	static ModConfig load(Path path) {
 		ModConfig config = new ModConfig(path);
 		if (!Files.isRegularFile(path)) {
 			return config;
@@ -53,9 +56,7 @@ public final class ModConfig {
 				if (data.textureChoices != null) {
 					config.textureChoices = new HashMap<>(data.textureChoices);
 				}
-				if (data.soundChoices != null) {
-					config.soundChoices = new HashMap<>(data.soundChoices);
-				}
+				config.soundChoices = new HashMap<>(SoundChoices.fromJson(data.soundChoices));
 				if (data.hideVillagerHood != null) {
 					config.hideVillagerHood = data.hideVillagerHood;
 				}
@@ -71,7 +72,7 @@ public final class ModConfig {
 			Files.createDirectories(configPath.getParent());
 			ConfigData data = new ConfigData();
 			data.textureChoices = new HashMap<>(textureChoices);
-			data.soundChoices = new HashMap<>(soundChoices);
+			data.soundChoices = SoundChoices.toJson(soundChoices);
 			data.hideVillagerHood = hideVillagerHood;
 			try (Writer writer = Files.newBufferedWriter(configPath)) {
 				GSON.toJson(data, writer);
@@ -89,12 +90,21 @@ public final class ModConfig {
 		putOrRemove(textureChoices, target, variantId);
 	}
 
-	public String getSoundChoice(String event) {
-		return soundChoices.get(event);
+	public List<String> getSoundChoices(String event) {
+		List<String> choices = soundChoices.get(event);
+		return choices == null ? List.of() : choices;
 	}
 
-	public void setSoundChoice(String event, String variantId) {
-		putOrRemove(soundChoices, event, variantId);
+	public void setSoundChoices(String event, Collection<String> variantIds) {
+		if (event == null || event.isBlank()) {
+			return;
+		}
+		List<String> ids = SoundChoices.distinct(variantIds);
+		if (ids.isEmpty()) {
+			soundChoices.remove(event);
+		} else {
+			soundChoices.put(event, ids);
+		}
 	}
 
 	private static void putOrRemove(Map<String, String> map, String key, String value) {
@@ -109,8 +119,8 @@ public final class ModConfig {
 		return Map.copyOf(textureChoices);
 	}
 
-	public Map<String, String> soundChoices() {
-		return Map.copyOf(soundChoices);
+	public Map<String, List<String>> soundChoices() {
+		return SoundChoices.copyOf(soundChoices);
 	}
 
 	public boolean hideVillagerHood() {
@@ -133,7 +143,7 @@ public final class ModConfig {
 	public void applyPreset(Preset preset) {
 		clearAll();
 		preset.textureChoices().forEach(this::setTextureChoice);
-		preset.soundChoices().forEach(this::setSoundChoice);
+		preset.soundChoices().forEach(this::setSoundChoices);
 		setHideVillagerHood(preset.hideVillagerHood());
 	}
 
@@ -143,7 +153,7 @@ public final class ModConfig {
 
 	private static final class ConfigData {
 		Map<String, String> textureChoices;
-		Map<String, String> soundChoices;
+		Map<String, JsonElement> soundChoices;
 		Boolean hideVillagerHood;
 	}
 }

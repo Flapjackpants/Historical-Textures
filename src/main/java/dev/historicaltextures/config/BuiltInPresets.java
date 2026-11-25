@@ -2,6 +2,7 @@ package dev.historicaltextures.config;
 
 import dev.historicaltextures.catalog.HistoricalCatalog;
 import dev.historicaltextures.catalog.ReleaseTimeline;
+import dev.historicaltextures.catalog.SoundFolders;
 import dev.historicaltextures.catalog.SoundVariant;
 import dev.historicaltextures.catalog.TextureVariant;
 
@@ -48,12 +49,12 @@ public final class BuiltInPresets {
 					textureChoices.put(entry.getKey(), best.id());
 				}
 			}
-			Map<String, String> soundChoices = new TreeMap<>();
+			Map<String, List<String>> soundChoices = new TreeMap<>();
 			if (cutoffKey >= 0 && cutoffKey < SOUNDS_UNTIL_KEY) {
 				for (Map.Entry<String, List<SoundVariant>> entry : soundsByEvent.entrySet()) {
 					SoundVariant best = bestSound(entry.getValue(), cutoffKey);
 					if (best != null) {
-						soundChoices.put(entry.getKey(), best.id());
+						soundChoices.put(entry.getKey(), folderIds(entry.getValue(), best));
 					}
 				}
 			}
@@ -147,6 +148,16 @@ public final class BuiltInPresets {
 		}
 		List<SoundVariant> pool = ranged.isEmpty() ? historical : ranged;
 		return pool.stream().min(Comparator.comparing(SoundVariant::id)).orElse(null);
+	}
+
+	private static List<String> folderIds(List<SoundVariant> variants, SoundVariant best) {
+		String key = SoundFolders.folderKey(best.wikiFile());
+		for (SoundFolders.SoundFolder folder : SoundFolders.group(variants)) {
+			if (folder.key().equals(key)) {
+				return folder.members().stream().map(SoundVariant::id).toList();
+			}
+		}
+		return List.of(best.id());
 	}
 
 	private static boolean isHistorical(String version) {

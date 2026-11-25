@@ -280,7 +280,13 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		if (configKey == null) {
 			return;
 		}
-		String chosen = soundTab ? ModConfig.get().getSoundChoice(configKey) : ModConfig.get().getTextureChoice(configKey);
+		String chosen;
+		if (soundTab) {
+			List<String> soundChoices = ModConfig.get().getSoundChoices(configKey);
+			chosen = soundChoices.isEmpty() ? null : soundChoices.get(0);
+		} else {
+			chosen = ModConfig.get().getTextureChoice(configKey);
+		}
 		for (EntryList.Row entry : entries) {
 			if (entry instanceof VariantEntry variantEntry && variantEntry.matchesChoice(chosen)) {
 				variantList.setSelected(entry);
@@ -1038,10 +1044,16 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 
 		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
-			String choice = ModConfig.get().getSoundChoice(soundEvent);
-			String subtitle = choice != null
-					? HistoricalCatalog.get().soundVariant(choice).map(SoundVariant::versionLabel).orElse(choice)
-					: null;
+			List<String> choices = ModConfig.get().getSoundChoices(soundEvent);
+			String subtitle;
+			if (choices.isEmpty()) {
+				subtitle = null;
+			} else if (choices.size() == 1) {
+				String choice = choices.get(0);
+				subtitle = HistoricalCatalog.get().soundVariant(choice).map(SoundVariant::versionLabel).orElse(choice);
+			} else {
+				subtitle = choices.size() + " sounds";
+			}
 			extractTargetRow(graphics, this, soundEvent,
 					HistoricalCatalog.get().soundVariantsForEvent(soundEvent).size(), subtitle);
 		}
@@ -1165,7 +1177,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				return true;
 			}
 			if (activeTab == Tab.SOUNDS) {
-				ModConfig.get().setSoundChoice(configKey, variantId);
+				ModConfig.get().setSoundChoices(configKey, variantId == null ? List.of() : List.of(variantId));
 			} else {
 				ModConfig.get().setTextureChoice(configKey, variantId);
 			}
