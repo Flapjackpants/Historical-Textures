@@ -251,6 +251,10 @@ public final class HistoricalCatalog {
 		return soundsByEvent.getOrDefault(event, List.of());
 	}
 
+	public List<SoundFolders.SoundFolder> soundFoldersForEvent(String event) {
+		return SoundFolders.group(soundVariantsForEvent(event));
+	}
+
 	public Map<String, List<SoundVariant>> soundsByEvent() {
 		return Collections.unmodifiableMap(soundsByEvent);
 	}
