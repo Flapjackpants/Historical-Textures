@@ -5,6 +5,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.historicaltextures.catalog.ClientCatalogLoader;
 import dev.historicaltextures.catalog.HistoricalCatalog;
 import dev.historicaltextures.catalog.LegacyBabies;
+import dev.historicaltextures.catalog.SoundFolders;
 import dev.historicaltextures.catalog.SoundVariant;
 import dev.historicaltextures.catalog.TextureTarget;
 import dev.historicaltextures.catalog.TextureTargetRegistry;
@@ -13,6 +14,7 @@ import dev.historicaltextures.client.CatalogThumbnailCache;
 import dev.historicaltextures.client.SoundPreviewPlayer;
 import dev.historicaltextures.config.ModConfig;
 import dev.historicaltextures.config.Preset;
+import dev.historicaltextures.config.SoundChoices;
 import dev.historicaltextures.config.TextureGroups;
 import dev.historicaltextures.pack.LegacyBabyResolver;
 import dev.historicaltextures.pack.OverlayPackManager;
@@ -33,11 +35,13 @@ import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 
 public final class HistoricalTexturesConfigScreen extends Screen {
@@ -67,6 +71,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private TextureTarget selectedTarget;
 	private String selectedSoundEvent;
 	private String filter = "";
+	private final Set<String> openSoundFolders = new HashSet<>();
 
 	private int col1X;
 	private int col2X;
@@ -277,16 +282,10 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private void finishVariantList(List<EntryList.Row> entries, String configKey, boolean soundTab) {
 		variantList.replaceEntries(entries);
 		variantList.setScrollAmount(0);
-		if (configKey == null) {
+		if (soundTab || configKey == null) {
 			return;
 		}
-		String chosen;
-		if (soundTab) {
-			List<String> soundChoices = ModConfig.get().getSoundChoices(configKey);
-			chosen = soundChoices.isEmpty() ? null : soundChoices.get(0);
-		} else {
-			chosen = ModConfig.get().getTextureChoice(configKey);
-		}
+		String chosen = ModConfig.get().getTextureChoice(configKey);
 		for (EntryList.Row entry : entries) {
 			if (entry instanceof VariantEntry variantEntry && variantEntry.matchesChoice(chosen)) {
 				variantList.setSelected(entry);
@@ -397,12 +396,42 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	private List<EntryList.Row> buildSoundVariantEntries(String event) {
 		List<EntryList.Row> entries = new ArrayList<>();
 		entries.add(vanillaEntry(event, null, null));
-		for (SoundVariant variant : HistoricalCatalog.get().soundVariantsForEvent(event)) {
-			Component label = Component.literal(variant.versionLabel());
-			Component subtitle = subtitleForSound(variant);
-			entries.add(new VariantEntry(label, subtitle, variant.id(), null, event));
+		for (SoundFolders.SoundFolder folder : HistoricalCatalog.get().soundFoldersForEvent(event)) {
+			if (folder.members().size() == 1) {
+				entries.add(new SoundFileEntry(event, folder.members().get(0), false));
+			} else if (folder.members().size() > 1) {
+				entries.add(new SoundFolderEntry(event, folder));
+				if (openSoundFolders.contains(event + "|" + folder.key())) {
+					for (SoundVariant member : folder.members()) {
+						entries.add(new SoundFileEntry(event, member, true));
+					}
+				}
+			}
 		}
 		return entries;
+	}
+
+	private void rebuildSoundVariantsKeepScroll() {
+		if (selectedSoundEvent == null) {
+			return;
+		}
+		String prevSelectedId = (variantList.getSelected() instanceof SoundFileEntry fileEntry)
+				? fileEntry.variantId
+				: null;
+		double scroll = variantList.scrollAmount();
+		List<EntryList.Row> variantEntries = new ArrayList<>(buildSoundVariantEntries(selectedSoundEvent));
+		variantList.replaceEntries(variantEntries);
+		variantList.setScrollAmount(scroll);
+		EntryList.Row toSelect = null;
+		if (prevSelectedId != null) {
+			for (EntryList.Row entry : variantEntries) {
+				if (entry instanceof SoundFileEntry fileEntry && prevSelectedId.equals(fileEntry.variantId)) {
+					toSelect = entry;
+					break;
+				}
+			}
+		}
+		variantList.setSelected(toSelect);
 	}
 
 	private VariantEntry vanillaEntry(String configKey, Map<String, String> groupChoices, List<String> groupMembers) {
@@ -624,9 +653,8 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 	}
 
 	private void extractSoundPreview(GuiGraphicsExtractor graphics, int boxX, int boxY, int boxW, int boxH) {
-		VariantEntry entry = selectedVariantEntry();
-		SoundVariant variant = entry != null && entry.variantId != null
-				? HistoricalCatalog.get().soundVariant(entry.variantId).orElse(null)
+		SoundVariant variant = (variantList != null && variantList.getSelected() instanceof SoundFileEntry fileEntry)
+				? fileEntry.variant
 				: null;
 		if (variant == null) {
 			SoundPreviewPlayer.stop();
@@ -634,7 +662,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 					boxX + 8, boxY + 12, boxW - 16, TEXT_MUTED);
 			return;
 		}
-		if (!SoundPreviewPlayer.load(entry.variantId, variant.assetPath())) {
+		if (!SoundPreviewPlayer.load(variant.id(), variant.assetPath())) {
 			graphics.textWithWordWrap(font, Component.literal("Can't play this sound."),
 					boxX + 8, boxY + 12, boxW - 16, TEXT_ERROR);
 			return;
@@ -1182,6 +1210,157 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 				ModConfig.get().setTextureChoice(configKey, variantId);
 			}
 			ModConfig.get().save();
+			return true;
+		}
+	}
+
+	private final class SoundFolderEntry extends EntryList.Row {
+		private final String event;
+		private final SoundFolders.SoundFolder folder;
+
+		private SoundFolderEntry(String event, SoundFolders.SoundFolder folder) {
+			this.event = event;
+			this.folder = folder;
+		}
+
+		@Override
+		public Component getNarration() {
+			return Component.literal("Folder " + folder.label() + ", " + folder.members().size() + " sounds");
+		}
+
+		@Override
+		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
+			int x0 = getContentX() + 4;
+			int y0 = getContentYMiddle() - 5;
+
+			graphics.fill(x0, y0, x0 + 10, y0 + 1, TEXT_MUTED);
+			graphics.fill(x0, y0 + 9, x0 + 10, y0 + 10, TEXT_MUTED);
+			graphics.fill(x0, y0 + 1, x0 + 1, y0 + 9, TEXT_MUTED);
+			graphics.fill(x0 + 9, y0 + 1, x0 + 10, y0 + 9, TEXT_MUTED);
+
+			List<String> chosen = ModConfig.get().getSoundChoices(event);
+			int chosenCount = 0;
+			for (SoundVariant member : folder.members()) {
+				if (chosen.contains(member.id())) {
+					chosenCount++;
+				}
+			}
+			if (chosenCount == folder.members().size() && chosenCount > 0) {
+				graphics.fill(x0 + 2, y0 + 2, x0 + 8, y0 + 8, TEXT_ACCENT);
+			} else if (chosenCount > 0) {
+				graphics.fill(x0 + 2, y0 + 4, x0 + 8, y0 + 6, TEXT_ACCENT);
+			}
+
+			boolean isOpen = openSoundFolders.contains(event + "|" + folder.key());
+			String arrow = isOpen ? "▼ " : "▶ ";
+			String title = arrow + folder.label();
+
+			int textX = x0 + 14;
+			int maxW = getContentRight() - textX - 4;
+
+			int n = folder.members().size();
+			String subtitle = n + " sounds";
+			if (!folder.members().isEmpty()) {
+				String firstLabel = folder.members().get(0).versionLabel();
+				if (firstLabel != null && !firstLabel.toLowerCase(Locale.ROOT).endsWith(".ogg")) {
+					subtitle += " · " + firstLabel;
+				}
+			}
+
+			graphics.text(font, ColumnList.fit(font, title, maxW), textX, getContentY() + 4, TEXT_WHITE);
+			graphics.text(font, ColumnList.fit(font, subtitle, maxW), textX, getContentY() + 16, TEXT_MUTED);
+		}
+
+		@Override
+		public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+			if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) {
+				return false;
+			}
+			int x0 = getContentX() + 4;
+			if (event.x() < x0 + 12) {
+				List<String> current = ModConfig.get().getSoundChoices(this.event);
+				List<String> memberIds = new ArrayList<>(folder.members().size());
+				for (SoundVariant member : folder.members()) {
+					memberIds.add(member.id());
+				}
+				ModConfig.get().setSoundChoices(this.event, SoundChoices.toggleAll(current, memberIds));
+				ModConfig.get().save();
+				return true;
+			}
+			String folderKey = this.event + "|" + folder.key();
+			if (openSoundFolders.contains(folderKey)) {
+				openSoundFolders.remove(folderKey);
+			} else {
+				openSoundFolders.add(folderKey);
+			}
+			rebuildSoundVariantsKeepScroll();
+			return true;
+		}
+	}
+
+	private final class SoundFileEntry extends EntryList.Row {
+		private final String event;
+		private final SoundVariant variant;
+		final String variantId;
+		private final boolean indented;
+
+		private SoundFileEntry(String event, SoundVariant variant, boolean indented) {
+			this.event = event;
+			this.variant = variant;
+			this.variantId = variant.id();
+			this.indented = indented;
+		}
+
+		@Override
+		public Component getNarration() {
+			return Component.literal(variant.versionLabel());
+		}
+
+		@Override
+		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float partialTick) {
+			if (variantList.getSelected() == this) {
+				graphics.fill(getContentX(), getContentY(), getContentRight(), getContentBottom(), SELECTED_ROW);
+			}
+			int x0 = getContentX() + 4 + (indented ? 12 : 0);
+			int y0 = getContentYMiddle() - 5;
+
+			graphics.fill(x0, y0, x0 + 10, y0 + 1, TEXT_MUTED);
+			graphics.fill(x0, y0 + 9, x0 + 10, y0 + 10, TEXT_MUTED);
+			graphics.fill(x0, y0 + 1, x0 + 1, y0 + 9, TEXT_MUTED);
+			graphics.fill(x0 + 9, y0 + 1, x0 + 10, y0 + 9, TEXT_MUTED);
+
+			boolean chosen = ModConfig.get().getSoundChoices(event).contains(variantId);
+			if (chosen) {
+				graphics.fill(x0 + 2, y0 + 2, x0 + 8, y0 + 8, TEXT_ACCENT);
+			}
+
+			int textX = x0 + 14;
+			int maxW = getContentRight() - textX - 4;
+			boolean isSelected = variantList.getSelected() == this;
+			int color = isSelected ? TEXT_ACCENT : TEXT_WHITE;
+			Component subtitle = subtitleForSound(variant);
+
+			if (subtitle != null) {
+				graphics.text(font, ColumnList.fit(font, variant.versionLabel(), maxW), textX, getContentY() + 4, color);
+				graphics.text(font, ColumnList.fit(font, subtitle.getString(), maxW), textX, getContentY() + 16, TEXT_MUTED);
+			} else {
+				graphics.text(font, ColumnList.fit(font, variant.versionLabel(), maxW), textX, getContentYMiddle() - 4, color);
+			}
+		}
+
+		@Override
+		public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+			if (event.button() != InputConstants.MOUSE_BUTTON_LEFT) {
+				return false;
+			}
+			int x0 = getContentX() + 4 + (indented ? 12 : 0);
+			if (event.x() < x0 + 12) {
+				List<String> current = ModConfig.get().getSoundChoices(this.event);
+				ModConfig.get().setSoundChoices(this.event, SoundChoices.toggle(current, variantId));
+				ModConfig.get().save();
+				return true;
+			}
+			variantList.setSelected(this);
 			return true;
 		}
 	}

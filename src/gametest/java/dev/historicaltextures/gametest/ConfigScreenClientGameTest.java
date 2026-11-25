@@ -2134,6 +2134,20 @@ public class ConfigScreenClientGameTest implements FabricClientGameTest {
 			clickButton(context, "Blocks");
 			return;
 		}
+		final int initialRow = variantRow;
+		String narration = context.computeOnClient(client -> {
+			List<AbstractSelectionList<?>> lists = selectionLists(client);
+			return lists.size() >= 2 ? getRowNarration(lists.get(1), initialRow) : "";
+		});
+		if (narration.toLowerCase(Locale.ROOT).startsWith("folder")) {
+			int beforeSize = listSize(context, 1);
+			clickVariantRow(context, initialRow);
+			context.waitTicks(3);
+			int afterSize = listSize(context, 1);
+			check(failures, step, "sound_folder_opened", afterSize > beforeSize,
+					"before=" + beforeSize + " after=" + afterSize);
+			variantRow = initialRow + 1;
+		}
 		clickVariantRow(context, variantRow);
 		context.waitTicks(3);
 
