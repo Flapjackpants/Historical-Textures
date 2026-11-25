@@ -1,5 +1,6 @@
 package dev.historicaltextures.indexer;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -13,6 +14,17 @@ public final class WikiSoundUtil {
 	private static final Pattern TAG_PATTERN = Pattern.compile("(?:^|[\\s_])(JE|BE|TU)(\\d+)", Pattern.CASE_INSENSITIVE);
 
 	private WikiSoundUtil() {
+	}
+
+	public static List<String> extraEvents(String fileName) {
+		String key = WikiFilenameUtil.normalizeKey(fileName);
+		if (key.endsWith(".ogg")) {
+			key = key.substring(0, key.length() - 4);
+		}
+		if ("water_splash_old".equals(key)) {
+			return List.of("entity.player.splash", "entity.generic.splash");
+		}
+		return List.of();
 	}
 
 	public record SoundMapping(String soundEvent, String vanillaSoundPath, String versionHint) {

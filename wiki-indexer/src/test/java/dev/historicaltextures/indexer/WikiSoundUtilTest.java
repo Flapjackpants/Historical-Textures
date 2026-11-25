@@ -23,4 +23,20 @@ class WikiSoundUtilTest {
 		assertEquals("Historical (old)", WikiSoundUtil.inferVersionLabel("Cow Hurt Old.ogg", ""));
 		assertEquals("1.9+", WikiSoundUtil.inferVersionLabel("Door close.ogg", ""));
 	}
+
+	@Test
+	void returnsExtraEventsForWaterSplashOld() {
+		assertEquals(
+				java.util.List.of("entity.player.splash", "entity.generic.splash"),
+				WikiSoundUtil.extraEvents("Water Splash Old.ogg")
+		);
+		assertEquals(
+				java.util.List.of("entity.player.splash", "entity.generic.splash"),
+				WikiSoundUtil.extraEvents("Water_Splash_Old.ogg")
+		);
+		assertEquals(
+				java.util.List.of(),
+				WikiSoundUtil.extraEvents("Water splash1.ogg")
+		);
+	}
 }

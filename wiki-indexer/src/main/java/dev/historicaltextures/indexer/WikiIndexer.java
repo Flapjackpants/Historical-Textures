@@ -89,7 +89,7 @@ public final class WikiIndexer {
 	private final Set<String> crawledSoundCategories = new LinkedHashSet<>();
 	private final Map<String, WikiTableParser.VersionInfo> versionByFile = new LinkedHashMap<>();
 	private final Map<String, String> wikitextCache = new HashMap<>();
-	private final Map<String, String> soundTableEvents = new LinkedHashMap<>();
+	private final Map<String, Set<String>> soundTableEvents = new LinkedHashMap<>();
 	private final Set<String> javaTableKeys = new LinkedHashSet<>();
 	private final boolean soundsOnly;
 	private final boolean remap;
@@ -559,12 +559,10 @@ public final class WikiIndexer {
 				fileNames.putIfAbsent(key, entry.fileName());
 				if (entry.edition() == WikiSoundTableParser.Edition.JAVA) {
 					javaCount++;
-					if (javaTableKeys.add(key)) {
-						soundTableEvents.put(key, modern.get());
-					}
+					addTableEvent(soundTableEvents, javaTableKeys, key, modern.get(), true);
 				} else {
 					bedrockCount++;
-					soundTableEvents.putIfAbsent(key, modern.get());
+					addTableEvent(soundTableEvents, javaTableKeys, key, modern.get(), false);
 				}
 			}
 			Thread.sleep(200);
@@ -723,11 +721,14 @@ public final class WikiIndexer {
 			return;
 		}
 		JsonObject overrideMapping = findSoundMapping(fileName);
-		String soundEvent = null;
+		List<String> events = new ArrayList<>();
 		String vanillaSoundPath = "";
 		String versionHint = "";
 		if (overrideMapping != null) {
-			soundEvent = overrideMapping.get("soundEvent").getAsString();
+			String event = overrideMapping.get("soundEvent").getAsString();
+			if (event != null && !event.isEmpty()) {
+				events.add(event);
+			}
 			if (overrideMapping.has("vanillaSoundPath")) {
 				vanillaSoundPath = overrideMapping.get("vanillaSoundPath").getAsString();
 			}
@@ -735,9 +736,9 @@ public final class WikiIndexer {
 				versionHint = overrideMapping.get("versionHint").getAsString();
 			}
 		} else {
-			String tableEvent = soundTableEvents.get(fileKey);
-			if (tableEvent != null) {
-				soundEvent = tableEvent;
+			Set<String> tableEvents = soundTableEvents.get(fileKey);
+			if (tableEvents != null && !tableEvents.isEmpty()) {
+				events.addAll(tableEvents);
 			} else {
 				Optional<WikiSoundUtil.SoundMapping> guessed = Optional.empty();
 				if (wikiSoundCategory != null) {
@@ -753,7 +754,7 @@ public final class WikiIndexer {
 							legacySoundEvents
 					);
 					if (validated != null) {
-						soundEvent = validated;
+						events.add(validated);
 						if (validated.equals(guessed.get().soundEvent())) {
 							vanillaSoundPath = guessed.get().vanillaSoundPath();
 						}
@@ -763,15 +764,24 @@ public final class WikiIndexer {
 			}
 		}
 		String pageText = "";
-		if (soundEvent == null || soundEvent.isEmpty()) {
+		if (events.isEmpty()) {
 			pageText = fetchPageWikitext("File:" + fileName);
-			soundEvent = validateSoundEvent(
+			String fallbackEvent = validateSoundEvent(
 					extractSoundEventFromText(pageText),
 					knownSoundEvents,
 					legacySoundEvents
 			);
+			if (fallbackEvent != null && !fallbackEvent.isEmpty()) {
+				events.add(fallbackEvent);
+			}
 		}
-		if (soundEvent == null || soundEvent.isEmpty()) {
+		for (String extra : WikiSoundUtil.extraEvents(fileName)) {
+			String validatedExtra = validateSoundEvent(extra, knownSoundEvents, legacySoundEvents);
+			if (validatedExtra != null && !events.contains(validatedExtra)) {
+				events.add(validatedExtra);
+			}
+		}
+		if (events.isEmpty()) {
 			skippedSoundCount++;
 			processedFileKeys.remove("sound:" + fileKey);
 			System.out.println("Skipped unmapped sound: " + fileName);
@@ -810,18 +820,21 @@ public final class WikiIndexer {
 		String label = version.displayVersion().isEmpty() || version.displayVersion().equals(human)
 				? human
 				: version.displayVersion() + " — " + human;
-		sounds.add(new SoundRecord(
-				WikiFilenameUtil.toId(fileName),
-				fileName,
-				soundEvent,
-				assetPath,
-				vanillaSoundPath,
-				label,
-				textureTags,
-				version.javaVersion(),
-				version.bedrockVersion(),
-				version.displayVersion()
-		));
+		for (int i = 0; i < events.size(); i++) {
+			String event = events.get(i);
+			sounds.add(new SoundRecord(
+					soundVariantId(fileName, event, i == 0),
+					fileName,
+					event,
+					assetPath,
+					i == 0 ? vanillaSoundPath : "",
+					label,
+					textureTags,
+					version.javaVersion(),
+					version.bedrockVersion(),
+					version.displayVersion()
+			));
+		}
 	}
 
 	private WikiTableParser.VersionInfo versionForFile(String fileName) {
@@ -834,6 +847,26 @@ public final class WikiIndexer {
 	private void mergeVersions(Map<String, WikiTableParser.VersionInfo> parsed) {
 		for (Map.Entry<String, WikiTableParser.VersionInfo> entry : parsed.entrySet()) {
 			versionByFile.merge(entry.getKey(), entry.getValue(), WikiTableParser.VersionInfo::merge);
+		}
+	}
+
+	static String soundVariantId(String fileName, String event, boolean primary) {
+		if (primary) {
+			return WikiFilenameUtil.toId(fileName);
+		}
+		return WikiFilenameUtil.toId(fileName) + "__" + event.replace('.', '_');
+	}
+
+	static void addTableEvent(Map<String, Set<String>> events, Set<String> javaKeys, String key, String event, boolean java) {
+		if (java) {
+			if (javaKeys.add(key)) {
+				events.put(key, new LinkedHashSet<>());
+			}
+			events.get(key).add(event);
+		} else {
+			if (!javaKeys.contains(key)) {
+				events.computeIfAbsent(key, k -> new LinkedHashSet<>()).add(event);
+			}
 		}
 	}
 

@@ -45,4 +45,41 @@ class WikiIndexerSoundValidationTest {
 		assertNull(WikiIndexer.validateSoundEvent(null, KNOWN, LEGACY));
 		assertNull(WikiIndexer.validateSoundEvent("  ", KNOWN, LEGACY));
 	}
+
+	@Test
+	void buildsSoundVariantIds() {
+		assertEquals(
+				"water_splash_old_ogg",
+				WikiIndexer.soundVariantId("Water Splash Old.ogg", "entity.player.splash", true)
+		);
+		assertEquals(
+				"water_splash_old_ogg__entity_player_splash",
+				WikiIndexer.soundVariantId("Water Splash Old.ogg", "entity.player.splash", false)
+		);
+	}
+
+	@Test
+	void addsTableEventsWithJavaPrecedence() {
+		Map<String, Set<String>> events = new java.util.LinkedHashMap<>();
+		Set<String> javaKeys = new java.util.LinkedHashSet<>();
+
+		// (a) java key twice with two events -> set of both in order
+		WikiIndexer.addTableEvent(events, javaKeys, "key_a", "event1", true);
+		WikiIndexer.addTableEvent(events, javaKeys, "key_a", "event2", true);
+		assertEquals(new java.util.LinkedHashSet<>(java.util.List.of("event1", "event2")), events.get("key_a"));
+
+		// (b) bedrock first then java -> only the java event
+		WikiIndexer.addTableEvent(events, javaKeys, "key_b", "bedrock_event", false);
+		WikiIndexer.addTableEvent(events, javaKeys, "key_b", "java_event", true);
+		assertEquals(Set.of("java_event"), events.get("key_b"));
+
+		// (c) java then bedrock -> bedrock ignored
+		WikiIndexer.addTableEvent(events, javaKeys, "key_c", "java_event", true);
+		WikiIndexer.addTableEvent(events, javaKeys, "key_c", "bedrock_event", false);
+		assertEquals(Set.of("java_event"), events.get("key_c"));
+
+		// (d) bedrock only -> bedrock event kept
+		WikiIndexer.addTableEvent(events, javaKeys, "key_d", "bedrock_event", false);
+		assertEquals(Set.of("bedrock_event"), events.get("key_d"));
+	}
 }
