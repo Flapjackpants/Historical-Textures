@@ -434,6 +434,15 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 		variantList.setSelected(toSelect);
 	}
 
+	private static void extractCheckbox(GuiGraphicsExtractor graphics, int x, int y, boolean full, boolean partial) {
+		graphics.outline(x, y, 10, 10, TEXT_MUTED);
+		if (full) {
+			graphics.fill(x + 2, y + 2, x + 8, y + 8, TEXT_ACCENT);
+		} else if (partial) {
+			graphics.fill(x + 2, y + 4, x + 8, y + 6, TEXT_ACCENT);
+		}
+	}
+
 	private VariantEntry vanillaEntry(String configKey, Map<String, String> groupChoices, List<String> groupMembers) {
 		return new VariantEntry(
 				Component.literal("Vanilla (default)"),
@@ -1233,23 +1242,9 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			int x0 = getContentX() + 4;
 			int y0 = getContentYMiddle() - 5;
 
-			graphics.fill(x0, y0, x0 + 10, y0 + 1, TEXT_MUTED);
-			graphics.fill(x0, y0 + 9, x0 + 10, y0 + 10, TEXT_MUTED);
-			graphics.fill(x0, y0 + 1, x0 + 1, y0 + 9, TEXT_MUTED);
-			graphics.fill(x0 + 9, y0 + 1, x0 + 10, y0 + 9, TEXT_MUTED);
-
 			List<String> chosen = ModConfig.get().getSoundChoices(event);
-			int chosenCount = 0;
-			for (SoundVariant member : folder.members()) {
-				if (chosen.contains(member.id())) {
-					chosenCount++;
-				}
-			}
-			if (chosenCount == folder.members().size() && chosenCount > 0) {
-				graphics.fill(x0 + 2, y0 + 2, x0 + 8, y0 + 8, TEXT_ACCENT);
-			} else if (chosenCount > 0) {
-				graphics.fill(x0 + 2, y0 + 4, x0 + 8, y0 + 6, TEXT_ACCENT);
-			}
+			long chosenCount = folder.members().stream().filter(member -> chosen.contains(member.id())).count();
+			extractCheckbox(graphics, x0, y0, chosenCount == folder.members().size(), chosenCount > 0);
 
 			boolean isOpen = openSoundFolders.contains(event + "|" + folder.key());
 			String arrow = isOpen ? "▼ " : "▶ ";
@@ -1279,10 +1274,7 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			int x0 = getContentX() + 4;
 			if (event.x() < x0 + 12) {
 				List<String> current = ModConfig.get().getSoundChoices(this.event);
-				List<String> memberIds = new ArrayList<>(folder.members().size());
-				for (SoundVariant member : folder.members()) {
-					memberIds.add(member.id());
-				}
+				List<String> memberIds = folder.members().stream().map(SoundVariant::id).toList();
 				ModConfig.get().setSoundChoices(this.event, SoundChoices.toggleAll(current, memberIds));
 				ModConfig.get().save();
 				return true;
@@ -1324,15 +1316,8 @@ public final class HistoricalTexturesConfigScreen extends Screen {
 			int x0 = getContentX() + 4 + (indented ? 12 : 0);
 			int y0 = getContentYMiddle() - 5;
 
-			graphics.fill(x0, y0, x0 + 10, y0 + 1, TEXT_MUTED);
-			graphics.fill(x0, y0 + 9, x0 + 10, y0 + 10, TEXT_MUTED);
-			graphics.fill(x0, y0 + 1, x0 + 1, y0 + 9, TEXT_MUTED);
-			graphics.fill(x0 + 9, y0 + 1, x0 + 10, y0 + 9, TEXT_MUTED);
-
 			boolean chosen = ModConfig.get().getSoundChoices(event).contains(variantId);
-			if (chosen) {
-				graphics.fill(x0 + 2, y0 + 2, x0 + 8, y0 + 8, TEXT_ACCENT);
-			}
+			extractCheckbox(graphics, x0, y0, chosen, chosen);
 
 			int textX = x0 + 14;
 			int maxW = getContentRight() - textX - 4;
