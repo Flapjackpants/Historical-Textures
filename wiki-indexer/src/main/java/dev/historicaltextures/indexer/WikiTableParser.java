@@ -17,6 +17,7 @@ public final class WikiTableParser {
 	private static final Pattern RELEASE = Pattern.compile("\\b((?:Java Edition )?(?:Beta )?(?:Alpha )?(?:Indev )?(?:Infdev )?(?:Classic )?\\d+(?:\\.\\d+)*)\\b", Pattern.CASE_INSENSITIVE);
 	private static final Pattern BEDROCK = Pattern.compile("\\b(?:Bedrock Edition )?(\\d+\\.\\d+(?:\\.\\d+)?)\\b", Pattern.CASE_INSENSITIVE);
 	private static final Pattern HISTORY_LINE = Pattern.compile("\\{\\{HistoryLine", Pattern.CASE_INSENSITIVE);
+	private static final Pattern DIGIT_DOT_DIGIT = Pattern.compile("\\d+\\.\\d+");
 
 	public enum WikiEdition {
 		JAVA,
@@ -71,11 +72,17 @@ public final class WikiTableParser {
 		return versions;
 	}
 
+	private static final class HistoryLineContext {
+		String era = "";
+		String carriedRowVersion = "";
+	}
+
 	public static Map<String, VersionInfo> parseHistoryLinesFromWikitext(String wikitext, WikiEdition edition) {
 		Map<String, VersionInfo> versions = new LinkedHashMap<>();
 		if (wikitext == null || wikitext.isEmpty()) {
 			return versions;
 		}
+		HistoryLineContext context = new HistoryLineContext();
 		Matcher marker = HISTORY_LINE.matcher(wikitext);
 		while (marker.find()) {
 			int start = marker.start();
@@ -83,7 +90,7 @@ public final class WikiTableParser {
 			if (end < 0) {
 				break;
 			}
-			parseHistoryLineTemplate(wikitext.substring(start, end), edition, versions);
+			parseHistoryLineTemplate(wikitext.substring(start, end), edition, versions, context);
 			marker.region(end, wikitext.length());
 		}
 		return versions;
@@ -107,7 +114,12 @@ public final class WikiTableParser {
 		return versions;
 	}
 
-	private static void parseHistoryLineTemplate(String template, WikiEdition edition, Map<String, VersionInfo> versions) {
+	private static void parseHistoryLineTemplate(
+			String template,
+			WikiEdition edition,
+			Map<String, VersionInfo> versions,
+			HistoryLineContext context
+	) {
 		int pipe = template.indexOf('|');
 		if (pipe < 0) {
 			return;
@@ -117,7 +129,15 @@ public final class WikiTableParser {
 			return;
 		}
 		List<String> args = splitTemplateArgs(template.substring(pipe + 1, close));
-		String version = versionFromHistoryLineArgs(args);
+		if (args.isEmpty()) {
+			return;
+		}
+		if (!args.get(0).trim().isEmpty() && !containsFileLink(template)) {
+			context.era = args.get(0).trim().toLowerCase(Locale.ROOT);
+			context.carriedRowVersion = "";
+			return;
+		}
+		String version = versionFromHistoryLineArgs(args, context);
 		if (version.isEmpty()) {
 			return;
 		}
@@ -128,9 +148,24 @@ public final class WikiTableParser {
 		}
 	}
 
-	private static String versionFromHistoryLineArgs(List<String> args) {
+	private static String versionFromHistoryLineArgs(List<String> args, HistoryLineContext context) {
+		String rowVersion;
+		if (args.size() > 1) {
+			String candidate = args.get(1).trim();
+			if (!candidate.isEmpty() && !containsFileLink(candidate) && !candidate.contains("=")) {
+				if ("java beta".equals(context.era) && Character.isDigit(candidate.charAt(0))) {
+					candidate = "Beta " + candidate;
+				}
+				context.carriedRowVersion = candidate;
+				rowVersion = candidate;
+			} else {
+				rowVersion = context.carriedRowVersion;
+			}
+		} else {
+			rowVersion = context.carriedRowVersion;
+		}
+
 		String dev = "";
-		String positional = "";
 		for (String arg : args) {
 			String trimmed = arg.trim();
 			if (trimmed.isEmpty()) {
@@ -138,24 +173,28 @@ public final class WikiTableParser {
 			}
 			if (trimmed.startsWith("dev=")) {
 				dev = trimmed.substring(4).trim();
-			} else if (trimmed.startsWith("link=") || trimmed.startsWith("slink=")) {
-				continue;
-			} else if (!containsFileLink(trimmed) && positional.isEmpty()) {
-				positional = trimmed;
+				break;
 			}
 		}
-		return pickHistoryLineVersion(dev, positional);
+		return pickHistoryLineVersion(dev, rowVersion);
 	}
 
-	private static String pickHistoryLineVersion(String dev, String positional) {
+	private static String pickHistoryLineVersion(String dev, String rowVersion) {
 		if (!dev.isEmpty()) {
 			Matcher snapshot = SNAPSHOT.matcher(dev);
 			if (snapshot.find()) {
 				return snapshot.group(1);
 			}
+			Matcher versionDigits = DIGIT_DOT_DIGIT.matcher(dev);
+			if (versionDigits.find() || Character.isDigit(dev.charAt(0))) {
+				return dev;
+			}
+			if (!rowVersion.isEmpty()) {
+				return rowVersion;
+			}
 			return dev;
 		}
-		return positional;
+		return rowVersion;
 	}
 
 	private static boolean containsFileLink(String value) {
